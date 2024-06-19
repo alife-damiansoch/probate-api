@@ -4,6 +4,20 @@ from rest_framework import serializers
 from django.contrib.auth import (get_user_model, authenticate, )
 from django.utils.translation import gettext as _
 
+from core.models import Team, Address, User
+
+
+class TeamSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Team
+        fields = "__all__"
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = "__all__"
+
 
 class UserListSerializer(serializers.ModelSerializer):
     """Serializer for listing users, returns only id and email fields"""
@@ -16,6 +30,8 @@ class UserListSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for the User model"""
+    address = AddressSerializer(required=False, default=None)
+    team = TeamSerializer(required=False, default=None)
 
     class Meta:
         model = get_user_model()
@@ -25,24 +41,41 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'is_active', 'is_staff', 'is_superuser', 'team')
 
     def create(self, validated_data):
-        """Create a new user with encrypted password and return it"""
         password = validated_data.pop('password', None)
-        address = validated_data.pop('address', None)
+        if 'address' in validated_data:  # check if address is in validated_data
+            address_data = validated_data.pop('address')
+            if address_data is not None:  # if address_data is not None, then create Address instance
+                address = Address.objects.create(**address_data)
+            else:
+                address = None  # assigning None to address if address_data is None
+        else:
+            address = None  # if no address is provided in validated_data, assign None to address
+        validated_data.pop('team')
 
-        user = self.Meta.model(**validated_data)
-        user.address = address
-        user.set_password(password)
-        # user is saved after password is set
-        user.save()
+        user = User.objects.create(address=address, **validated_data)
+        if password:
+            user.set_password(password)
+            user.save()
         return user
 
     def update(self, instance, validated_data):
         """Update a user."""
         password = validated_data.pop('password', None)
-        address = validated_data.pop('address', None)
+
+        if 'address' in validated_data:  # check if address is in validated_data
+            address_data = validated_data.pop('address')
+            if address_data is not None:  # address_data is not None, then update Address instance
+                address = instance.address
+                address.line1 = address_data.get('line1', address.line1)
+                address.line2 = address_data.get('line2', address.line2)
+                address.town_city = address_data.get('town_city', address.town_city)
+                address.county = address_data.get('county', address.county)
+                address.eircode = address_data.get('eircode', address.eircode)
+                address.save()
+            else:  # address_data is None, then do not change address
+                pass
 
         user = super().update(instance, validated_data)
-        user.address = address
 
         if password:
             user.set_password(password)

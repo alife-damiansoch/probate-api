@@ -8,6 +8,8 @@ from decimal import Decimal
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
+from core import models
+
 
 class TestModels(TestCase):
     """Tests for models"""
@@ -52,3 +54,39 @@ class TestModels(TestCase):
         self.assertTrue(user.is_staff)
 
     # endregion
+
+
+class ApplicationModelTest(TestCase):
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email='test@email.com',
+            password='testpass123'
+        )
+
+        self.deceased = models.Deceased.objects.create(
+            first_name='Deceased',
+            last_name='Test'
+        )
+
+        self.dispute = models.Dispute.objects.create(
+            details='Test Dispute'
+        )
+
+    def test_create_application(self):
+        application = models.Application.objects.create(
+            amount=100.0,
+            term=12,
+            user=self.user,
+            deceased=self.deceased,
+            dispute=self.dispute,
+            approved=False
+        )
+
+        self.assertEqual(models.Application.objects.count(), 1)
+        self.assertEqual(models.Application.objects.get().amount, 100.0)
+        self.assertEqual(models.Application.objects.get().term, 12)
+        self.assertEqual(models.Application.objects.get().user, self.user)
+        self.assertEqual(models.Application.objects.get().deceased, self.deceased)
+        self.assertEqual(models.Application.objects.get().dispute, self.dispute)
+        self.assertEqual(models.Application.objects.get().approved, False)

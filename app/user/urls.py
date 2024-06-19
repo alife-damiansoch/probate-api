@@ -12,5 +12,6 @@ urlpatterns = [
     path("token/", views.CreateTokenView.as_view(), name='token'),
     path('me/', views.ManageUserView.as_view(), name='me'),
     path('', views.UserList.as_view(), name='list'),
-    path('users/solicitors/', views.UserListNonStaff.as_view(), name='non-staff-users'),
+    path('solicitors/', views.UserListNonStaff.as_view(), name='non-staff-users'),
+    path('<int:pk>/', views.RetrieveUserView.as_view(), name='retrieve-user'),
 ]
