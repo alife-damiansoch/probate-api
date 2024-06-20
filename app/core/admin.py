@@ -64,6 +64,11 @@ class EstateInline(admin.TabularInline):
     extra = 0
 
 
+class ApplicantInline(admin.StackedInline):
+    model = models.Applicant
+    extra = 0
+
+
 class ApplicationForm(forms.ModelForm):
     user = forms.ModelChoiceField(
         queryset=get_user_model().objects.filter(is_staff=False)
@@ -80,12 +85,23 @@ class ApplicationForm(forms.ModelForm):
 class ApplicationAdmin(admin.ModelAdmin):
     ordering = ["id"]
     form = ApplicationForm
-    inlines = [
-        EstateInline,
-    ]
+    inlines = [ApplicantInline, EstateInline]
     readonly_fields = ('id', 'last_updated_by',)
-    list_display = ('id', 'user', 'assigned_to')
+    list_display = ('id', 'user', 'assigned_to', 'deceased_full_name', 'dispute_details')
     search_fields = ['id', ]
+
+    def deceased_full_name(self, obj):
+        if obj.deceased:
+            return f"{obj.deceased.first_name} {obj.deceased.last_name}"
+        return "No deceased attached to this application"
+
+    def dispute_details(self, obj):
+        if obj.dispute:
+            return obj.dispute.details
+        return "No dispute attached to this application"
+
+    deceased_full_name.short_description = 'Deceased'
+    dispute_details.short_description = 'Dispute'
 
 
 admin.site.register(models.User, UserAdmin)

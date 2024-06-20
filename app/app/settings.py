@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'auditlog',
     'core',
-    'user'
+    'user',
+    'solicitors_loan',
 ]
 
 MIDDLEWARE = [
