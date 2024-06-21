@@ -26,7 +26,14 @@ apk del .tmp-build-deps
 
 # Create the non-root user and adjust file permissions
 RUN adduser --disabled-password --no-create-home django-user && \
-    chown -R django-user:django-user /app
+    #    this is added for configuring the static files
+    mkdir -p /vol/web/media && \
+    mkdir -p /vol/web/static && \
+    #  changing the owner of the directory
+    chown -R django-user:django-user /vol && \
+    #  changing the permissions to the directory
+    chmod -R 755 /vol
+
 
 ENV PATH="/py/bin:$PATH"
 

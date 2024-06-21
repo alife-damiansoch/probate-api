@@ -10,6 +10,8 @@ from django.contrib.auth import get_user_model
 
 from core import models
 
+from unittest.mock import patch
+
 
 class TestModels(TestCase):
     """Tests for models"""
@@ -84,9 +86,18 @@ class ApplicationModelTest(TestCase):
         )
 
         self.assertEqual(models.Application.objects.count(), 1)
-        self.assertEqual(models.Application.objects.get().amount, 100.0)
-        self.assertEqual(models.Application.objects.get().term, 12)
+        self.assertEqual(models.Application.objects.get().amount, application.amount)
+        self.assertEqual(models.Application.objects.get().term, application.term)
         self.assertEqual(models.Application.objects.get().user, self.user)
         self.assertEqual(models.Application.objects.get().deceased, self.deceased)
         self.assertEqual(models.Application.objects.get().dispute, self.dispute)
-        self.assertEqual(models.Application.objects.get().approved, False)
+        self.assertEqual(models.Application.objects.get().approved, application.approved)
+
+    @patch('core.models.uuid.uuid4')
+    def test_solicitor_application_file_name_uuid(self, mock_uuid):
+        """test generating file path"""
+        uuid = 'test-uuid'
+        mock_uuid.return_value = uuid
+        file_path = models.get_application_document_file_path(None, 'example.pdf')
+
+        self.assertEqual(file_path, f'uploads/application/{uuid}.pdf')

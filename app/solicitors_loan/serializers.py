@@ -2,7 +2,17 @@
 Serializers for application apis
 """
 from rest_framework import serializers
-from core.models import (Application, Deceased, Dispute, Applicant, Estate, )
+from core.models import (Application, Deceased, Dispute, Applicant, Estate, Document, )
+
+
+class DocumentSerializer(serializers.ModelSerializer):
+    """Serializer for uploading document files"""
+
+    class Meta:
+        model = Document
+        fields = ['id', 'application', 'document', 'original_name']
+        read_only_fields = ('id', 'application')
+        extra_kwargs = {'document': {'required': True}}
 
 
 class DeceasedSerializer(serializers.ModelSerializer):

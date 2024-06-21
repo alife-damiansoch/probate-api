@@ -11,16 +11,25 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from unicodedata import decimal
 
-from core.models import (Application, Deceased, Dispute, Estate)
+from core.models import (Application, Deceased, Document)
 
 from solicitors_loan import serializers
 
 from decimal import Decimal
 
+from reportlab.pdfgen import canvas
+
+import tempfile
+import os
+
 
 def get_detail_url(application_id):
     """create the detail url"""
     return reverse('solicitors_loan:solicitor_application-detail', args=[application_id])
+
+
+def get_document_upload_url(application_id):
+    return reverse('solicitors_loan:solicitor_application-upload-document', args=[application_id])
 
 
 def create_application(user, **params):
@@ -246,3 +255,51 @@ class PrivateTestApplicationAPI(APITestCase):
             response = self.client.put(url, modified_data, format='json')
 
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, msg=f"{key} not provided in data")
+
+
+class DocumentUploadTest(TestCase):
+    """Test uploading documents"""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email='test@example.com',
+            password='testpass123',
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.application = create_application(
+            user=self.user,
+        )
+
+    def tearDown(self):
+        self.application.documents.all().delete()
+
+    def test_upload_document_file(self):
+        """Test uploading a new document"""
+        url = get_document_upload_url(application_id=self.application.id)
+        with tempfile.NamedTemporaryFile(suffix='.pdf') as document_file:
+            # creating empty pdf
+            c = canvas.Canvas(document_file.name)
+            c.drawString(100, 750, "Hello, this is a test PDF document")
+            c.showPage()
+            c.save()
+
+            document_file.seek(0)
+            payload = {"document": document_file}
+            response = self.client.post(url, data=payload, format='multipart')
+
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.assertTrue(Document.objects.filter(application=self.application).exists())
+        application = Application.objects.get(id=self.application.id)
+        self.assertEqual(application.documents.count(), 1)
+        document = Document.objects.first()
+        self.assertTrue(bool(document.document), "File is not present in document field")
+        self.assertTrue(os.path.exists(document.document.path))
+
+    def test_upload_document_file_with_invalid_file(self):
+        """Test uploading a new document return error when not document file"""
+        url = get_document_upload_url(application_id=self.application.id)
+        payload = {"document": "not_a_file"}
+        response = self.client.post(url, data=payload, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

@@ -10,6 +10,18 @@ from auditlog.registry import auditlog
 from django.db.models import ForeignKey
 from django.conf import settings
 
+import uuid
+import os
+
+
+# helper function to get file name for the documents uploaded
+def get_application_document_file_path(instance, filename):
+    """Generate a file path for an application document."""
+    ext = os.path.splitext(filename)[1]
+    filename = f"{uuid.uuid4()}{ext}"
+
+    return os.path.join('uploads', 'application', filename)
+
 
 # region <Creating custom user model in django with extra fields name and team>
 class UserManager(BaseUserManager):
@@ -138,6 +150,23 @@ class Estate(models.Model):
 
     def __str__(self):
         return f'{self.description} - {self.value}'
+
+
+class Document(models.Model):
+    application = models.ForeignKey(
+        Application, on_delete=models.CASCADE, related_name='documents')
+    document = models.FileField(upload_to=get_application_document_file_path)
+    original_name = models.CharField(max_length=255, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.document:
+            self.original_name = self.document.name
+        super().save(*args, **kwargs)
+
+    # this overwrites makes sure that file is deleted when instance is deleted from the database
+    def delete(self, *args, **kwargs):
+        self.document.delete()
+        super().delete(*args, **kwargs)
 
 
 auditlog.register(User)

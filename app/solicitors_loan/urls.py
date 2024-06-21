@@ -16,4 +16,9 @@ app_name = 'solicitors_loan'
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('solicitor_application/<int:application_id>/upload-document/',
+         views.DocumentUploadAndViewListForApplicationIdView.as_view(),
+         name='solicitor_application-upload-document'),
+    path('solicitor_application/<int:document_id>/delete-document', views.DocumentDeleteView.as_view(),
+         name='document-delete-view'),
 ]
