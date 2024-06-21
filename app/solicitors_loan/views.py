@@ -38,7 +38,6 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Create a new application."""
         serializer.save(user=self.request.user)
-        serializer.save(last_updated_by=self.request.user)
 
     def perform_update(self, serializer):
         """when updating an application."""

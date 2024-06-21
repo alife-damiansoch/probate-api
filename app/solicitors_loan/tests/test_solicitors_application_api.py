@@ -1,17 +1,20 @@
 """
 Test application api
 """
+import json
 
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.db.models import ProtectedError
 from django.test import TestCase
 from django.urls import reverse
 
 from rest_framework import status
+from rest_framework.status import HTTP_403_FORBIDDEN, HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST
 from rest_framework.test import APIClient, APITestCase
-from unicodedata import decimal
+from rest_framework.authtoken.models import Token
 
-from core.models import (Application, Deceased, Document)
+from core.models import (Application, Deceased, Document, User, )
 
 from solicitors_loan import serializers
 
@@ -303,3 +306,82 @@ class DocumentUploadTest(TestCase):
         payload = {"document": "not_a_file"}
         response = self.client.post(url, data=payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_delete_document_different_user_returns_error(self):
+        """Test deleting a document with different user"""
+
+        user2 = User.objects.create_user(email='test2@example.com', password='testpassword')
+        client2 = APIClient()
+        client2.force_authenticate(user=user2)
+        application1 = Application.objects.create(amount=2000.00,
+                                                  term=24,
+                                                  deceased=Deceased.objects.create(first_name='John', last_name='Doe'),
+                                                  user=self.user, )
+        document1 = Document.objects.create(application=application1)
+        token2 = Token.objects.create(user=user2)
+        delete_url = reverse('solicitors_loan:document-delete-view', args=[document1.id])
+
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + token2.key)  # Login as user2
+        response = client2.delete(delete_url)
+
+        # Confirm that the response status is HTTP 403 Forbidden
+        self.assertEqual(response.status_code, HTTP_403_FORBIDDEN)
+
+        # Confirm that the document still exists.
+        self.assertTrue(Document.objects.filter(id=document1.id).exists())
+
+    def test_document_and_file_successfully_deleted(self):
+        """
+        Test if document and associated file is successfully deleted.
+        """
+
+        application1 = Application.objects.create(
+            amount=2000.00,
+            term=24,
+            deceased=Deceased.objects.create(first_name='John', last_name='Doe'),
+            user=self.user,
+        )
+        document1 = Document.objects.create(application=application1)
+        document1.document.save('myfile.txt', ContentFile('hello world'))  # Add this line
+        document1.refresh_from_db()
+
+        delete_url = reverse('solicitors_loan:document-delete-view', args=[document1.id])
+        file_path = document1.document.path
+        response = self.client.delete(delete_url)
+
+        self.assertEqual(response.status_code, HTTP_204_NO_CONTENT)
+        self.assertFalse(Document.objects.filter(id=document1.id).exists())
+        self.assertFalse(os.path.exists(file_path))
+
+    def test_delete_document_approved_application_returns_error(self):
+        """
+        Test deleting a document associated with an approved application returns a ValidationError.
+        """
+
+        application1 = Application.objects.create(
+            amount=2000.00,
+            term=24,
+            deceased=Deceased.objects.create(first_name='John', last_name='Doe'),
+            user=self.user,
+            approved=True,  # Application is approved
+        )
+
+        document1 = Document.objects.create(application=application1)
+        document1.document.save('myfile.txt', ContentFile('hello world'))
+        document1.refresh_from_db()
+
+        delete_url = reverse('solicitors_loan:document-delete-view', args=[document1.id])
+
+        response = self.client.delete(delete_url)
+
+        self.assertEqual(response.status_code, HTTP_400_BAD_REQUEST)
+
+        # Access the response content
+        response_content = json.loads(response.content)
+
+        # Check for your specific error message
+        self.assertEqual(response_content[0], "This operation is not allowed on approved applications")
+
+        # Confirm that the document still exists in the database and the file still exists
+        self.assertTrue(Document.objects.filter(id=document1.id).exists())
+        self.assertTrue(os.path.exists(document1.document.path))
