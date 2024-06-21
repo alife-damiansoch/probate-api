@@ -6,7 +6,7 @@ from django.http import JsonResponse, Http404
 
 from rest_framework import (viewsets, status)
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, NotFound
+from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -42,7 +42,17 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         """when updating an application."""
-        serializer.save(last_updated_by=self.request.user)
+        instance = self.get_object()
+        if instance.approved:
+            raise ValidationError("This operation is not allowed on approved applications")
+        else:
+            serializer.save(last_updated_by=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.approved:
+            raise ValidationError("This operation is not allowed on approved applications")
+        return super().destroy(request, *args, **kwargs)
 
     @extend_schema(exclude=True)
     def partial_update(self, request, *args, **kwargs):
@@ -88,7 +98,7 @@ class DocumentDeleteView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, IsNonStaff]
 
-    def get_object(self, document_id):
+    def get_document(self, document_id):
         try:
             return models.Document.objects.get(id=document_id)
         except models.Document.DoesNotExist:
@@ -96,9 +106,11 @@ class DocumentDeleteView(APIView):
 
     def delete(self, request, document_id):
         try:
-            document = self.get_object(document_id)
+            document = self.get_document(document_id)
             if document.application.user != request.user:
                 raise PermissionDenied("You do not have permission to delete this document")
+            if document.application.approved:
+                raise ValidationError("This operation is not allowed on approved applications")
             document.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except models.Document.DoesNotExist:
