@@ -157,9 +157,12 @@ class Document(models.Model):
         Application, on_delete=models.CASCADE, related_name='documents')
     document = models.FileField(upload_to=get_application_document_file_path)
     original_name = models.CharField(max_length=255, blank=True)
+    is_signed = models.BooleanField(default=False)
+    is_undertaking = models.BooleanField(default=False)
+    is_loan_agreement = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
-        if self.document:
+        if self.document and not self.id:  # Only set original_name when creating the instance
             self.original_name = self.document.name
         super().save(*args, **kwargs)
 

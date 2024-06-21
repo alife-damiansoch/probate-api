@@ -10,8 +10,8 @@ class DocumentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['id', 'application', 'document', 'original_name']
-        read_only_fields = ('id', 'application')
+        fields = ['id', 'application', 'document', 'original_name', 'is_signed', 'is_undertaking', 'is_loan_agreement']
+        read_only_fields = ('id', 'application', 'is_signed', 'is_undertaking', 'is_loan_agreement')
         extra_kwargs = {'document': {'required': True}}
 
 
@@ -58,9 +58,12 @@ class ApplicationDetailSerializer(ApplicationSerializer):
         many=True, required=True)
     estates = EstateSerializer(
         many=True, required=True)
+    documents = serializers.SerializerMethodField(read_only=True)
+    signed_documents = serializers.SerializerMethodField(read_only=True)
 
     class Meta(ApplicationSerializer.Meta):
-        fields = ApplicationSerializer.Meta.fields + ['deceased', 'dispute', 'applicants', 'estates']
+        fields = ApplicationSerializer.Meta.fields + ['deceased', 'dispute', 'applicants', 'estates', 'documents',
+                                                      'signed_documents']
 
     def create(self, validated_data):
         deceased_data = validated_data.pop('deceased', None)
@@ -112,5 +115,15 @@ class ApplicationDetailSerializer(ApplicationSerializer):
             Applicant.objects.create(application=instance, **applicant_data)
         for estate_data in estates_data:
             Estate.objects.create(application=instance, **estate_data)
+
+    def get_documents(self, application):
+        # Filtration of documents which aren't signed
+        unsigned_documents = application.documents.filter(is_signed=False)
+        return DocumentSerializer(unsigned_documents, many=True).data
+
+    def get_signed_documents(self, application):
+        # Filtration of documents which are signed
+        signed_documents = application.documents.filter(is_signed=True)
+        return DocumentSerializer(signed_documents, many=True).data
 
         return instance

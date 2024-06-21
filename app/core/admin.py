@@ -69,6 +69,13 @@ class ApplicantInline(admin.StackedInline):
     extra = 0
 
 
+class DocumentInline(admin.StackedInline):
+    model = models.Document
+    extra = 0
+    max_num = 0  # Disallows adding new Document instances
+    readonly_fields = ['id', 'document', 'original_name']
+
+
 class ApplicationForm(forms.ModelForm):
     user = forms.ModelChoiceField(
         queryset=get_user_model().objects.filter(is_staff=False)
@@ -85,7 +92,7 @@ class ApplicationForm(forms.ModelForm):
 class ApplicationAdmin(admin.ModelAdmin):
     ordering = ["id"]
     form = ApplicationForm
-    inlines = [ApplicantInline, EstateInline]
+    inlines = [ApplicantInline, EstateInline, DocumentInline]
     readonly_fields = ('id', 'last_updated_by',)
     list_display = ('id', 'user', 'assigned_to', 'deceased_full_name', 'dispute_details')
     search_fields = ['id', ]
