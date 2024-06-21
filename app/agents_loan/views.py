@@ -1,5 +1,5 @@
 """
-Views for solicitors_application API
+Views for agents_application API
 """
 
 from django.http import JsonResponse, Http404
@@ -11,9 +11,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from solicitors_loan import serializers
+from agents_loan import serializers
 from core import models
-from solicitors_loan.permissions import IsNonStaff
+from agents_loan.permissions import IsStaff
 
 from drf_spectacular.utils import extend_schema
 
@@ -23,10 +23,10 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.ApplicationDetailSerializer
     queryset = models.Application.objects.all()
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, IsNonStaff]
+    permission_classes = [IsAuthenticated, IsStaff]
 
     def get_queryset(self):
-        return self.queryset.filter(user=self.request.user).order_by('-id')
+        return self.queryset.order_by('-id')
 
     def get_serializer_class(self):
         """Return serializer class for the requested model."""
@@ -64,7 +64,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 class DocumentUploadAndViewListForApplicationIdView(APIView):
     serializer_class = serializers.DocumentSerializer
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, IsNonStaff]
+    permission_classes = [IsAuthenticated, IsStaff]
 
     def get_queryset(self):
 
@@ -93,8 +93,9 @@ class DocumentUploadAndViewListForApplicationIdView(APIView):
 
 
 class DocumentDeleteView(APIView):
+    serializer_class = serializers.DocumentSerializer
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, IsNonStaff]
+    permission_classes = [IsAuthenticated, IsStaff]
 
     def get_document(self, document_id):
         try:
@@ -105,8 +106,6 @@ class DocumentDeleteView(APIView):
     def delete(self, request, document_id):
         try:
             document = self.get_document(document_id)
-            if document.application.user != request.user:
-                raise PermissionDenied("You do not have permission to delete this document")
             if document.application.approved:
                 raise ValidationError("This operation is not allowed on approved applications")
             document.delete()

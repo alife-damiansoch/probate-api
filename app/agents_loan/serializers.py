@@ -1,6 +1,7 @@
 """
 Serializers for solicitors-application apis
 """
+
 from rest_framework import serializers
 from core.models import (Application, Deceased, Dispute, Applicant, Estate, Document, )
 

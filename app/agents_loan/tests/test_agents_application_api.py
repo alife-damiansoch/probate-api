@@ -1,5 +1,5 @@
 """
-Test solicitors_application api
+Test agents_application api
 """
 import json
 
@@ -15,7 +15,7 @@ from rest_framework.authtoken.models import Token
 
 from core.models import (Application, Deceased, Document, User, )
 
-from solicitors_loan import serializers
+from agents_loan import serializers
 
 from decimal import Decimal
 
@@ -27,11 +27,11 @@ import os
 
 def get_detail_url(application_id):
     """create the detail url"""
-    return reverse('solicitors_loan:solicitor_application-detail', args=[application_id])
+    return reverse('agents_loan:agent_application-detail', args=[application_id])
 
 
 def get_document_upload_url(application_id):
-    return reverse('solicitors_loan:solicitor_application-upload-document', args=[application_id])
+    return reverse('agents_loan:agent_application-upload-document', args=[application_id])
 
 
 def create_application(user, **params):
@@ -56,16 +56,27 @@ def create_application(user, **params):
 
 
 class PublicTestApplicationAPI(APITestCase):
-    """Unauthenticated API tests"""
+    """Unauthenticated and non_staff API tests"""
 
     def setUp(self):
         self.client = APIClient()
-        self.APPLICATIONS_URL = reverse('solicitors_loan:solicitor_application-list')
+        self.APPLICATIONS_URL = reverse('agents_loan:agent_application-list')
 
     def test_authentication_required(self):
         """Test that authentication is required"""
         response = self.client.get(self.APPLICATIONS_URL)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_authenticated_non_staff_requests_returns_error(self):
+        """Test that authentication is required for non-staff users"""
+        self.user = get_user_model().objects.create_user(
+            email='test@example.com',
+            password='testpass123',
+        )
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(self.APPLICATIONS_URL)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class PrivateTestApplicationAPI(APITestCase):
@@ -75,40 +86,46 @@ class PrivateTestApplicationAPI(APITestCase):
         self.user = get_user_model().objects.create_user(
             email='test@example.com',
             password='testpass123',
+            is_staff=True,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
-        self.APPLICATIONS_URL = reverse('solicitors_loan:solicitor_application-list')
+        self.APPLICATIONS_URL = reverse('agents_loan:agent_application-list')
 
     def test_retrieve_applications(self):
         """Test retrieving all applications"""
-        create_application(user=self.user)
-        create_application(user=self.user)
+
+        user1 = get_user_model().objects.create_user(
+            email='test1@example.com',
+            password='testpass123',
+        )
+        user2 = get_user_model().objects.create_user(
+            email='test2@example.com',
+            password='testpass123',
+        )
+
+        app1 = create_application(user=self.user)
+        app2 = create_application(user=self.user)
+
+        app3 = create_application(user=user1)  # Create application with 'user1'
+        app4 = create_application(user=user2)  # Create application with 'user2'
+
+        app5 = create_application(self.user)
+
         response = self.client.get(self.APPLICATIONS_URL)
+
         applications = Application.objects.all().order_by('-id')
+
+        self.assertIn(app1, applications)
+
+        self.assertIn(app2, applications)
+        self.assertIn(app3, applications)
+        self.assertIn(app4, applications)
+        self.assertIn(app5, applications)
+
         serializer = serializers.ApplicationSerializer(applications, many=True)
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data, serializer.data)
-
-    def test_retrieve_self_applications(self):
-        """Test retrieving applications created by self.user"""
-        # Create some applications for `self.user`
-        create_application(user=self.user)
-        create_application(user=self.user)
-
-        # Create an application for a different user
-        other_user = get_user_model().objects.create_user(
-            email="other_user@example.com",
-            password="otherpass123",
-        )  # Create a new method to generate another user or use existing one
-        create_application(user=other_user)
-
-        response = self.client.get(self.APPLICATIONS_URL)
-        # Change the query to filter applications by `self.user`
-        user_applications = Application.objects.filter(user=self.user).order_by('-id')
-        serializer = serializers.ApplicationSerializer(user_applications, many=True)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
         self.assertEqual(response.data, serializer.data)
 
     def test_receive_application_details(self):
@@ -266,6 +283,7 @@ class DocumentUploadTest(TestCase):
         self.user = get_user_model().objects.create_user(
             email='test@example.com',
             password='testpass123',
+            is_staff=True,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -306,50 +324,26 @@ class DocumentUploadTest(TestCase):
         response = self.client.post(url, data=payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_delete_document_different_user_returns_error(self):
-        """Test deleting a document with different user"""
+    def test_delete_document_is_staff_user_for_different_user_is_success(self):
+        """Test deleting a document with different user is success"""
 
         user2 = User.objects.create_user(email='test2@example.com', password='testpassword')
-        client2 = APIClient()
-        client2.force_authenticate(user=user2)
         application1 = Application.objects.create(amount=2000.00,
                                                   term=24,
                                                   deceased=Deceased.objects.create(first_name='John', last_name='Doe'),
-                                                  user=self.user, )
+                                                  user=user2)
         document1 = Document.objects.create(application=application1)
-        token2 = Token.objects.create(user=user2)
-        delete_url = reverse('solicitors_loan:solicitor-document-delete-view', args=[document1.id])
-
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + token2.key)  # Login as user2
-        response = client2.delete(delete_url)
-
-        # Confirm that the response status is HTTP 403 Forbidden
-        self.assertEqual(response.status_code, HTTP_403_FORBIDDEN)
-
-        # Confirm that the document still exists.
-        self.assertTrue(Document.objects.filter(id=document1.id).exists())
-
-    def test_document_and_file_successfully_deleted(self):
-        """
-        Test if document and associated file is successfully deleted.
-        """
-
-        application1 = Application.objects.create(
-            amount=2000.00,
-            term=24,
-            deceased=Deceased.objects.create(first_name='John', last_name='Doe'),
-            user=self.user,
-        )
-        document1 = Document.objects.create(application=application1)
-        document1.document.save('myfile1.txt', ContentFile('hello world'))  # Add this line
+        document1.document.save('myfile.txt', ContentFile('hello world'))  # Add this line
         document1.refresh_from_db()
+        delete_url = reverse('agents_loan:agents-document-delete-view', args=[document1.id])
 
-        delete_url = reverse('solicitors_loan:solicitor-document-delete-view', args=[document1.id])
-
-        file_path = document1.document.path
         response = self.client.delete(delete_url)
+        file_path = document1.document.path
 
-        self.assertEqual(response.status_code, HTTP_204_NO_CONTENT, f"{response}")
+        if response.status_code != HTTP_204_NO_CONTENT:
+            print(f"Unexpected status code: {response.status_code}")
+            print(f"Response data: {response.data}")
+        self.assertEqual(response.status_code, HTTP_204_NO_CONTENT)
         self.assertFalse(Document.objects.filter(id=document1.id).exists())
         self.assertFalse(os.path.exists(file_path))
 
@@ -370,7 +364,7 @@ class DocumentUploadTest(TestCase):
         document1.document.save('myfile.txt', ContentFile('hello world'))
         document1.refresh_from_db()
 
-        delete_url = reverse('solicitors_loan:solicitor-document-delete-view', args=[document1.id])
+        delete_url = reverse('agents_loan:agents-document-delete-view', args=[document1.id])
 
         response = self.client.delete(delete_url)
 

@@ -1,5 +1,5 @@
 """
-URL mapping for loan_application Api
+URL mapping for solicitors_application Api
 """
 
 from django.urls import path, include
@@ -16,9 +16,10 @@ app_name = 'solicitors_loan'
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('solicitor_application/<int:application_id>/upload-document/',
+    path('solicitor_applications/document_file/delete/<int:document_id>/', views.DocumentDeleteView.as_view(),
+         name='solicitor-document-delete-view'),
+    path('solicitor_applications/document_file/<int:application_id>/',
          views.DocumentUploadAndViewListForApplicationIdView.as_view(),
          name='solicitor_application-upload-document'),
-    path('solicitor_application/<int:document_id>/delete-document', views.DocumentDeleteView.as_view(),
-         name='document-delete-view'),
+
 ]
