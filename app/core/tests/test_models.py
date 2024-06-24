@@ -109,7 +109,7 @@ class EventModelTest(TestCase):
 
     def setUp(self):
         self.request_id = uuid4()
-        models.Events.objects.create(
+        models.Event.objects.create(
             request_id=self.request_id,
             user='test_user',
             method='POST',
@@ -120,5 +120,5 @@ class EventModelTest(TestCase):
         )
 
     def test_event_created(self):
-        event = models.Events.objects.get(request_id=self.request_id)
+        event = models.Event.objects.get(request_id=self.request_id)
         self.assertEqual(event.user, 'test_user')

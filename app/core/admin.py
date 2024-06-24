@@ -119,7 +119,7 @@ class EventsAdmin(admin.ModelAdmin):
     list_filter = (
         ('created_at', DateRangeFilter),
     )
-    readonly_fields = [f.name for f in models.Events._meta.get_fields()]
+    readonly_fields = [f.name for f in models.Event._meta.get_fields()]
 
 
 admin.site.register(models.User, UserAdmin)
@@ -129,4 +129,4 @@ admin.site.register(models.Application, ApplicationAdmin)
 admin.site.register(models.Deceased)
 admin.site.register(models.Estate)
 admin.site.register(models.Dispute)
-admin.site.register(models.Events, EventsAdmin)
+admin.site.register(models.Event, EventsAdmin)

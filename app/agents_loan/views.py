@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from agents_loan import serializers
+from app.utils import log_event
 from core import models
 from agents_loan.permissions import IsStaff
 
@@ -35,22 +36,43 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         return self.serializer_class
 
     def perform_create(self, serializer):
+        request_body = self.request.data
         """Create a new application."""
-        serializer.save(user=self.request.user)
+        try:
+            serializer.save(user=self.request.user)
+            log_event(self.request, request_body, serializer.instance)
+        except Exception as e:  # Catch any type of exception
+            log_event(self.request, request_body, application=serializer.instance)
+            raise e  # Re-raise the caught exception
 
     def perform_update(self, serializer):
         """when updating an application."""
-        instance = self.get_object()
-        if instance.approved:
-            raise ValidationError("This operation is not allowed on approved applications")
-        else:
-            serializer.save(last_updated_by=self.request.user)
+        request_body = self.request.data
+        try:
+            instance = self.get_object()
+            if instance.approved:
+                raise ValidationError("This operation is not allowed on approved applications")
+            else:
+                serializer.save(last_updated_by=self.request.user)
+                log_event(self.request, request_body, serializer.instance)
+        except Exception as e:
+            log_event(self.request, request_body, application=serializer.instance)
+            raise e
 
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if instance.approved:
-            raise ValidationError("This operation is not allowed on approved applications")
-        return super().destroy(request, *args, **kwargs)
+        request_body = self.request.data
+        instance = None
+        try:
+            instance = self.get_object()
+            if instance.approved:
+                raise ValidationError("This operation is not allowed on approved applications")
+            else:
+                result = super().destroy(request, *args, **kwargs)  # carry out the deletion
+                log_event(request, request_body)  # log after deletion is done
+                return result
+        except Exception as e:
+            log_event(request, request_body, application=instance)
+            raise e
 
     @extend_schema(exclude=True)
     def partial_update(self, request, *args, **kwargs):

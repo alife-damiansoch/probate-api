@@ -13,7 +13,7 @@ from rest_framework.status import HTTP_403_FORBIDDEN, HTTP_204_NO_CONTENT, HTTP_
 from rest_framework.test import APIClient, APITestCase
 from rest_framework.authtoken.models import Token
 
-from core.models import (Application, Deceased, Document, User, )
+from core.models import (Application, Deceased, Document, User, Event, )
 
 from agents_loan import serializers
 
@@ -231,6 +231,20 @@ class PrivateTestApplicationAPI(APITestCase):
             self.assertEqual(estate.description, estate_data['description'])
             self.assertEqual(estate.value, Decimal(estate_data['value']))
 
+        # Check event created
+        events = Event.objects.all()
+        event = events[0]
+        self.assertEqual(events.count(), 1)
+        self.assertEqual(event.application, application)
+        self.assertEqual(event.user, str(self.user))
+        self.assertIsNotNone(event.request_id)
+        self.assertEqual(event.method, 'POST')
+        self.assertEqual(event.path, self.APPLICATIONS_URL)
+        self.assertEqual(event.body, json.dumps(data))
+        self.assertFalse(event.is_error)
+        self.assertTrue(event.is_notification)
+        self.assertTrue(event.is_staff)
+
     def test_update_application_requires_all_fields(self):
         """Test that updating an application requires all fields"""
         # Create a test application with all necessary fields filled
@@ -267,6 +281,8 @@ class PrivateTestApplicationAPI(APITestCase):
                 }
             ],
         }
+        # Clear all existing events
+        Event.objects.all().delete()
 
         for key in ['amount', 'term', 'deceased', 'dispute', 'applicants', 'estates']:
             modified_data = {k: v for k, v in data.items() if k != key}
@@ -274,6 +290,96 @@ class PrivateTestApplicationAPI(APITestCase):
             response = self.client.put(url, modified_data, format='json')
 
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, msg=f"{key} not provided in data")
+
+    def test_update_application_success(self):
+        """Test that updating an application succeeds"""
+        # Create a test application with all necessary fields filled
+        application = Application.objects.create(
+            amount=2000.00,
+            term=24,
+            deceased=Deceased.objects.create(
+                first_name='John',
+                last_name='Doe'
+            ),
+            user=self.user,
+        )
+
+        new_data = {
+            'amount': '3000.00',
+            'term': 36,
+            'deceased': {
+                'first_name': 'Jane',
+                'last_name': 'Doe'
+            },
+            'dispute': {
+                'details': 'Updated details'
+            },
+            'applicants': [
+                {
+                    'title': 'Mrs',
+                    'first_name': 'Jane',
+                    'last_name': 'Doe',
+                    'pps_number': '7654321AG'
+                }
+            ],
+            'estates': [
+                {
+                    'description': 'Updated estate',
+                    'value': '30000.00'
+                }
+            ],
+        }
+
+        url = get_detail_url(application_id=application.id)
+        response = self.client.put(url, new_data, format='json')
+
+        # Check that status of the response is 200
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Fetch the updated application from the database
+        application.refresh_from_db()
+
+        # Check if fields have been updated
+        self.assertEqual(application.amount, Decimal(new_data['amount']))
+        self.assertEqual(application.term, new_data['term'])
+        self.assertEqual(application.deceased.first_name, new_data['deceased']['first_name'])
+
+        # Check event created
+        events = Event.objects.all()
+        event = events[0]
+        self.assertEqual(events.count(), 1)
+        self.assertEqual(event.application, application)
+        self.assertEqual(event.user, str(self.user))
+        self.assertIsNotNone(event.request_id)
+        self.assertEqual(event.method, 'PUT')
+        self.assertEqual(event.path, get_detail_url(application_id=application.id))
+        self.assertEqual(event.body, json.dumps(new_data))
+        self.assertFalse(event.is_error)
+        self.assertTrue(event.is_notification)
+        self.assertTrue(event.is_staff)
+
+    def test_delete_application(self):
+        """Test that application deletion works"""
+        # Create a test application with all necessary fields filled
+        application = Application.objects.create(
+            amount=2000.00,
+            term=24,
+            deceased=Deceased.objects.create(first_name='John', last_name='Doe'),
+            user=self.user,
+        )
+
+        url = get_detail_url(application_id=application.id)
+
+        # Check that the application exists before deletion
+        self.assertTrue(Application.objects.filter(id=application.id).exists())
+
+        response = self.client.delete(url)
+
+        # Check response status code
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Check that the application no longer exists after deletion
+        self.assertFalse(Application.objects.filter(id=application.id).exists())
 
 
 class DocumentUploadTest(TestCase):
@@ -338,11 +444,12 @@ class DocumentUploadTest(TestCase):
         delete_url = reverse('agents_loan:agents-document-delete-view', args=[document1.id])
 
         response = self.client.delete(delete_url)
+
         file_path = document1.document.path
 
         if response.status_code != HTTP_204_NO_CONTENT:
             print(f"Unexpected status code: {response.status_code}")
-            print(f"Response data: {response.data}")
+            print(f"Response data: {response.content}")
         self.assertEqual(response.status_code, HTTP_204_NO_CONTENT)
         self.assertFalse(Document.objects.filter(id=document1.id).exists())
         self.assertFalse(os.path.exists(file_path))
