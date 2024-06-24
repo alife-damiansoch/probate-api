@@ -172,5 +172,22 @@ class Document(models.Model):
         super().delete(*args, **kwargs)
 
 
+class Events(models.Model):
+    request_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    user = models.CharField(max_length=255)
+    method = models.CharField(max_length=10)
+    path = models.CharField(max_length=255)
+    body = models.TextField(null=True)
+    response_status = models.PositiveIntegerField(null=True)
+    response = models.TextField(null=True)
+    is_error = models.BooleanField(default=False)
+    is_notification = models.BooleanField(default=False)
+    is_staff = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    application_id = ForeignKey(Application, on_delete=models.SET_NULL, blank=True, null=True, default=None,
+                                related_name='events')
+
+
 auditlog.register(User)
 auditlog.register(Application)

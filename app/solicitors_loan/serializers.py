@@ -116,6 +116,8 @@ class ApplicationDetailSerializer(ApplicationSerializer):
         for estate_data in estates_data:
             Estate.objects.create(application=instance, **estate_data)
 
+        return instance
+
     def get_documents(self, application):
         # Filtration of documents which aren't signed
         unsigned_documents = application.documents.filter(is_signed=False)

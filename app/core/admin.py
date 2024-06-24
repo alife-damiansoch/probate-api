@@ -8,6 +8,8 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django import forms
 from django.utils.html import format_html_join
 
+from rangefilter.filters import DateRangeFilter
+
 from django.utils.translation import gettext_lazy as _
 
 from core import models
@@ -111,6 +113,15 @@ class ApplicationAdmin(admin.ModelAdmin):
     dispute_details.short_description = 'Dispute'
 
 
+class EventsAdmin(admin.ModelAdmin):
+    ordering = ["-created_at"]
+    list_display = ["request_id", "path", 'response_status', 'response', 'created_at', 'user']
+    list_filter = (
+        ('created_at', DateRangeFilter),
+    )
+    readonly_fields = [f.name for f in models.Events._meta.get_fields()]
+
+
 admin.site.register(models.User, UserAdmin)
 admin.site.register(models.Team)
 admin.site.register(models.Address)
@@ -118,3 +129,4 @@ admin.site.register(models.Application, ApplicationAdmin)
 admin.site.register(models.Deceased)
 admin.site.register(models.Estate)
 admin.site.register(models.Dispute)
+admin.site.register(models.Events, EventsAdmin)

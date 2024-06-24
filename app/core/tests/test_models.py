@@ -12,6 +12,8 @@ from core import models
 
 from unittest.mock import patch
 
+from uuid import uuid4
+
 
 class TestModels(TestCase):
     """Tests for models"""
@@ -101,3 +103,22 @@ class ApplicationModelTest(TestCase):
         file_path = models.get_application_document_file_path(None, 'example.pdf')
 
         self.assertEqual(file_path, f'uploads/application/{uuid}.pdf')
+
+
+class EventModelTest(TestCase):
+
+    def setUp(self):
+        self.request_id = uuid4()
+        models.Events.objects.create(
+            request_id=self.request_id,
+            user='test_user',
+            method='POST',
+            path='/test_path',
+            body='{}',
+            is_notification=True,
+            is_staff=True,
+        )
+
+    def test_event_created(self):
+        event = models.Events.objects.get(request_id=self.request_id)
+        self.assertEqual(event.user, 'test_user')
