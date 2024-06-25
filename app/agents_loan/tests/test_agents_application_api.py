@@ -440,11 +440,11 @@ class DocumentUploadTest(TestCase):
         events = Event.objects.all()
         event = events[0]
         self.assertEqual(events.count(), 1)
-        self.assertEqual(event.application, None)
+        self.assertEqual(event.application, application)
         self.assertEqual(event.user, str(self.user))
         self.assertIsNotNone(event.request_id)
-        self.assertEqual(event.method, 'DELETE')
-        self.assertEqual(event.path, get_detail_url(application_id=application.id))
+        self.assertEqual(event.method, 'POST')
+        self.assertEqual(event.path, get_document_upload_url(application_id=application.id))
         self.assertFalse(event.is_error)
         self.assertTrue(event.is_notification)
         self.assertTrue(event.is_staff)
@@ -455,6 +455,44 @@ class DocumentUploadTest(TestCase):
         payload = {"document": "not_a_file"}
         response = self.client.post(url, data=payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_document_and_file_successfully_deleted(self):
+        """
+        Test if document and associated file is successfully deleted.
+        """
+
+        application1 = Application.objects.create(
+            amount=2000.00,
+            term=24,
+            deceased=Deceased.objects.create(first_name='John', last_name='Doe'),
+            user=self.user,
+        )
+        document1 = Document.objects.create(application=application1)
+        document1.document.save('myfile1.txt', ContentFile('hello world'))  # Add this line
+        document1.refresh_from_db()
+
+        delete_url = reverse('agents_loan:agents-document-delete-view', args=[document1.id])
+
+        file_path = document1.document.path
+        response = self.client.delete(delete_url)
+
+        self.assertEqual(response.status_code, HTTP_204_NO_CONTENT, f"{response}")
+        self.assertFalse(Document.objects.filter(id=document1.id).exists())
+        self.assertFalse(os.path.exists(file_path))
+
+        # Check event created
+        events = Event.objects.all()
+        event = events[0]
+        self.assertEqual(events.count(), 1)
+        self.assertEqual(event.application, None)
+        self.assertEqual(event.user, str(self.user))
+        self.assertIsNotNone(event.request_id)
+        self.assertEqual(event.method, 'DELETE')
+        self.assertEqual(event.path, delete_url)
+        self.assertFalse(event.is_error)
+        self.assertTrue(event.is_notification)
+        self.assertTrue(event.is_staff)
+        self.assertEqual(json.loads(event.body), {'message': 'A document was deleted.'})
 
     def test_delete_document_is_staff_user_for_different_user_is_success(self):
         """Test deleting a document with different user is success"""

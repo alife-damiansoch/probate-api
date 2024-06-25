@@ -7,6 +7,8 @@ from drf_spectacular.views import (
 from django.conf.urls.static import static
 from django.conf import settings
 
+from core.views import test_500_view
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/schema/', SpectacularAPIView.as_view(), name='api-schema'),
@@ -16,6 +18,9 @@ urlpatterns = [
     path('api/user/', include('user.urls')),
     path('api/', include('solicitors_loan.urls', namespace='solicitors_loan')),
     path('api/', include('agents_loan.urls', namespace='agents_loan')),
+    path('api/', include('event.urls', namespace='event')),
+
+    path('test/500/', test_500_view),
 ]
 
 if settings.DEBUG:

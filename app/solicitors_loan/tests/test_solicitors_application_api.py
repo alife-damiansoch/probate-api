@@ -416,6 +416,19 @@ class DocumentUploadTest(TestCase):
         self.assertTrue(bool(document.document), "File is not present in document field")
         self.assertTrue(os.path.exists(document.document.path))
 
+        # Check event created
+        events = Event.objects.all()
+        event = events[0]
+        self.assertEqual(events.count(), 1)
+        self.assertEqual(event.application, application)
+        self.assertEqual(event.user, str(self.user))
+        self.assertIsNotNone(event.request_id)
+        self.assertEqual(event.method, 'POST')
+        self.assertEqual(event.path, get_document_upload_url(application_id=application.id))
+        self.assertFalse(event.is_error)
+        self.assertTrue(event.is_notification)
+        self.assertFalse(event.is_staff)
+
     def test_upload_document_file_with_invalid_file(self):
         """Test uploading a new document return error when not document file"""
         url = get_document_upload_url(application_id=self.application.id)
@@ -469,6 +482,20 @@ class DocumentUploadTest(TestCase):
         self.assertEqual(response.status_code, HTTP_204_NO_CONTENT, f"{response}")
         self.assertFalse(Document.objects.filter(id=document1.id).exists())
         self.assertFalse(os.path.exists(file_path))
+
+        # Check event created
+        events = Event.objects.all()
+        event = events[0]
+        self.assertEqual(events.count(), 1)
+        self.assertEqual(event.application, None)
+        self.assertEqual(event.user, str(self.user))
+        self.assertIsNotNone(event.request_id)
+        self.assertEqual(event.method, 'DELETE')
+        self.assertEqual(event.path, delete_url)
+        self.assertFalse(event.is_error)
+        self.assertTrue(event.is_notification)
+        self.assertFalse(event.is_staff)
+        self.assertEqual(json.loads(event.body), {'message': 'A document was deleted.'})
 
     def test_delete_document_approved_application_returns_error(self):
         """

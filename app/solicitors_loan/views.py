@@ -1,7 +1,7 @@
 """
 Views for solicitors_application API
 """
-
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.http import JsonResponse, Http404
 
 from rest_framework import (viewsets, status)
@@ -109,7 +109,19 @@ class DocumentUploadAndViewListForApplicationIdView(APIView):
         serializer = serializers.DocumentSerializer(data=request.data)
 
         if serializer.is_valid():
-            serializer.save(application=models.Application.objects.get(id=application_id))
+            # store application instance for logging purpose
+            application = models.Application.objects.get(id=application_id)
+            serializer.save(application=application)
+
+            # logging the successful POST request
+            request_body = {}
+            for key, value in request.data.items():
+                if not isinstance(value, InMemoryUploadedFile):
+                    request_body[key] = value
+                else:
+                    request_body[key] = 'A new file was uploaded.'
+
+            log_event(request=request, request_body=request_body, application=application)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -133,6 +145,7 @@ class DocumentDeleteView(APIView):
             if document.application.approved:
                 raise ValidationError("This operation is not allowed on approved applications")
             document.delete()
+            log_event(request=request, request_body={'message': 'A document was deleted.'}, application=None)
             return Response(status=status.HTTP_204_NO_CONTENT)
         except models.Document.DoesNotExist:
             raise NotFound("Document with given id does not exist")
