@@ -40,7 +40,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         """Create a new application."""
         try:
             serializer.save(user=self.request.user)
-            log_event(self.request, request_body, serializer.instance)
+            log_event(self.request, request_body, serializer.instance, response_status=201)
         except Exception as e:  # Catch any type of exception
             log_event(self.request, request_body, application=serializer.instance)
             raise e  # Re-raise the caught exception
@@ -54,7 +54,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                 raise ValidationError("This operation is not allowed on approved applications")
             else:
                 serializer.save(last_updated_by=self.request.user)
-                log_event(self.request, request_body, serializer.instance)
+                log_event(self.request, request_body, serializer.instance, response_status=201)
         except Exception as e:
             log_event(self.request, request_body, application=serializer.instance)
             raise e
@@ -68,7 +68,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                 raise ValidationError("This operation is not allowed on approved applications")
             else:
                 result = super().destroy(request, *args, **kwargs)  # carry out the deletion
-                log_event(request, request_body)  # log after deletion is done
+                log_event(request, request_body, response_status=204)  # log after deletion is done
                 return result
         except Exception as e:
             log_event(request, request_body, application=instance)
@@ -120,7 +120,7 @@ class DocumentUploadAndViewListForApplicationIdView(APIView):
                 else:
                     request_body[key] = 'A new file was uploaded.'
 
-            log_event(request=request, request_body=request_body, application=application)
+            log_event(request=request, request_body=request_body, application=application, response_status=201)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -143,7 +143,8 @@ class DocumentDeleteView(APIView):
             if document.application.approved:
                 raise ValidationError("This operation is not allowed on approved applications")
             document.delete()
-            log_event(request=request, request_body={'message': 'A document was deleted.'}, application=None)
+            log_event(request=request, request_body={'message': 'A document was deleted.'}, application=None,
+                      response_status=204)
             return Response(status=status.HTTP_204_NO_CONTENT)
         except models.Document.DoesNotExist:
             raise NotFound("Document with given id does not exist")

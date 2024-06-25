@@ -17,7 +17,7 @@ def log_event(request, request_body, application=None, response_status=None, res
         'path': request.path,
         'body': json.dumps(request_body) if isinstance(request_body, dict) else None,
         'response_status': response_status,
-        'response': response,
+        'response': json.dumps(response.content.decode()) if response is not None else None,
         'is_error': is_error,
         'is_notification': True,
         'user': str(request.user) if request.user is not None else '',

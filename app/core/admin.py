@@ -117,7 +117,7 @@ class EventsAdmin(admin.ModelAdmin):
     ordering = ["-created_at"]
     list_display = ["request_id", "path", 'response_status', 'response', 'created_at', 'user']
     list_filter = (
-        ('created_at', DateRangeFilter),
+        ('created_at', DateRangeFilter), 'response_status',
     )
     readonly_fields = [f.name for f in models.Event._meta.get_fields()]
 
