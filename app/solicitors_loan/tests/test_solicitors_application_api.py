@@ -362,6 +362,19 @@ class PrivateTestApplicationAPI(APITestCase):
         # Check that the application no longer exists after deletion
         self.assertFalse(Application.objects.filter(id=application.id).exists())
 
+        # Check event created
+        events = Event.objects.all()
+        event = events[0]
+        self.assertEqual(events.count(), 1)
+        self.assertEqual(event.application, None)
+        self.assertEqual(event.user, str(self.user))
+        self.assertIsNotNone(event.request_id)
+        self.assertEqual(event.method, 'DELETE')
+        self.assertEqual(event.path, get_detail_url(application_id=application.id))
+        self.assertFalse(event.is_error)
+        self.assertTrue(event.is_notification)
+        self.assertFalse(event.is_staff)
+
 
 class DocumentUploadTest(TestCase):
     """Test uploading documents"""
