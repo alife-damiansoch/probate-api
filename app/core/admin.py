@@ -66,6 +66,11 @@ class EstateInline(admin.TabularInline):
     extra = 0
 
 
+class ExpenseInline(admin.TabularInline):
+    model = models.Expense
+    extra = 0
+
+
 class ApplicantInline(admin.StackedInline):
     model = models.Applicant
     extra = 0
@@ -94,7 +99,7 @@ class ApplicationForm(forms.ModelForm):
 class ApplicationAdmin(admin.ModelAdmin):
     ordering = ["id"]
     form = ApplicationForm
-    inlines = [ApplicantInline, EstateInline, DocumentInline]
+    inlines = [ApplicantInline, EstateInline, ExpenseInline, DocumentInline]
     readonly_fields = ('id', 'last_updated_by',)
     list_display = ('id', 'user', 'assigned_to', 'deceased_full_name', 'dispute_details')
     search_fields = ['id', ]
