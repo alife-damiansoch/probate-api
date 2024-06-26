@@ -2,7 +2,7 @@ from datetime import datetime
 
 from dateutil.relativedelta import relativedelta
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
@@ -235,7 +235,11 @@ class Loan(models.Model):
                                         default=None, related_name='loans_updated_by')
 
     def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if self.application and not self.application.approved:
+                self.application.approved = True
+                self.application.save(update_fields=['approved'])
 
     @property
     def maturity_date(self):
@@ -278,3 +282,4 @@ class LoanExtension(models.Model):
 auditlog.register(User)
 auditlog.register(Application)
 auditlog.register(Document)
+auditlog.register(Loan)

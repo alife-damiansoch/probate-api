@@ -225,6 +225,8 @@ class LoanModelTests(TestCase):
             term_agreed=12,
             approved_date=timezone.now().date(),  # Ensure approved_date is a date object
         )
+        self.application.refresh_from_db()
+        self.assertTrue(self.application.approved)
         loans = models.Loan.objects.all()
         self.assertEqual(loans.count(), 1)
         loan = loans[0]

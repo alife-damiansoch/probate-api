@@ -118,6 +118,12 @@ class ApplicationAdmin(admin.ModelAdmin):
     dispute_details.short_description = 'Dispute'
 
 
+class LoanAdmin(admin.ModelAdmin):
+    ordering = ["id"]
+
+    readonly_fields = ('id', 'last_updated_by', 'application', 'approved_date')
+
+
 class EventsAdmin(admin.ModelAdmin):
     ordering = ["-created_at"]
     list_display = ["request_id", "path", 'response_status', 'response', 'created_at', 'user']
@@ -135,3 +141,4 @@ admin.site.register(models.Deceased)
 admin.site.register(models.Estate)
 admin.site.register(models.Dispute)
 admin.site.register(models.Event, EventsAdmin)
+admin.site.register(models.Loan, LoanAdmin)
