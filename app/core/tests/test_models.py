@@ -1,12 +1,14 @@
 """
 Tests for models
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 from decimal import Decimal
 
+from dateutil.relativedelta import relativedelta
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from core import models
 
@@ -88,7 +90,8 @@ class ApplicationModelTest(TestCase):
         )
 
         self.assertEqual(models.Application.objects.count(), 1)
-        self.assertEqual(models.Application.objects.get().amount, application.amount)
+        self.assertEqual(models.Application.objects.get().amount,
+                         application.amount)
         self.assertEqual(models.Application.objects.get().term, application.term)
         self.assertEqual(models.Application.objects.get().user, self.user)
         self.assertEqual(models.Application.objects.get().deceased, self.deceased)
@@ -197,3 +200,68 @@ class ExpenseModelTest(TestCase):
         self.assertEqual(expense.value, exp.value)
         self.assertEqual(expense.description, exp.description)
         self.assertEqual(expense.application, self.application)
+
+
+class LoanModelTests(TestCase):
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email='testuser@example.com',
+            password='testpass123'
+        )
+        self.application = models.Application.objects.create(
+            amount=100000,
+            term=12,
+            user=self.user,
+            approved=False,
+        )
+
+    def test_create_loan(self):
+        """Test creating a Loan Model"""
+        loan1 = models.Loan.objects.create(
+            application=self.application,
+            amount_agreed=500000,
+            fee_agreed=5000,
+            term_agreed=12,
+            approved_date=timezone.now().date(),  # Ensure approved_date is a date object
+        )
+        loans = models.Loan.objects.all()
+        self.assertEqual(loans.count(), 1)
+        loan = loans[0]
+        self.assertEqual(loan.application, self.application)
+        self.assertEqual(loan.amount_agreed, loan1.amount_agreed)
+        self.assertEqual(loan.fee_agreed, loan1.fee_agreed)
+        self.assertEqual(loan.term_agreed, loan1.term_agreed)
+
+        # Assert current_balance and amount_paid
+        self.assertEqual(loan.current_balance, loan1.amount_agreed)
+        self.assertEqual(loan.amount_paid, 0)
+
+        # Expected maturity date as a date object
+        expected_maturity_date = loan1.approved_date + relativedelta(months=loan1.term_agreed)
+        self.assertEqual(loan.maturity_date, expected_maturity_date)
+
+    def test_transactions_and_extensions_affect_balance_and_maturity(self):
+        """Test that transactions and extensions affect the loan balance and maturity date correctly"""
+        loan = models.Loan.objects.create(
+            application=self.application,
+            amount_agreed=500000,
+            fee_agreed=5000,
+            term_agreed=12,
+            approved_date=timezone.now().date(),  # Ensure approved_date is a date object
+        )
+        models.Transaction.objects.create(loan=loan, amount=100000, created_by=self.user,
+                                          transaction_date=timezone.now())
+        models.Transaction.objects.create(loan=loan, amount=150000, created_by=self.user,
+                                          transaction_date=timezone.now())
+        models.LoanExtension.objects.create(loan=loan, extension_term_months=6, extension_fee=1000,
+                                            created_by=self.user,
+                                            created_date=timezone.now())
+
+        loan.refresh_from_db()
+        self.assertEqual(loan.current_balance, 251000)  # 500000 - 250000 (transactions) + 1000 (extension fee)
+        self.assertEqual(loan.amount_paid, 249000)
+
+        # Expected maturity date with extension as a date object
+        expected_maturity_date = loan.approved_date + relativedelta(months=loan.term_agreed + 6)
+        self.assertEqual(loan.maturity_date, expected_maturity_date)

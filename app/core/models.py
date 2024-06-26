@@ -1,3 +1,6 @@
+from datetime import datetime
+
+from dateutil.relativedelta import relativedelta
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.contrib.auth.models import (
@@ -5,13 +8,16 @@ from django.contrib.auth.models import (
     BaseUserManager,
     PermissionsMixin
 )
+from django.utils import timezone
 
 from auditlog.registry import auditlog
-from django.db.models import ForeignKey
+from django.db.models import ForeignKey, Sum
 from django.conf import settings
 
 import uuid
 import os
+
+from django.utils.functional import cached_property
 
 
 # helper function to get file name for the documents uploaded
@@ -119,6 +125,11 @@ class Application(models.Model):
     assigned_to = ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, default=None,
                              related_name='assigned_applications_set')
 
+    def value_of_the_estate_after_expenses(self):
+        estates_sum = self.estates.aggregate(total_estate_value=Sum('value'))['total_estate_value'] or 0
+        expenses_sum = self.expenses.aggregate(total_expense_value=Sum('value'))['total_expense_value'] or 0
+        return estates_sum - expenses_sum
+
 
 class Comment(models.Model):
     text = models.TextField(default=None, null=True, blank=True)
@@ -210,8 +221,58 @@ class Event(models.Model):
                              related_name='events')
 
 
-# class Loan(models.Model):
-#     application = models.OneToOneField(Application, on_delete=models.PROTECT, related_name='loan')
+class Loan(models.Model):
+    application = models.OneToOneField(Application, on_delete=models.PROTECT, related_name='loan')
+    amount_agreed = models.DecimalField(max_digits=12, decimal_places=2)
+    fee_agreed = models.DecimalField(max_digits=12, decimal_places=2)
+    term_agreed = models.IntegerField(null=False, default=12, validators=[MinValueValidator(1), MaxValueValidator(36)])
+    approved_date = models.DateField(default=timezone.now)
+    is_settled = models.BooleanField(default=False)
+    settled_date = models.DateField(default=None, null=True, blank=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+                                    related_name='loans_approved_by')
+    last_updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+                                        default=None, related_name='loans_updated_by')
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+    @property
+    def maturity_date(self):
+        extensions_term_sum = self.extensions.aggregate(total_extension_term=Sum('extension_term_months'))[
+                                  'total_extension_term'] or 0
+        return self.approved_date + relativedelta(months=self.term_agreed + extensions_term_sum)
+
+    @property
+    def current_balance(self):
+        transactions_sum = self.transactions.aggregate(total_paid=Sum('amount'))['total_paid'] or 0
+        extensions_fee_sum = self.extensions.aggregate(total_extension_fee=Sum('extension_fee'))[
+                                 'total_extension_fee'] or 0
+        return self.amount_agreed - transactions_sum + extensions_fee_sum
+
+    @property
+    def amount_paid(self):
+        return self.amount_agreed - self.current_balance
+
+
+class Transaction(models.Model):
+    loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name='transactions')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    transaction_date = models.DateTimeField(
+        default=timezone.now)  # Changed to DateTimeField for timezone-aware datetime
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name='loan_transactions_created', default=None)
+    description = models.TextField(blank=True, null=True)
+
+
+class LoanExtension(models.Model):
+    loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name='extensions')
+    extension_term_months = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(36)])
+    extension_fee = models.DecimalField(max_digits=12, decimal_places=2)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name='loan_extensions_created')
+    description = models.TextField(blank=True, null=True)
+    created_date = models.DateTimeField(default=timezone.now)
 
 
 auditlog.register(User)

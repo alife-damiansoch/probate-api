@@ -4,6 +4,7 @@ Serializers for solicitors-application apis
 
 from rest_framework import serializers
 from core.models import (Application, Deceased, Dispute, Applicant, Estate, Document, )
+from expense.serializers import ExpenseSerializer
 
 
 class DocumentSerializer(serializers.ModelSerializer):
@@ -61,10 +62,17 @@ class ApplicationDetailSerializer(ApplicationSerializer):
         many=True, required=True)
     documents = serializers.SerializerMethodField(read_only=True)
     signed_documents = serializers.SerializerMethodField(read_only=True)
+    expenses = ExpenseSerializer(many=True, read_only=True)
+    value_of_the_estate_after_expenses = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
     class Meta(ApplicationSerializer.Meta):
-        fields = ApplicationSerializer.Meta.fields + ['deceased', 'dispute', 'applicants', 'estates', 'documents',
+        fields = ApplicationSerializer.Meta.fields + ['deceased', 'applicants', 'estates', 'expenses',
+                                                      'value_of_the_estate_after_expenses',
+                                                      'dispute', 'documents',
                                                       'signed_documents']
+
+    def get_value_of_the_estate_after_expenses(self, obj):
+        return obj.value_of_the_estate_after_expenses()
 
     def create(self, validated_data):
         deceased_data = validated_data.pop('deceased', None)
