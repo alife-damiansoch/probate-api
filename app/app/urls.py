@@ -19,6 +19,8 @@ urlpatterns = [
     path('api/', include('solicitors_loan.urls', namespace='solicitors_loan')),
     path('api/', include('agents_loan.urls', namespace='agents_loan')),
     path('api/', include('event.urls', namespace='event')),
+    path('api/', include('comment.urls', namespace='comment')),
+    path('api/', include('expense.urls', namespace='expense')),
 
     path('test/500/', test_500_view),
 ]

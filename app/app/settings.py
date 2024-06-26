@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'solicitors_loan',
     'agents_loan',
     'event',
+    'comment',
+    'expense',
 ]
 
 MIDDLEWARE = [

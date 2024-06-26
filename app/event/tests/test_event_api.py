@@ -1,21 +1,16 @@
 """
 Test solicitors_application api
 """
-import json
 
 from django.contrib.auth import get_user_model
-from django.core.files.base import ContentFile
-from django.test import TestCase
+
 from django.urls import reverse
 
 from rest_framework import status
-from rest_framework.status import HTTP_403_FORBIDDEN, HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST
 from rest_framework.test import APIClient, APITestCase
 
 from core.models import (Event, Application, Deceased, )
 from event.serializers import EventSerializer
-
-from solicitors_loan import serializers
 
 
 def create_event_by_application_list_url(application_id):

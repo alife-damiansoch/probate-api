@@ -120,6 +120,17 @@ class Application(models.Model):
                              related_name='assigned_applications_set')
 
 
+class Comment(models.Model):
+    text = models.TextField(default=None, null=True, blank=True)
+    created_by = ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+                            related_name='comment_user_created')
+    is_completed = models.BooleanField(default=False)
+    is_important = models.BooleanField(default=False)
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, null=True, blank=True, default=None)
+    updated_by = ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+                            related_name='comment_user_updated')
+
+
 class Applicant(models.Model):
     TITLE_CHOICES = (
         ('Mr', 'Mr'),
@@ -147,6 +158,16 @@ class Estate(models.Model):
     value = models.DecimalField(max_digits=12, decimal_places=2)
     application = models.ForeignKey(
         Application, on_delete=models.CASCADE, related_name='estates')
+
+    def __str__(self):
+        return f'{self.description} - {self.value}'
+
+
+class Expense(models.Model):
+    description = models.CharField(max_length=255)
+    value = models.DecimalField(max_digits=10, decimal_places=2)
+    application = models.ForeignKey(
+        Application, on_delete=models.CASCADE, related_name='expenses')
 
     def __str__(self):
         return f'{self.description} - {self.value}'
@@ -189,5 +210,10 @@ class Event(models.Model):
                              related_name='events')
 
 
+# class Loan(models.Model):
+#     application = models.OneToOneField(Application, on_delete=models.PROTECT, related_name='loan')
+
+
 auditlog.register(User)
 auditlog.register(Application)
+auditlog.register(Document)

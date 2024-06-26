@@ -122,3 +122,78 @@ class EventModelTest(TestCase):
     def test_event_created(self):
         event = models.Event.objects.get(request_id=self.request_id)
         self.assertEqual(event.user, 'test_user')
+
+
+class CommentModelTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email='test@example.com',
+            password='testpass123'
+        )
+
+        self.deceased = models.Deceased.objects.create(
+            first_name='Deceased',
+            last_name='Test'
+        )
+
+        self.application = models.Application.objects.create(
+            amount=100.0,
+            term=12,
+            user=self.user,
+            deceased=self.deceased,
+            approved=False
+        )
+
+    def test_create_comment(self):
+        comment = models.Comment.objects.create(
+            application=self.application,
+            created_by=self.user,
+            text='Test comment'
+        )
+
+        comments = models.Comment.objects.all()
+
+        self.assertEqual(comments.count(), 1)
+        comment = comments[0]
+        self.assertEqual(comment.application, self.application)
+        self.assertEqual(comment.created_by, self.user)
+        self.assertEqual(comment.text, comment.text)
+        self.assertEqual(comment.updated_by, None)
+
+
+class ExpenseModelTest(TestCase):
+    """Test for Expense Model"""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email='test@example.com',
+            password='testpass123'
+        )
+
+        self.deceased = models.Deceased.objects.create(
+            first_name='Deceased',
+            last_name='Test'
+        )
+
+        self.application = models.Application.objects.create(
+            amount=100.0,
+            term=12,
+            user=self.user,
+            deceased=self.deceased,
+            approved=False
+        )
+
+    def test_create_expense(self):
+        """Test creating an Expense Model"""
+        exp = models.Expense.objects.create(
+            application=self.application,
+            value=50.0,
+            description='Test expense'
+        )
+
+        expenses = models.Expense.objects.all()
+        self.assertEqual(expenses.count(), 1)
+        expense = expenses[0]
+        self.assertEqual(expense.value, exp.value)
+        self.assertEqual(expense.description, exp.description)
+        self.assertEqual(expense.application, self.application)
