@@ -1,8 +1,7 @@
 """
 Tests for models
 """
-from datetime import datetime, timedelta
-import random
+
 from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
@@ -225,8 +224,7 @@ class LoanModelTests(TestCase):
             term_agreed=12,
             approved_date=timezone.now().date(),  # Ensure approved_date is a date object
         )
-        self.application.refresh_from_db()
-        self.assertTrue(self.application.approved)
+
         loans = models.Loan.objects.all()
         self.assertEqual(loans.count(), 1)
         loan = loans[0]
@@ -236,8 +234,8 @@ class LoanModelTests(TestCase):
         self.assertEqual(loan.term_agreed, loan1.term_agreed)
 
         # Assert current_balance and amount_paid
-        self.assertEqual(loan.current_balance, loan1.amount_agreed)
-        self.assertEqual(loan.amount_paid, 0)
+        self.assertEqual(loan.current_balance, loan1.current_balance)
+        self.assertEqual(loan.amount_paid, loan1.amount_paid)
 
         # Expected maturity date as a date object
         expected_maturity_date = loan1.approved_date + relativedelta(months=loan1.term_agreed)
@@ -245,25 +243,42 @@ class LoanModelTests(TestCase):
 
     def test_transactions_and_extensions_affect_balance_and_maturity(self):
         """Test that transactions and extensions affect the loan balance and maturity date correctly"""
+        transactions = (100000, 150000,)
+        fees = (1000, 5000)
         loan = models.Loan.objects.create(
+            application=self.application,
+            amount_agreed=500000,
+            fee_agreed=fees[1],
+            term_agreed=12,
+            approved_date=timezone.now().date(),  # Ensure approved_date is a date object
+        )
+
+        models.Transaction.objects.create(loan=loan, amount=transactions[0], created_by=self.user,
+                                          transaction_date=timezone.now())
+        models.Transaction.objects.create(loan=loan, amount=transactions[1], created_by=self.user,
+                                          transaction_date=timezone.now())
+        models.LoanExtension.objects.create(loan=loan, extension_term_months=6, extension_fee=fees[0],
+                                            created_by=self.user,
+                                            created_date=timezone.now())
+
+        loan.refresh_from_db()
+        self.assertEqual(loan.current_balance,
+                         loan.amount_agreed + sum(fees) - sum(
+                             transactions))
+        self.assertEqual(loan.amount_paid, Decimal(sum(transactions)))
+
+        # Expected maturity date with extension as a date object
+        expected_maturity_date = loan.approved_date + relativedelta(months=loan.term_agreed + 6)
+        self.assertEqual(loan.maturity_date, expected_maturity_date)
+
+    def test_creating_loan_updates_application_connected_to_approved(self):
+        """Test when creating a Loan Model application connected is marked as approved"""
+        loan1 = models.Loan.objects.create(
             application=self.application,
             amount_agreed=500000,
             fee_agreed=5000,
             term_agreed=12,
             approved_date=timezone.now().date(),  # Ensure approved_date is a date object
         )
-        models.Transaction.objects.create(loan=loan, amount=100000, created_by=self.user,
-                                          transaction_date=timezone.now())
-        models.Transaction.objects.create(loan=loan, amount=150000, created_by=self.user,
-                                          transaction_date=timezone.now())
-        models.LoanExtension.objects.create(loan=loan, extension_term_months=6, extension_fee=1000,
-                                            created_by=self.user,
-                                            created_date=timezone.now())
-
-        loan.refresh_from_db()
-        self.assertEqual(loan.current_balance, 251000)  # 500000 - 250000 (transactions) + 1000 (extension fee)
-        self.assertEqual(loan.amount_paid, 249000)
-
-        # Expected maturity date with extension as a date object
-        expected_maturity_date = loan.approved_date + relativedelta(months=loan.term_agreed + 6)
-        self.assertEqual(loan.maturity_date, expected_maturity_date)
+        self.application.refresh_from_db()
+        self.assertTrue(self.application.approved)

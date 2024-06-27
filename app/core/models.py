@@ -116,8 +116,8 @@ class Application(models.Model):
                                  default=None,
                                  related_name='updated_applications_set')
     date_submitted = models.DateTimeField(auto_now_add=True)
-    deceased = models.ForeignKey(
-        Deceased, on_delete=models.PROTECT, null=True, blank=True, )  # Each application has one deceased
+    deceased = models.OneToOneField(Deceased, on_delete=models.PROTECT, null=True,
+                                    blank=True)  # Each application has one deceased
     dispute = models.OneToOneField(
         Dispute, on_delete=models.SET_NULL, null=True, blank=True, related_name='application')
     undertaking_ready = models.BooleanField(default=False)
@@ -252,11 +252,20 @@ class Loan(models.Model):
         transactions_sum = self.transactions.aggregate(total_paid=Sum('amount'))['total_paid'] or 0
         extensions_fee_sum = self.extensions.aggregate(total_extension_fee=Sum('extension_fee'))[
                                  'total_extension_fee'] or 0
-        return self.amount_agreed - transactions_sum + extensions_fee_sum
+        return self.amount_agreed + self.fee_agreed - transactions_sum + extensions_fee_sum
 
     @property
     def amount_paid(self):
-        return self.amount_agreed - self.current_balance
+        transactions_sum = self.transactions.aggregate(total_paid=Sum('amount'))['total_paid'] or 0
+        return transactions_sum
+
+    @property
+    def extension_fees_total(self):
+        return self.extensions.aggregate(total_extension_fee=Sum('extension_fee'))['total_extension_fee'] or 0
+
+    def first_applicant(self):
+        applicant = self.application.applicants.first()
+        return str(applicant) if applicant else 'No applicants'
 
 
 class Transaction(models.Model):

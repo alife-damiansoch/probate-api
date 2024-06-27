@@ -6,13 +6,14 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django import forms
-from django.utils.html import format_html_join
+from django.utils import timezone
 
 from rangefilter.filters import DateRangeFilter
 
 from django.utils.translation import gettext_lazy as _
 
 from core import models
+from core.models import LoanExtension, Transaction
 
 
 class UserAdmin(BaseUserAdmin):
@@ -100,9 +101,17 @@ class ApplicationAdmin(admin.ModelAdmin):
     ordering = ["id"]
     form = ApplicationForm
     inlines = [ApplicantInline, EstateInline, ExpenseInline, DocumentInline]
-    readonly_fields = ('id', 'last_updated_by',)
-    list_display = ('id', 'user', 'assigned_to', 'deceased_full_name', 'dispute_details')
-    search_fields = ['id', ]
+
+    fieldsets = (
+        (None, {"fields": ("amount", "term", "user", "deceased", "dispute", "assigned_to", "last_updated_by",)}),
+        (_("Details"), {"fields": ("approved", "undertaking_ready", "loan_agreement_ready",)}),
+    )
+
+    readonly_fields = (
+        'id', 'last_updated_by', 'deceased_full_name', 'dispute_details', 'date_submitted', 'deceased', 'dispute',
+        'user')
+    search_fields = ["id", ]
+    list_display = ("id", "user", "assigned_to", "deceased_full_name", "dispute_details")
 
     def deceased_full_name(self, obj):
         if obj.deceased:
@@ -117,11 +126,72 @@ class ApplicationAdmin(admin.ModelAdmin):
     deceased_full_name.short_description = 'Deceased'
     dispute_details.short_description = 'Dispute'
 
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:  # If object is being created
+            obj.user = request.user
+        else:  # Object is being updated
+            obj.last_updated_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+class TransactionInline(admin.TabularInline):
+    model = Transaction
+    extra = 0  # Number of extra forms to display
+    readonly_fields = ['created_by']
+
+
+class LoanExtensionInline(admin.TabularInline):
+    model = LoanExtension
+    extra = 0
+    readonly_fields = ['created_by', 'created_date']
+
 
 class LoanAdmin(admin.ModelAdmin):
-    ordering = ["id"]
+    fieldsets = (
+        (_("Loan Details"), {
+            "fields": (
+                "application", "amount_agreed", 'fee_agreed', "term_agreed", "approved_date",
+                "approved_by", "last_updated_by",)
+        }),
+        (_("Settled Info"), {
+            "fields": (
+                "is_settled", "settled_date"),
 
-    readonly_fields = ('id', 'last_updated_by', 'application', 'approved_date')
+        }),
+        (_("Read-only Info"), {
+            "fields": ("maturity_date", "current_balance", "amount_paid", "extension_fees_total",),
+
+        }),
+    )
+
+    readonly_fields = (
+        'application', "maturity_date", "current_balance", "amount_paid", "last_updated_by", "approved_by",
+        "extension_fees_total")
+    ordering = ["id"]
+    inlines = [TransactionInline, LoanExtensionInline]
+    list_display = ["id", "application", "amount_agreed", "term_agreed", "approved_by", "last_updated_by"]
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:  # If object is being created
+            obj.approved_by = request.user
+        obj.last_updated_by = request.user  # Object is being updated
+        super().save_model(request, obj, form, change)
+
+    def save_formset(self, request, form, formset, change):
+        if formset.model == models.Transaction:
+            instances = formset.save(commit=False)
+            for instance in instances:
+                if not instance.pk:  # If object is being created
+                    instance.created_by = request.user
+                instance.save()
+        elif formset.model == models.LoanExtension:
+            instances = formset.save(commit=False)
+            for instance in instances:
+                if not instance.pk:  # If object is being created
+                    instance.created_by = request.user
+                    instance.created_date = timezone.now()
+                instance.save()
+        formset.save_m2m()  # Save many-to-many and many-to-one relationship fields
 
 
 class EventsAdmin(admin.ModelAdmin):
