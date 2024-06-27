@@ -4,10 +4,10 @@ from .views import EventViewSet, EventByApplicationViewSet
 
 router = DefaultRouter()
 app_name = 'event'
-router.register(r'events', EventViewSet, basename='events')
+router.register(r'applications/events', EventViewSet, basename='events')
 urlpatterns = [
     path('', include(router.urls)),
     # your specific endpoint
-    path('events/<int:application_id>/', EventByApplicationViewSet.as_view({'get': 'list'}, ),
+    path('applications/events/<int:application_id>/', EventByApplicationViewSet.as_view({'get': 'list'}, ),
          name='events-by-application')
 ]

@@ -106,7 +106,7 @@ class PrivateLoanAPI(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, serializer.data)
 
-    def test_loans_list_not_limited_to_authenticated_user(self):
+    def test_retrieve_loans_list_not_limited_to_authenticated_user(self):
         """Test retrieving loans for all users"""
         other_staff_user = get_user_model().objects.create_user(
             email='test1@example.com',
@@ -124,3 +124,68 @@ class PrivateLoanAPI(APITestCase):
         loans = Loan.objects.all().order_by('-id')
         serializer = LoanSerializer(loans, many=True)
         self.assertEqual(response.data, serializer.data)
+
+    def test_retrieve_loan_by_the_id(self):
+        """test retrieving loan by id"""
+        app1 = create_application(self.user)
+        loan1 = create_test_loan(self.user, app1)
+        loan_id = loan1.id
+        url = get_detail_url(loan_id)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        loan = Loan.objects.get(id=loan_id)
+        serializer = LoanSerializer(loan)
+        self.assertEqual(response.data, serializer.data)
+
+    def test_retrieve_loan_created_by_other_user_success(self, ):
+        """test retrieving loan created by other user by id is success"""
+        other_user = get_user_model().objects.create_user(
+            email='test2@example.com',
+            password='testpass'
+        )
+        app = create_application(user=self.user)
+        loan = create_test_loan(other_user, application=app)
+        response = self.client.get(reverse('loans:loan-detail', args=[loan.id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        loan = Loan.objects.get(id=loan.id)
+        serializer = LoanSerializer(loan)
+        self.assertEqual(response.data, serializer.data)
+
+    def test_delete_loan(self):
+        """test deleting loan"""
+        app = create_application(user=self.user)
+        loan = create_test_loan(self.user, application=app)
+        url = get_detail_url(loan.id)
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Loan.objects.filter(id=loan.id).exists())
+
+    def test_create_loan(self):
+        """test creating loan"""
+        data = {
+            'application': create_application(self.user).id,
+            'amount_agreed': 50000.00,
+            'fee_agreed': 2000.00,
+            'term_agreed': 12,
+            'is_settled': False,
+
+        }
+        response = self.client.post(self.LOANS_URL, data)
+
+        print(response.data)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, f"error: {response.data}")
+        loan = Loan.objects.get(id=response.data['id'])
+        serializer = LoanSerializer(loan)
+
+        # Checking properties
+        self.assertEqual(response.data, serializer.data)
+
+        self.assertEqual(Decimal(serializer.data['amount_agreed']), Decimal(data['amount_agreed']))
+        self.assertEqual(serializer.data['term_agreed'], data['term_agreed'])
+        self.assertEqual(serializer.data['is_settled'], data['is_settled'])
+        self.assertEqual(serializer.data['application'], data['application'])
+        self.assertEqual(serializer.data['approved_by'], self.user.id)
+        self.assertIsNotNone(serializer.data['approved_date'])
+        self.assertFalse(serializer.data['is_settled'])
+        self.assertIsNone(serializer.data['last_updated_by'])

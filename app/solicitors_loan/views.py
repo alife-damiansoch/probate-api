@@ -16,9 +16,45 @@ from solicitors_loan import serializers
 from core import models
 from solicitors_loan.permissions import IsNonStaff
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, extend_schema_view
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary='Retrieve all solicitor_applications {-Works only for non staff users-}',
+        description='Returns  all solicitor_applications.',
+        tags=['solicitor_application'],
+    ),
+    retrieve=extend_schema(
+        summary='Retrieve a solicitor_application {-Works only for non staff users-}',
+        description='Returns detailed information about a solicitor_application.',
+        tags=['solicitor_application'],
+    ),
+
+    create=extend_schema(
+        summary='Create a new solicitor_application {-Works only for non staff users-}',
+        description='Creates a new solicitor_application and returns information about the created solicitor_application.',
+        tags=['solicitor_application']
+    ),
+
+    update=extend_schema(
+        summary='Update a solicitor_application {-Works only for non staff users-}',
+        description='Updates an existing solicitor_application and returns information about the updated solicitor_application.',
+        tags=['solicitor_application']
+    ),
+
+    partial_update=extend_schema(
+        summary='Partially update a solicitor_application {-Works only for non staff users-}',
+        description='Partially updates an existing solicitor_application and returns information about the updated solicitor_application.',
+        tags=['solicitor_application']
+    ),
+
+    destroy=extend_schema(
+        summary='Delete a solicitor_application {-Works only for non staff users-}',
+        description='Deletes an existing solicitor_application and does not return any content.',
+        tags=['solicitor_application']
+    )
+)
 class ApplicationViewSet(viewsets.ModelViewSet):
     """Viewset for applications"""
     serializer_class = serializers.ApplicationDetailSerializer
@@ -99,12 +135,22 @@ class DocumentUploadAndViewListForApplicationIdView(APIView):
         except models.Application.DoesNotExist:
             raise Http404
 
+    @extend_schema(
+        summary="Retrieve the documents for a specific application {-Works only for non staff users-}",
+        description="View to retrieve list of documents for an application with given ID.",
+        tags=["document_solicitor"],
+    )
     def get(self, request, application_id):
         application = self.get_object(application_id)
         documents = models.Document.objects.filter(application=application)
         serializer = self.serializer_class(documents, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Upload a new document for a specific application {-Works only for non staff users-}",
+        description="View to upload a document for an application with given ID.",
+        tags=["document_solicitor"],
+    )
     def post(self, request, application_id):
         serializer = serializers.DocumentSerializer(data=request.data)
 
@@ -137,6 +183,11 @@ class DocumentDeleteView(APIView):
         except models.Document.DoesNotExist:
             raise Http404
 
+    @extend_schema(
+        summary="Deletes a document with the given ID. {-Works only for non staff users-}",
+        description="Deletes a document with the given ID.",
+        tags=["document_solicitor"],
+    )
     def delete(self, request, document_id):
         try:
             document = self.get_document(document_id)

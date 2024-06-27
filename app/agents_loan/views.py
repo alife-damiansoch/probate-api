@@ -16,9 +16,45 @@ from app.utils import log_event
 from core import models
 from agents_loan.permissions import IsStaff
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, extend_schema_view
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary='Retrieve all applications {-Works only for staff users-}',
+        description='Returns  all applications.',
+        tags=['agent_application'],
+    ),
+    retrieve=extend_schema(
+        summary='Retrieve an application {-Works only for staff users-}',
+        description='Returns detailed information about an application.',
+        tags=['agent_application'],
+    ),
+
+    create=extend_schema(
+        summary='Create an new application {-Works only for staff users-}',
+        description='Creates a new application and returns information about the created application.',
+        tags=['agent_application']
+    ),
+
+    update=extend_schema(
+        summary='Update an application {-Works only for staff users-}',
+        description='Updates an existing application and returns information about the updated application.',
+        tags=['agent_application']
+    ),
+
+    partial_update=extend_schema(
+        summary='Partially update an application {-Works only for staff users-}',
+        description='Partially updates an existing application and returns information about the updated application.',
+        tags=['agent_application']
+    ),
+
+    destroy=extend_schema(
+        summary='Delete an application {-Works only for staff users-}',
+        description='Deletes an existing application and does not return any content.',
+        tags=['agent_application']
+    )
+)
 class ApplicationViewSet(viewsets.ModelViewSet):
     """Viewset for applications"""
     serializer_class = serializers.ApplicationDetailSerializer
@@ -98,12 +134,22 @@ class DocumentUploadAndViewListForApplicationIdView(APIView):
         except models.Application.DoesNotExist:
             raise Http404
 
+    @extend_schema(
+        summary="Retrieve the documents for a specific application {-Works only for staff users-}",
+        description="View to retrieve list of documents for an application with given ID.",
+        tags=["document_agent"],
+    )
     def get(self, request, application_id):
         application = self.get_object(application_id)
         documents = models.Document.objects.filter(application=application)
         serializer = self.serializer_class(documents, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Upload a new document for a specific application {-Works only for staff users-}",
+        description="View to upload a document for an application with given ID.",
+        tags=["document_agent"],
+    )
     def post(self, request, application_id):
         serializer = serializers.DocumentSerializer(data=request.data)
 
@@ -137,6 +183,11 @@ class DocumentDeleteView(APIView):
         except models.Document.DoesNotExist:
             raise Http404
 
+    @extend_schema(
+        summary="Deletes a document with the given ID. {-Works only for staff users-}",
+        description="Deletes a document with the given ID.",
+        tags=["document_agent"],
+    )
     def delete(self, request, document_id):
         try:
             document = self.get_document(document_id)

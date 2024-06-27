@@ -5,7 +5,7 @@ from comment.views import CommentListViewSet
 
 router = DefaultRouter()
 app_name = 'comment'
-router.register(r'comments', CommentListViewSet, basename='comment')
+router.register(r'applications/comments', CommentListViewSet, basename='comment')
 urlpatterns = [
     path('', include(router.urls)),
     # your specific endpoint

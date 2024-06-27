@@ -226,7 +226,7 @@ class Loan(models.Model):
     amount_agreed = models.DecimalField(max_digits=12, decimal_places=2)
     fee_agreed = models.DecimalField(max_digits=12, decimal_places=2)
     term_agreed = models.IntegerField(null=False, default=12, validators=[MinValueValidator(1), MaxValueValidator(36)])
-    approved_date = models.DateField(default=timezone.now)
+    approved_date = models.DateField(null=True, blank=True)
     is_settled = models.BooleanField(default=False)
     settled_date = models.DateField(default=None, null=True, blank=True)
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
@@ -236,6 +236,8 @@ class Loan(models.Model):
 
     def save(self, *args, **kwargs):
         with transaction.atomic():
+            if not self.pk:  # pk is None for new objects
+                self.approved_date = timezone.now().date()
             super().save(*args, **kwargs)
             if self.application and not self.application.approved:
                 self.application.approved = True

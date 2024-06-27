@@ -14,10 +14,43 @@ from rest_framework.response import Response
 
 @extend_schema_view(
     list=extend_schema(
+        summary='List all comments',
+        description='Returns a list of all comments in the system.',
         parameters=[
             OpenApiParameter('application', OpenApiTypes.STR,
-                             description="Id of the application to filter on (optional)"),
-        ]
+                             description="Id of the application to filter on (optional)")
+        ],
+        tags=['comments']
+    ),
+
+    retrieve=extend_schema(
+        summary='Retrieve a comment',
+        description='Returns detailed information about a comment.',
+        tags=['comments']
+    ),
+
+    create=extend_schema(
+        summary='Create a new comment',
+        description='Creates a new comment and returns information about the created comment.',
+        tags=['comments']
+    ),
+
+    update=extend_schema(
+        summary='Update a comment',
+        description='Updates an existing comment and returns information about the updated comment.',
+        tags=['comments']
+    ),
+
+    partial_update=extend_schema(
+        summary='Partially update a comment',
+        description='Partially updates an existing comment and returns information about the updated comment.',
+        tags=['comments']
+    ),
+
+    destroy=extend_schema(
+        summary='Delete a comment',
+        description='Deletes an existing comment and does not return any content.',
+        tags=['comments']
     )
 )
 class CommentListViewSet(mixins.ListModelMixin,

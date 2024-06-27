@@ -4,7 +4,7 @@ from .views import ExpenseViewSet
 
 router = DefaultRouter()
 app_name = 'expense'
-router.register(r'expenses', ExpenseViewSet, basename='expense')
+router.register(r'applications/expenses', ExpenseViewSet, basename='expense')
 urlpatterns = [
     path('', include(router.urls)),
 ]

@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_view, extend_schema
 from rest_framework import viewsets, mixins, permissions
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
@@ -7,6 +8,14 @@ from event.permissions import IsStaff
 from event.serializers import EventSerializer
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary='Retrieve all events {-Works only for staff users-}',
+        description='Returns  all events.',
+        tags=['events'],
+    ),
+
+)
 class EventViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """
     A viewset for listing all events
@@ -17,6 +26,14 @@ class EventViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated, IsStaff]
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary='Retrieve all events for given application. {-Works only for staff users-}',
+        description='Returns  all events for given application.',
+        tags=['events'],
+    ),
+
+)
 class EventByApplicationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """
     A viewset for listing events by application
