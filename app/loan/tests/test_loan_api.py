@@ -12,9 +12,9 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
-from core.models import (Application, Deceased, Loan)
+from core.models import (Application, Deceased, Loan, )
 
-from loan.serializers import LoanSerializer
+from loan.serializers import (LoanSerializer, )
 
 from decimal import Decimal
 

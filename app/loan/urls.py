@@ -4,11 +4,13 @@ from django.urls import path, include
 
 from rest_framework.routers import DefaultRouter
 
-from loan.views import LoanViewSet
+from loan.views import LoanViewSet, TransactionViewSet, LoanExtensionViewSet
 
 router = DefaultRouter()
 
 router.register('loans', LoanViewSet, basename='loan')
+router.register('transactions', TransactionViewSet, basename='transaction')
+router.register('loan_extensions', LoanExtensionViewSet, basename='loan_extension')
 
 app_name = 'loans'
 
