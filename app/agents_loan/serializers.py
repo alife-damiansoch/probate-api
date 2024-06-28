@@ -1,13 +1,14 @@
 """
 Serializers for solicitors-application apis
 """
-
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from core.models import (Application, Deceased, Dispute, Applicant, Estate, Document, )
 from expense.serializers import ExpenseSerializer
 
 
-class DocumentSerializer(serializers.ModelSerializer):
+class AgentDocumentSerializer(serializers.ModelSerializer):
     """Serializer for uploading document files"""
 
     class Meta:
@@ -17,31 +18,31 @@ class DocumentSerializer(serializers.ModelSerializer):
         extra_kwargs = {'document': {'required': True}}
 
 
-class DeceasedSerializer(serializers.ModelSerializer):
+class AgentDeceasedSerializer(serializers.ModelSerializer):
     class Meta:
         model = Deceased
         fields = ['first_name', 'last_name']
 
 
-class DisputeSerializer(serializers.ModelSerializer):
+class AgentDisputeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Dispute
         fields = ['details']
 
 
-class ApplicantSerializer(serializers.ModelSerializer):
+class AgentApplicantSerializer(serializers.ModelSerializer):
     class Meta:
         model = Applicant
         fields = ['title', 'first_name', 'last_name', 'pps_number']
 
 
-class EstateSerializer(serializers.ModelSerializer):
+class AgentEstateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Estate
         fields = ['description', 'value']
 
 
-class ApplicationSerializer(serializers.ModelSerializer):
+class AgentApplicationSerializer(serializers.ModelSerializer):
     """serializer for application list"""
 
     class Meta:
@@ -49,28 +50,27 @@ class ApplicationSerializer(serializers.ModelSerializer):
         fields = ['id', 'amount', 'term', 'approved', 'is_rejected', 'rejected_date', 'rejected_reason',
                   'date_submitted', 'undertaking_ready',
                   'loan_agreement_ready']
-        read_only_fields = ('id', 'approved', 'last_updated_by', 'date_submitted', 'assigned_to', 'undertaking_ready',
-                            'loan_agreement_ready')
+        read_only_fields = ('id', 'last_updated_by', 'date_submitted', 'assigned_to',)
 
 
-class ApplicationDetailSerializer(ApplicationSerializer):
+class AgentApplicationDetailSerializer(AgentApplicationSerializer):
     """serializer for applicant details"""
-    deceased = DeceasedSerializer(required=True)  # Serializer for the Deceased model
-    dispute = DisputeSerializer(required=True)  # Serializer for the Dispute model
-    applicants = ApplicantSerializer(
+    deceased = AgentDeceasedSerializer(required=True)  # Serializer for the Deceased model
+    dispute = AgentDisputeSerializer(required=True)  # Serializer for the Dispute model
+    applicants = AgentApplicantSerializer(
         many=True, required=True)
-    estates = EstateSerializer(
+    estates = AgentEstateSerializer(
         many=True, required=True)
     documents = serializers.SerializerMethodField(read_only=True)
     signed_documents = serializers.SerializerMethodField(read_only=True)
     expenses = ExpenseSerializer(many=True, read_only=True)
     value_of_the_estate_after_expenses = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
-    class Meta(ApplicationSerializer.Meta):
-        fields = ApplicationSerializer.Meta.fields + ['deceased', 'applicants', 'estates', 'expenses',
-                                                      'value_of_the_estate_after_expenses',
-                                                      'dispute', 'documents',
-                                                      'signed_documents']
+    class Meta(AgentApplicationSerializer.Meta):
+        fields = AgentApplicationSerializer.Meta.fields + ['deceased', 'applicants', 'estates', 'expenses',
+                                                           'value_of_the_estate_after_expenses',
+                                                           'dispute', 'documents',
+                                                           'signed_documents']
 
     def get_value_of_the_estate_after_expenses(self, obj):
         return obj.value_of_the_estate_after_expenses()
@@ -82,9 +82,9 @@ class ApplicationDetailSerializer(ApplicationSerializer):
         estates_data = validated_data.pop('estates', [])
 
         if deceased_data:
-            deceased = DeceasedSerializer.create(DeceasedSerializer(), validated_data=deceased_data)
+            deceased = AgentDeceasedSerializer.create(AgentDeceasedSerializer(), validated_data=deceased_data)
         if dispute_data:
-            dispute = DisputeSerializer.create(DisputeSerializer(), validated_data=dispute_data)
+            dispute = AgentDisputeSerializer.create(AgentDisputeSerializer(), validated_data=dispute_data)
 
         application = Application.objects.create(deceased=deceased if deceased_data else None,
                                                  dispute=dispute if dispute_data else None, **validated_data)
@@ -107,12 +107,12 @@ class ApplicationDetailSerializer(ApplicationSerializer):
 
         # Update Deceased, Dispute instances related to application
         if deceased_data is not None:
-            deceased_serializer = DeceasedSerializer(instance=instance.deceased, data=deceased_data, partial=True)
+            deceased_serializer = AgentDeceasedSerializer(instance=instance.deceased, data=deceased_data, partial=True)
             deceased_serializer.is_valid(raise_exception=True)
             deceased_serializer.save()
 
         if dispute_data is not None:
-            dispute_serializer = DisputeSerializer(instance=instance.dispute, data=dispute_data, partial=True)
+            dispute_serializer = AgentDisputeSerializer(instance=instance.dispute, data=dispute_data, partial=True)
             dispute_serializer.is_valid(raise_exception=True)
             dispute_serializer.save()
 
@@ -128,14 +128,16 @@ class ApplicationDetailSerializer(ApplicationSerializer):
 
         return instance
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_documents(self, application):
         # Filtration of documents which aren't signed
         unsigned_documents = application.documents.filter(is_signed=False)
-        return DocumentSerializer(unsigned_documents, many=True).data
+        return AgentDocumentSerializer(unsigned_documents, many=True).data
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_signed_documents(self, application):
         # Filtration of documents which are signed
         signed_documents = application.documents.filter(is_signed=True)
-        return DocumentSerializer(signed_documents, many=True).data
+        return AgentDocumentSerializer(signed_documents, many=True).data
 
         return instance

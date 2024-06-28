@@ -81,7 +81,7 @@ class PrivateTestApplicationAPI(APITestCase):
         create_application(user=self.user)
         response = self.client.get(self.APPLICATIONS_URL)
         applications = Application.objects.all().order_by('-id')
-        serializer = serializers.ApplicationSerializer(applications, many=True)
+        serializer = serializers.SolicitorApplicationSerializer(applications, many=True)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, serializer.data)
 
@@ -101,7 +101,7 @@ class PrivateTestApplicationAPI(APITestCase):
         response = self.client.get(self.APPLICATIONS_URL)
         # Change the query to filter applications by `self.user`
         user_applications = Application.objects.filter(user=self.user).order_by('-id')
-        serializer = serializers.ApplicationSerializer(user_applications, many=True)
+        serializer = serializers.SolicitorApplicationSerializer(user_applications, many=True)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
         self.assertEqual(response.data, serializer.data)
@@ -111,7 +111,7 @@ class PrivateTestApplicationAPI(APITestCase):
         application = create_application(user=self.user)
         url = get_detail_url(application.id)
         response = self.client.get(url)
-        serializer = serializers.ApplicationDetailSerializer(application)
+        serializer = serializers.SolicitorApplicationDetailSerializer(application)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, serializer.data)
         self.assertEqual(response.data['id'], application.id)
@@ -223,7 +223,7 @@ class PrivateTestApplicationAPI(APITestCase):
         self.assertTrue(event.is_notification)
         self.assertFalse(event.is_staff)
 
-    def test_update_application_requires_all_fields(self):
+    def test_update_put_application_requires_all_fields(self):
         """Test that updating an application requires all fields"""
         # Create a test application with all necessary fields filled
         application = Application.objects.create(
@@ -266,6 +266,25 @@ class PrivateTestApplicationAPI(APITestCase):
             response = self.client.put(url, modified_data, format='json')
 
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, msg=f"{key} not provided in data")
+
+    def test_update_patch_application_(self):
+        """Test that updating an application requires all fields"""
+        # Create a test application with all necessary fields filled
+        application = Application.objects.create(
+            amount=2000.00,
+            term=24,
+            deceased=Deceased.objects.create(first_name='John', last_name='Doe'),
+
+            user=self.user,
+        )
+
+        data = {
+            'amount': '2001.00'}
+
+        url = get_detail_url(application_id=application.id)
+        response = self.client.patch(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, msg=f"error: {response.data}")
 
     def test_update_application_success(self):
         """Test that updating an application succeeds"""
@@ -369,3 +388,217 @@ class PrivateTestApplicationAPI(APITestCase):
         self.assertFalse(event.is_error)
         self.assertTrue(event.is_notification)
         self.assertFalse(event.is_staff)
+
+
+from copy import deepcopy
+
+
+class ApplicationUpdateTests(APITestCase):
+    """Testing individual field update for Applications"""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(email='test@example.com', password='testpassword')
+        self.client.force_authenticate(self.user)
+
+        self.deceased = Deceased.objects.create(first_name='John', last_name='Doe')
+        self.dispute = Dispute.objects.create(details='Some details')
+        self.rejection_reason = RejectionReason.objects.create(reason_text='Some reason')
+
+        self.application = Application.objects.create(
+            amount=2000.00,
+            term=24,
+            deceased=self.deceased,
+            dispute=self.dispute,
+            approved=False,
+            last_updated_by=None,
+            undertaking_ready=False,
+            loan_agreement_ready=False,
+            assigned_to=None,
+            is_rejected=False,
+            rejected_reason=None,
+            rejected_date=None,
+            user=self.user
+        )
+
+        self.url = get_detail_url(application_id=self.application.id)
+
+    def refresh_application(self):
+        """Refresh the application instance to get updated values from DB"""
+        self.application.refresh_from_db()
+
+    def assertOtherFieldsUnchanged(self, old_instance, updated_field_names):
+        new_instance = deepcopy(self.application)
+        self.refresh_application()
+
+        for field in old_instance._meta.fields:
+            if field.name not in updated_field_names:
+                self.assertEqual(getattr(old_instance, field.name), getattr(new_instance, field.name))
+
+    # Test 'amount' field
+    def test_update_amount(self):
+        data = {'amount': '3000.00'}
+        old_instance = deepcopy(self.application)
+
+        response = self.client.patch(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, msg=f"error: {response.data}")
+
+        # Check the field has been updated.
+        self.refresh_application()
+        self.assertEqual(str(self.application.amount), data['amount'])
+
+        # Check that no other fields have changed.
+        self.assertOtherFieldsUnchanged(old_instance, ['amount', 'last_updated_by'])
+
+    # Test 'term' field
+    def test_update_term(self):
+        data = {'term': 30}
+        old_instance = deepcopy(self.application)
+
+        response = self.client.patch(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, msg=f"error: {response.data}")
+
+        # Check the field has been updated.
+        self.refresh_application()
+        self.assertEqual(self.application.term, data['term'])
+
+        # Check that no other fields have changed.
+        self.assertOtherFieldsUnchanged(old_instance, ['term', 'last_updated_by'])
+
+    # Test 'approved' field
+    def test_update_approved_doesnt_work(self):
+        data = {'approved': True}
+        old_instance = deepcopy(self.application)
+
+        response = self.client.patch(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, msg=f"error: {response.data}")
+
+        # Check the field has been updated.
+        self.refresh_application()
+
+        # Check that no other fields have changed.
+        self.assertOtherFieldsUnchanged(old_instance, ['last_updated_by'])
+
+    # Test 'undertaking_ready' field
+    def test_update_undertaking_ready_not_changed(self):
+        data = {'undertaking_ready': True}
+        old_instance = deepcopy(self.application)
+
+        response = self.client.patch(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, msg=f"error: {response.data}")
+
+        # Check the field has been updated.
+        self.refresh_application()
+
+        # Check that no other fields have changed.
+        self.assertOtherFieldsUnchanged(old_instance, ['last_updated_by'])
+
+    # Test 'loan_agreement_ready' field
+    def test_update_loan_agreement_ready_not_changed(self):
+        data = {'loan_agreement_ready': True}
+        old_instance = deepcopy(self.application)
+
+        response = self.client.patch(self.url, data, format='json')
+
+        # Check the field has been updated.
+        self.refresh_application()
+
+        # Check that no other fields have changed.
+        self.assertOtherFieldsUnchanged(old_instance, ['last_updated_by'])
+
+    # Test 'is_rejected' field
+    def test_update_is_rejected(self):
+        data = {'is_rejected': True}
+        old_instance = deepcopy(self.application)
+
+        response = self.client.patch(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, msg=f"error: {response.data}")
+
+        # Check the field has been updated.
+        self.refresh_application()
+
+        # Check that no other fields have changed.
+        self.assertOtherFieldsUnchanged(old_instance, ['last_updated_by'])
+
+    # Test 'rejected_reason' field
+    def test_update_rejected_reason_not_working(self):
+        data = {'rejected_reason': self.rejection_reason.id}
+        old_instance = deepcopy(self.application)
+
+        response = self.client.patch(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, msg=f"error: {response.data}")
+
+        # Check the field has been updated.
+        self.refresh_application()
+
+        # Check that no other fields have changed.
+        self.assertOtherFieldsUnchanged(old_instance, ['last_updated_by'])
+
+    # Test 'rejected_date' field
+    def test_update_rejected_date(self):
+        data = {'rejected_date': "2024-01-01"}
+        old_instance = deepcopy(self.application)
+
+        response = self.client.patch(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, msg=f"error: {response.data}")
+
+        # Check the field has been updated.
+        self.refresh_application()
+
+        # Check that no other fields have changed.
+        self.assertOtherFieldsUnchanged(old_instance, ['last_updated_by'])
+
+    #
+    def test_update_deceased(self):
+        data = {
+            "deceased": {
+                "first_name": "Jane",
+                "last_name": "Doe",
+            }
+        }
+
+        old_instance = deepcopy(self.application)
+
+        response = self.client.patch(self.url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, msg=f"error: {response.data}")
+
+        # Check the field has been updated.
+        self.refresh_application()
+        self.assertEqual(self.application.deceased.first_name, data["deceased"]['first_name'])
+        self.assertEqual(self.application.deceased.last_name, data["deceased"]['last_name'])
+
+        # Check that no other fields have changed.
+        self.assertOtherFieldsUnchanged(old_instance, ['deceased', 'last_updated_by'])
+
+        # Checking if deceased is updated not created new one and assigned
+        self.assertEqual(self.application.deceased.id, self.deceased.id)
+        dec = Deceased.objects.all()
+        self.assertEqual(dec.count(), 1)
+
+    # Test 'dispute' field
+    def test_update_dispute(self):
+        data = {
+            "dispute": {
+                "details": "New dispute"
+            }
+        }
+
+        old_instance = deepcopy(self.application)
+
+        response = self.client.patch(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, msg=f"error: {response.data}")
+
+        # Check the field has been updated.
+        self.refresh_application()
+        self.assertEqual(self.application.dispute.details, data["dispute"]['details'])
+
+        # Check that no other fields have changed.
+        self.assertOtherFieldsUnchanged(old_instance, ['dispute', 'last_updated_by'])
+
+        # Check that no other fields have changed.
+        self.assertOtherFieldsUnchanged(old_instance, ['deceased', 'last_updated_by'])
+
+        # Checking if dispute is updated not created new one and assigned
+        self.assertEqual(self.application.dispute.id, self.dispute.id)
+        dis = Dispute.objects.all()
+        self.assertEqual(dis.count(), 1)

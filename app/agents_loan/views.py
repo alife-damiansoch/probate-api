@@ -55,9 +55,9 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
         tags=['agent_application']
     )
 )
-class ApplicationViewSet(viewsets.ModelViewSet):
+class AgentApplicationViewSet(viewsets.ModelViewSet):
     """Viewset for applications"""
-    serializer_class = serializers.ApplicationDetailSerializer
+    serializer_class = serializers.AgentApplicationDetailSerializer
     queryset = models.Application.objects.all()
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, IsStaff]
@@ -68,7 +68,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         """Return serializer class for the requested model."""
         if self.action == 'list':
-            return serializers.ApplicationSerializer
+            return serializers.AgentApplicationSerializer
         return self.serializer_class
 
     def perform_create(self, serializer):
@@ -110,17 +110,9 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             log_event(request, request_body, application=instance)
             raise e
 
-    @extend_schema(exclude=True)
-    def partial_update(self, request, *args, **kwargs):
-        raise MethodNotAllowed('PATCH', detail='PATCH method is not allowed')
 
-    @property
-    def allowed_methods(self):
-        return [m for m in super().allowed_methods if m != 'PATCH']
-
-
-class DocumentUploadAndViewListForApplicationIdView(APIView):
-    serializer_class = serializers.DocumentSerializer
+class AgentDocumentUploadAndViewListForApplicationIdView(APIView):
+    serializer_class = serializers.AgentDocumentSerializer
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, IsStaff]
 
@@ -151,7 +143,7 @@ class DocumentUploadAndViewListForApplicationIdView(APIView):
         tags=["document_agent"],
     )
     def post(self, request, application_id):
-        serializer = serializers.DocumentSerializer(data=request.data)
+        serializer = serializers.AgentDocumentSerializer(data=request.data)
 
         if serializer.is_valid():
             # store application instance for logging purpose
@@ -172,8 +164,8 @@ class DocumentUploadAndViewListForApplicationIdView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class DocumentDeleteView(APIView):
-    serializer_class = serializers.DocumentSerializer
+class AgentDocumentDeleteView(APIView):
+    serializer_class = serializers.AgentDocumentSerializer
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, IsStaff]
 

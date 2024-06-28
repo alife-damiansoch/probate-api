@@ -12,11 +12,11 @@ from expense.serializers import ExpenseSerializer
         description='Returns  all expenses.',
         tags=['expenses'],
     ),
-    retrieve=extend_schema(
-        summary='Retrieve an expense ',
-        description='Returns detailed information about an expenses.',
-        tags=['expenses'],
-    ),
+    # retrieve=extend_schema(
+    #     summary='Retrieve an expense ',
+    #     description='Returns detailed information about an expenses.',
+    #     tags=['expenses'],
+    # ),
 
     create=extend_schema(
         summary='Create an new expense',

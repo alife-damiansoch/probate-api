@@ -11,10 +11,10 @@ from event.serializers import EventSerializer
 @extend_schema_view(
     list=extend_schema(
         summary='Retrieve all events {-Works only for staff users-}',
-        description='Returns  all events.',
+        description='Returns all events.',
+        operation_id='applications_events_list',
         tags=['events'],
     ),
-
 )
 class EventViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """
@@ -29,10 +29,10 @@ class EventViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 @extend_schema_view(
     list=extend_schema(
         summary='Retrieve all events for given application. {-Works only for staff users-}',
-        description='Returns  all events for given application.',
+        description='Returns all events for given application.',
+        operation_id='applications_events_list_by_appication',
         tags=['events'],
     ),
-
 )
 class EventByApplicationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """

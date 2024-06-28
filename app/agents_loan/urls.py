@@ -10,17 +10,17 @@ from agents_loan import views
 
 router = DefaultRouter()
 
-router.register('applications/agent_applications', views.ApplicationViewSet, basename='agent_application')
+router.register('applications/agent_applications', views.AgentApplicationViewSet, basename='agent_application')
 
 app_name = 'agents_loan'
 
 urlpatterns = [
     path('', include(router.urls)),
     path('applications/agent_applications/document_file/delete/<int:document_id>/',
-         views.DocumentDeleteView.as_view(),
+         views.AgentDocumentDeleteView.as_view(),
          name='agents-document-delete-view'),
     path('applications/agent_applications/document_file/<int:application_id>/',
-         views.DocumentUploadAndViewListForApplicationIdView.as_view(),
+         views.AgentDocumentUploadAndViewListForApplicationIdView.as_view(),
          name='agent_application-upload-document'),
 
 ]

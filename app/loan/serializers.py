@@ -1,6 +1,8 @@
 """
 Serializers for the Loan APIs
 """
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from core.models import (Loan, Transaction, LoanExtension)
 
@@ -40,6 +42,11 @@ class LoanExtensionSerializer(serializers.ModelSerializer):
 
 
 class LoanSerializer(serializers.ModelSerializer):
+    amount_paid = serializers.SerializerMethodField()
+    extension_fees_total = serializers.SerializerMethodField()
+    current_balance = serializers.SerializerMethodField()
+    maturity_date = serializers.SerializerMethodField()
+
     class Meta:
         model = Loan
         fields = ['id', 'amount_agreed', 'fee_agreed', 'amount_paid', 'extension_fees_total', 'current_balance',
@@ -48,3 +55,19 @@ class LoanSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'extension_fees_total', 'current_balance', 'maturity_date', 'approved_by',
                             'last_updated_by']
         extra_kwargs = {"application": {'required': True}}
+
+    @extend_schema_field(OpenApiTypes.NUMBER)
+    def get_amount_paid(self, obj):
+        return obj.amount_paid
+
+    @extend_schema_field(OpenApiTypes.NUMBER)
+    def get_extension_fees_total(self, obj):
+        return obj.extension_fees_total
+
+    @extend_schema_field(OpenApiTypes.NUMBER)
+    def get_current_balance(self, obj):
+        return obj.current_balance
+
+    @extend_schema_field(OpenApiTypes.DATE)
+    def get_maturity_date(self, obj):
+        return obj.maturity_date

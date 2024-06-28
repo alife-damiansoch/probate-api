@@ -1,3 +1,5 @@
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from core.models import Comment
 
@@ -20,8 +22,10 @@ class CommentSerializer(serializers.ModelSerializer):
 
         return fields
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_created_by_email(self, obj):
         return obj.created_by.email if obj.created_by else None
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_updated_by_email(self, obj):
         return obj.updated_by.email if obj.updated_by else None
