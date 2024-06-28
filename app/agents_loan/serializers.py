@@ -46,7 +46,8 @@ class ApplicationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Application
-        fields = ['id', 'amount', 'term', 'approved', 'date_submitted', 'undertaking_ready',
+        fields = ['id', 'amount', 'term', 'approved', 'is_rejected', 'rejected_date', 'rejected_reason',
+                  'date_submitted', 'undertaking_ready',
                   'loan_agreement_ready']
         read_only_fields = ('id', 'approved', 'last_updated_by', 'date_submitted', 'assigned_to', 'undertaking_ready',
                             'loan_agreement_ready')

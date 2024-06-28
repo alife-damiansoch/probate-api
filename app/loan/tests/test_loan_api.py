@@ -172,8 +172,6 @@ class PrivateLoanAPI(APITestCase):
         }
         response = self.client.post(self.LOANS_URL, data)
 
-        print(response.data)
-
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, f"error: {response.data}")
         loan = Loan.objects.get(id=response.data['id'])
         serializer = LoanSerializer(loan)

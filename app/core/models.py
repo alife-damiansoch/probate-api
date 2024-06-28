@@ -105,6 +105,10 @@ class Dispute(models.Model):
         return self.details
 
 
+class RejectionReason(models.Model):
+    reason_text = models.CharField(max_length=255)
+
+
 class Application(models.Model):
     """Application model"""
     amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -124,6 +128,9 @@ class Application(models.Model):
     loan_agreement_ready = models.BooleanField(default=False)
     assigned_to = ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, default=None,
                              related_name='assigned_applications_set')
+    is_rejected = models.BooleanField(default=False)
+    rejected_reason = models.ForeignKey(RejectionReason, on_delete=models.PROTECT, null=True, blank=True, default=None)
+    rejected_date = models.DateField(null=True, blank=True, default=None)
 
     def value_of_the_estate_after_expenses(self):
         estates_sum = self.estates.aggregate(total_estate_value=Sum('value'))['total_estate_value'] or 0

@@ -1,6 +1,7 @@
 """
 Test transaction api
 """
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -155,6 +156,27 @@ class PrivateTransactionAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         serializer = TransactionSerializer(transaction1)
         self.assertEqual(response.data, serializer.data)
+
+    def test_create_transaction(self):
+        """test for creating a new transaction"""
+        app = create_application(user=self.user)
+        loan = create_test_loan(self.user, application=app)
+        payload = {
+            "loan": loan.id,
+            "amount": 1500.00,
+            "description": "test description",
+        }
+        response = self.client.post(self.Transaction_URL, payload)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, f"error: {response.data}")
+        self.assertEqual(response.data['loan'], loan.id)
+        self.assertEqual(Decimal(response.data['amount']), Decimal(payload['amount']))
+        self.assertEqual(response.data['description'], payload['description'])
+        loan.refresh_from_db()
+        self.assertEqual(Decimal(loan.current_balance),
+                         Decimal(loan.amount_agreed) + Decimal(loan.fee_agreed) - Decimal(payload['amount']))
+        self.assertEqual(Decimal(loan.amount_paid), Decimal(payload['amount']))
+        self.assertEqual(response.data["created_by"], self.user.id)
 
     def test_delete_transaction(self):
         """test deleting transaction"""

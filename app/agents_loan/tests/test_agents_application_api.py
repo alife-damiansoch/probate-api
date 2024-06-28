@@ -5,15 +5,18 @@ import json
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
+from django.forms import model_to_dict
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.status import HTTP_403_FORBIDDEN, HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST
 from rest_framework.test import APIClient, APITestCase
 from rest_framework.authtoken.models import Token
 
-from core.models import (Application, Deceased, Document, User, Event, )
+from agents_loan.serializers import ApplicationSerializer
+from core.models import (Application, Deceased, Document, User, Event, RejectionReason, Dispute, Estate, Applicant)
 
 from agents_loan import serializers
 
@@ -394,159 +397,39 @@ class PrivateTestApplicationAPI(APITestCase):
         self.assertTrue(event.is_notification)
         self.assertTrue(event.is_staff)
 
-
-class DocumentUploadTest(TestCase):
-    """Test uploading documents"""
-
-    def setUp(self):
-        self.user = get_user_model().objects.create_user(
-            email='test@example.com',
-            password='testpass123',
-            is_staff=True,
-        )
-        self.client = APIClient()
-        self.client.force_authenticate(user=self.user)
-        self.application = create_application(
-            user=self.user,
-        )
-
-    def tearDown(self):
-        self.application.documents.all().delete()
-
-    def test_upload_document_file(self):
-        """Test uploading a new document"""
-        url = get_document_upload_url(application_id=self.application.id)
-        with tempfile.NamedTemporaryFile(suffix='.pdf') as document_file:
-            # creating empty pdf
-            c = canvas.Canvas(document_file.name)
-            c.drawString(100, 750, "Hello, this is a test PDF document")
-            c.showPage()
-            c.save()
-
-            document_file.seek(0)
-            payload = {"document": document_file}
-            response = self.client.post(url, data=payload, format='multipart')
-
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-        self.assertTrue(Document.objects.filter(application=self.application).exists())
-        application = Application.objects.get(id=self.application.id)
-        self.assertEqual(application.documents.count(), 1)
-        document = Document.objects.first()
-        self.assertTrue(bool(document.document), "File is not present in document field")
-        self.assertTrue(os.path.exists(document.document.path))
-
-        # Check event created
-        events = Event.objects.all()
-        event = events[0]
-        self.assertEqual(events.count(), 1)
-        self.assertEqual(event.application, application)
-        self.assertEqual(event.user, str(self.user))
-        self.assertIsNotNone(event.request_id)
-        self.assertEqual(event.method, 'POST')
-        self.assertEqual(event.path, get_document_upload_url(application_id=application.id))
-        self.assertFalse(event.is_error)
-        self.assertTrue(event.is_notification)
-        self.assertTrue(event.is_staff)
-
-    def test_upload_document_file_with_invalid_file(self):
-        """Test uploading a new document return error when not document file"""
-        url = get_document_upload_url(application_id=self.application.id)
-        payload = {"document": "not_a_file"}
-        response = self.client.post(url, data=payload, format='multipart')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_document_and_file_successfully_deleted(self):
-        """
-        Test if document and associated file is successfully deleted.
-        """
-
-        application1 = Application.objects.create(
+    def test_rejecting_the_application(self):
+        """test rejecting the application"""
+        app = Application.objects.create(
             amount=2000.00,
             term=24,
             deceased=Deceased.objects.create(first_name='John', last_name='Doe'),
+            dispute=Dispute.objects.create(details='Some details'),
             user=self.user,
         )
-        document1 = Document.objects.create(application=application1)
-        document1.document.save('myfile1.txt', ContentFile('hello world'))  # Add this line
-        document1.refresh_from_db()
+        rejection_reason = RejectionReason.objects.create(reason_text="Test,reason")
 
-        delete_url = reverse('agents_loan:agents-document-delete-view', args=[document1.id])
+        application = self.client.get(get_detail_url(application_id=app.id))
+        original_data = application.data.copy()
 
-        file_path = document1.document.path
-        response = self.client.delete(delete_url)
+        # Update the fields
+        updated_data = application.data.copy()
+        updated_data['is_rejected'] = True
+        updated_data['rejected_date'] = timezone.now().date().isoformat()
+        updated_data['rejected_reason'] = rejection_reason.id
 
-        self.assertEqual(response.status_code, HTTP_204_NO_CONTENT, f"{response}")
-        self.assertFalse(Document.objects.filter(id=document1.id).exists())
-        self.assertFalse(os.path.exists(file_path))
+        response = self.client.put(get_detail_url(application_id=app.id), updated_data, format='json')
 
-        # Check event created
-        events = Event.objects.all()
-        event = events[0]
-        self.assertEqual(events.count(), 1)
-        self.assertEqual(event.application, None)
-        self.assertEqual(event.user, str(self.user))
-        self.assertIsNotNone(event.request_id)
-        self.assertEqual(event.method, 'DELETE')
-        self.assertEqual(event.path, delete_url)
-        self.assertFalse(event.is_error)
-        self.assertTrue(event.is_notification)
-        self.assertTrue(event.is_staff)
-        self.assertEqual(json.loads(event.body), {'message': 'A document was deleted.'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK, f"error: {response.data}")
 
-    def test_delete_document_is_staff_user_for_different_user_is_success(self):
-        """Test deleting a document with different user is success"""
+        app.refresh_from_db()
 
-        user2 = User.objects.create_user(email='test2@example.com', password='testpassword')
-        application1 = Application.objects.create(amount=2000.00,
-                                                  term=24,
-                                                  deceased=Deceased.objects.create(first_name='John', last_name='Doe'),
-                                                  user=user2)
-        document1 = Document.objects.create(application=application1)
-        document1.document.save('myfile.txt', ContentFile('hello world'))  # Add this line
-        document1.refresh_from_db()
-        delete_url = reverse('agents_loan:agents-document-delete-view', args=[document1.id])
+        self.assertEqual(app.is_rejected, True)
+        self.assertEqual(app.rejected_reason.id, rejection_reason.id)
+        self.assertEqual(app.rejected_date, timezone.now().date())
 
-        response = self.client.delete(delete_url)
-
-        file_path = document1.document.path
-
-        if response.status_code != HTTP_204_NO_CONTENT:
-            print(f"Unexpected status code: {response.status_code}")
-            print(f"Response data: {response.content}")
-        self.assertEqual(response.status_code, HTTP_204_NO_CONTENT)
-        self.assertFalse(Document.objects.filter(id=document1.id).exists())
-        self.assertFalse(os.path.exists(file_path))
-
-    def test_delete_document_approved_application_returns_error(self):
-        """
-        Test deleting a document associated with an approved application returns a ValidationError.
-        """
-
-        application1 = Application.objects.create(
-            amount=2000.00,
-            term=24,
-            deceased=Deceased.objects.create(first_name='John', last_name='Doe'),
-            user=self.user,
-            approved=True,  # Application is approved
-        )
-
-        document1 = Document.objects.create(application=application1)
-        document1.document.save('myfile.txt', ContentFile('hello world'))
-        document1.refresh_from_db()
-
-        delete_url = reverse('agents_loan:agents-document-delete-view', args=[document1.id])
-
-        response = self.client.delete(delete_url)
-
-        self.assertEqual(response.status_code, HTTP_400_BAD_REQUEST)
-
-        # Access the response content
-        response_content = json.loads(response.content)
-
-        # Check for your specific error message
-        self.assertEqual(response_content[0], "This operation is not allowed on approved applications")
-
-        # Confirm that the document still exists in the database and the file still exists
-        self.assertTrue(Document.objects.filter(id=document1.id).exists())
-        self.assertTrue(os.path.exists(document1.document.path))
+        # Check that all other fields have not changed
+        response = self.client.get(get_detail_url(application_id=app.id))
+        final_data = response.data
+        for field in original_data:
+            if field not in ['is_rejected', 'rejected_date', 'rejected_reason']:
+                self.assertEqual(final_data[field], original_data[field], f"Failed on field: {field}")

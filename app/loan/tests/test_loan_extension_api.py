@@ -164,6 +164,26 @@ class PrivateLoanExtensionAPITestCase(APITestCase):
         serializer = LoanExtensionSerializer(ext1)
         self.assertEqual(response.data, serializer.data)
 
+    def test_create_loan_extension(self):
+        app = create_application(user=self.user)
+        loan = create_test_loan(self.user, application=app)
+        payload = {
+            "loan": loan.id,
+            "extension_term_months": 3,
+            "extension_fee": 1000,
+            "description": "Test loan extension",
+        }
+        response = self.client.post(self.LOAN_EXTENSION_URL, payload)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        loan_extension = LoanExtension.objects.get(id=response.data['id'])
+        self.assertEqual(loan_extension.loan, loan)
+        self.assertEqual(loan_extension.extension_term_months, payload['extension_term_months'])
+        self.assertEqual(loan_extension.extension_fee, payload['extension_fee'])
+        self.assertEqual(loan_extension.description, payload['description'])
+        self.assertAlmostEquals(loan_extension.created_date.date(), timezone.now().date())
+        self.assertEqual(loan_extension.created_by, self.user)
+
     def test_delete_loan_extension(self):
         """test deleting loan extension"""
         app = create_application(user=self.user)
