@@ -5,3 +5,4 @@ drf-spectacular>=0.15.1,<0.16
 django-auditlog==3.0.0
 reportlab==4.2.0
 django-admin-rangefilter==0.13.0
+uwsgi>=2.0.19,<2.1
