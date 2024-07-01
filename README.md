@@ -1,7 +1,9 @@
 # probate_api
+
 api for the probate app
 
 ### Docker commands:
+
     -   docker-compose run --rm app sh -c "django-admin startproject app ." - starting the app for the first time
 
     -   docker-compose up
@@ -34,3 +36,9 @@ api for the probate app
 
                 -   docker volume ls - to list the volumes
                 -   docker volume rm probate-project-try_dev-db-data - the name of the volume
+
+## - after deployment settings are completed you can run this to check if everything works
+
+#### - you change the port in you docker-compose-deploy to 80:8000 (remember to change it back after the test)
+
+        -   docker-compose -f docker-compose-deploy.yml up - you change the port in 
