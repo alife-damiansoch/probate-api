@@ -108,6 +108,9 @@ class Dispute(models.Model):
 class RejectionReason(models.Model):
     reason_text = models.CharField(max_length=255)
 
+    def __str__(self):
+        return self.reason_text
+
 
 class Application(models.Model):
     """Application model"""

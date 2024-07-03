@@ -104,12 +104,13 @@ class ApplicationAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {"fields": ("amount", "term", "user", "deceased", "dispute", "assigned_to", "last_updated_by",)}),
-        (_("Details"), {"fields": ("approved", "undertaking_ready", "loan_agreement_ready",)}),
+        (_("Details"), {"fields": (
+        "approved", "is_rejected", "rejected_reason", "rejected_date", "undertaking_ready", "loan_agreement_ready",)}),
     )
 
     readonly_fields = (
         'id', 'last_updated_by', 'deceased_full_name', 'dispute_details', 'date_submitted', 'deceased', 'dispute',
-        'user')
+        'user', "rejected_date")
     search_fields = ["id", ]
     list_display = ("id", "user", "assigned_to", "deceased_full_name", "dispute_details")
 
