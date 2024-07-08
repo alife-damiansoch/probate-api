@@ -7,6 +7,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from solicitors_loan import views
+from solicitors_loan.views import DownloadFileView
 
 router = DefaultRouter()
 
@@ -23,5 +24,6 @@ urlpatterns = [
     path('applications/solicitor_applications/document_file/<int:application_id>/',
          views.SolicitorDocumentUploadAndViewListForApplicationIdView.as_view(),
          name='solicitor_application-upload-document'),
+    path('download/<str:filename>/', DownloadFileView.as_view(), name='download-file'),
 
 ]

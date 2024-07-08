@@ -30,6 +30,10 @@ server {
         alias /vol/static;
     }
 
+    location /static/media/uploads/ {
+        deny all;
+    }
+
     location / {
         uwsgi_pass              ${APP_HOST}:${APP_PORT};
         include                 /etc/nginx/uwsgi_params;

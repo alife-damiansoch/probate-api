@@ -6,15 +6,17 @@ services:
       context: .
       args:
         - DEV=true
-    ports:
-      - "8000:8000"
+    #    commented out to use the proxy in dev as well
+    #    ports:
+    #      - "8000:8000"
     volumes:
       - ./app:/app
       - dev-static-data:/vol/web
-    command: >
-      sh -c "python manage.py wait_for_db &&
-      python manage.py migrate &&
-      python manage.py runserver 0.0.0.0:8000"
+    #    commented out to use the proxy in dev as well
+    #    command: >
+    #      sh -c "python manage.py wait_for_db &&
+    #      python manage.py migrate &&
+    #      python manage.py runserver 0.0.0.0:8000"
     environment:
       - DB_HOST=db
       - DB_NAME=devdb
@@ -32,6 +34,17 @@ services:
       - POSTGRES_DB=devdb
       - POSTGRES_USER=devuser
       - POSTGRES_PASSWORD=changeme
+
+  proxy:
+    build:
+      context: ./proxy
+    restart: always
+    depends_on:
+      - app
+    ports:
+      - "8000:8000"
+    volumes:
+      - dev-static-data:/vol/static
 
 volumes:
   dev-db-data:

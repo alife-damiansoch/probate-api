@@ -2,7 +2,9 @@
 Views for solicitors_application API
 """
 from django.core.files.uploadedfile import InMemoryUploadedFile
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse, Http404, HttpResponse, HttpResponseNotFound
+
+import os
 
 from rest_framework import (viewsets, status)
 from rest_framework.authentication import TokenAuthentication
@@ -11,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from app import settings
 from app.utils import log_event
 from solicitors_loan import serializers
 from core import models
@@ -193,3 +196,19 @@ class SolicitorDocumentDeleteView(APIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except models.Document.DoesNotExist:
             raise NotFound("Document with given id does not exist")
+
+
+class DownloadFileView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, filename):
+        file_path = os.path.join(settings.MEDIA_ROOT, 'uploads', 'application', filename)
+
+        if os.path.exists(file_path):
+            with open(file_path, 'rb') as file:
+                response = HttpResponse(file.read(), content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+        else:
+            return HttpResponseNotFound("File not found.")
