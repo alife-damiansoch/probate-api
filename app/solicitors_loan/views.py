@@ -2,7 +2,7 @@
 Views for solicitors_application API
 """
 from django.core.files.uploadedfile import InMemoryUploadedFile
-from django.http import JsonResponse, Http404, HttpResponse, HttpResponseNotFound
+from django.http import JsonResponse, Http404, HttpResponse, HttpResponseNotFound, HttpResponseForbidden
 
 import os
 
@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 
 from app import settings
 from app.utils import log_event
+from core.models import Document
 from solicitors_loan import serializers
 from core import models
 from solicitors_loan.permissions import IsNonStaff
@@ -203,12 +204,23 @@ class DownloadFileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, filename):
-        file_path = os.path.join(settings.MEDIA_ROOT, 'uploads', 'application', filename)
+        try:
+            document = Document.objects.get(document__endswith=filename)
+            application = document.application
 
-        if os.path.exists(file_path):
-            with open(file_path, 'rb') as file:
-                response = HttpResponse(file.read(), content_type='application/pdf')
-                response['Content-Disposition'] = f'attachment; filename="{filename}"'
-                return response
-        else:
+            # Check if the user is not staff and does not own the application
+            if not request.user.is_staff and application.user != request.user:
+                return HttpResponseForbidden("You do not have permission to access this file.")
+
+            file_path = os.path.join(settings.MEDIA_ROOT, 'uploads', 'application', filename)
+
+            if os.path.exists(file_path):
+                with open(file_path, 'rb') as file:
+                    response = HttpResponse(file.read(), content_type='application/pdf')
+                    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                    return response
+            else:
+                return HttpResponseNotFound("File not found.")
+
+        except Document.DoesNotExist:
             return HttpResponseNotFound("File not found.")
