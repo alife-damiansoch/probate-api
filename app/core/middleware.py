@@ -62,10 +62,11 @@ class CorsMiddleware(object):
             "/api/loans/"
         ]
 
-        # adds Access-Control-Allow-Headers to preflight requests,
+        # adds Access-Control-Allow-Headers and Access-Control-Allow-Methods to preflight requests,
         # allowing content-type and authorization headers in the actual requests.
         if request.method == 'OPTIONS':
             response['Access-Control-Allow-Headers'] = 'content-type, authorization'
+            response['Access-Control-Allow-Methods'] = 'GET, POST, PATCH, PUT, DELETE, OPTIONS'
 
         if any(path in request.path for path in allow_all_origins_paths):
             response['Access-Control-Allow-Origin'] = '*'
@@ -73,4 +74,5 @@ class CorsMiddleware(object):
             origin = request.META.get('HTTP_ORIGIN')
             if origin in restricted_origins:
                 response['Access-Control-Allow-Origin'] = origin
+
         return response

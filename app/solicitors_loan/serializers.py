@@ -44,14 +44,16 @@ class SolicitorEstateSerializer(serializers.ModelSerializer):
 
 class SolicitorApplicationSerializer(serializers.ModelSerializer):
     """serializer for application list"""
+    applicants = SolicitorApplicantSerializer(
+        many=True, required=True)
 
     class Meta:
         model = Application
         fields = ['id', 'amount', 'term', 'approved', 'is_rejected', 'rejected_date', 'rejected_reason',
-                  'date_submitted', 'undertaking_ready',
+                  'date_submitted', 'undertaking_ready', 'applicants',
                   'loan_agreement_ready']
         read_only_fields = ('id', 'approved', 'last_updated_by', 'date_submitted', 'assigned_to', 'undertaking_ready',
-                            'loan_agreement_ready', 'is_rejected', 'rejected_date', 'rejected_reason')
+                            'loan_agreement_ready', 'is_rejected', 'rejected_date', 'rejected_reason', 'applicants')
 
 
 class SolicitorApplicationDetailSerializer(SolicitorApplicationSerializer):
