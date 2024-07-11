@@ -116,3 +116,41 @@ class PublicCustomUserTests(TestCase):
         """Test authentication is required for users"""
         res = self.client.get(ME_URL)
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_create_user_with_invalid_phone_number_fails(self):
+        """Test creating user with invalid phone number fails"""
+        payload = {
+
+            "email": "test@example.com",
+            "password": "testpass123",
+            "name": "Test Name",
+            "phone_number": "1234567890",  # Invalid number format
+        }
+        res = self.client.post(CREATE_USER_URL, payload)
+
+        self.assertEqual(res.status_code,
+                         status.HTTP_400_BAD_REQUEST)  # Expect Bad request error due to invalid phone number
+
+    def test_create_user_with_foreign_country_code_fails(self):
+        """Test creating user with phone number of foreign country code fails"""
+        payload = {
+            "email": "test@example.com",
+            "password": "testpass123",
+            "name": "Test Name",
+            "phone_number": "+12021234567",  # US number format
+        }
+        res = self.client.post(CREATE_USER_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)  # Expect bad request due to foreign country code
+
+    def test_create_user_with_country_code_fails(self):
+        """Test creating user with phone number with country code fails"""
+        payload = {
+            "email": "test@example.com",
+            "password": "testpass123",
+            "name": "Test Name",
+            "phone_number": "+353831234567",  # Mobile number with country code
+        }
+        res = self.client.post(CREATE_USER_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)  # Expect bad request due to country code

@@ -5,6 +5,10 @@ from django.contrib.auth import get_user_model
 from rest_framework import generics, authentication, permissions
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.settings import api_settings
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+
+from rest_framework import status
 
 from core.models import User
 from user.serializers import (UserSerializer,
@@ -27,6 +31,22 @@ class CreateUserView(generics.CreateAPIView):
     """Create a new user in the system"""
     serializer_class = UserSerializer
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except ValidationError as e:
+            errors = dict(e.detail)  # Replace 'e' with 'e.detail'
+            for key, value in errors.items():
+                if isinstance(value, list):
+                    for i, message in enumerate(value):
+                        sentences = [sent.strip() for sent in message.split('.')]
+                        value[i] = sentences
+            raise ValidationError(errors)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class CreateTokenView(ObtainAuthToken):
     """Create a new auth token"""
@@ -43,6 +63,23 @@ class ManageUserView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         """Retrieve the authenticated user"""
         return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except ValidationError as e:
+            errors = dict(e.detail)  # Replace 'e' with 'e.detail'
+            for key, value in errors.items():
+                if isinstance(value, list):
+                    for i, message in enumerate(value):
+                        sentences = [sent.strip() for sent in message.split('.')]
+                        value[i] = sentences
+            raise ValidationError(errors)
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
 
 # list only solicitors

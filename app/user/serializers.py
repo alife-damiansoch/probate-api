@@ -6,6 +6,10 @@ from django.utils.translation import gettext as _
 
 from core.models import Team, Address, User
 
+import re
+
+from django.core.exceptions import ValidationError
+
 
 class TeamSerializer(serializers.ModelSerializer):
     class Meta:
@@ -50,9 +54,16 @@ class UserSerializer(serializers.ModelSerializer):
                 address = None  # assigning None to address if address_data is None
         else:
             address = None  # if no address is provided in validated_data, assign None to address
+
         validated_data.pop('team')
 
+        phone_number = validated_data.pop('phone_number', None)
+        if phone_number and not phone_number.startswith('+'):
+            phone_number = '+353' + phone_number.lstrip('0')
+        validated_data['phone_number'] = phone_number
+
         user = User.objects.create(address=address, **validated_data)
+
         if password:
             user.set_password(password)
             user.save()
@@ -75,6 +86,11 @@ class UserSerializer(serializers.ModelSerializer):
             else:  # address_data is None, then do not change address
                 pass
 
+        phone_number = validated_data.pop('phone_number', None)
+        if phone_number and not phone_number.startswith('+'):
+            phone_number = '+353' + phone_number.lstrip('0')
+        instance.phone_number = phone_number
+
         user = super().update(instance, validated_data)
 
         if password:
@@ -82,6 +98,18 @@ class UserSerializer(serializers.ModelSerializer):
             user.save()
 
         return user
+
+    def validate_phone_number(self, value):
+        """Validate Irish phone numbers."""
+        pattern = r"^((0((1)|[2-9]\d))\d{5,7}|(083|085|086|087|089)\d{7})$"
+        if not re.match(pattern, value):
+            raise ValidationError(
+                "Invalid Irish phone number. "
+                "Mobile numbers must follow the format 083/085/086/087/089 followed by 7 digits. "
+                "Landline numbers must start with area codes 01 to 095 followed by 5 to 7 digits. "
+                "Please do not include the country code (+353)."
+            )
+        return value
 
 
 class AuthTokenSerializer(serializers.Serializer):
