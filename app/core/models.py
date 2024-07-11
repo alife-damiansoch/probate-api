@@ -16,6 +16,8 @@ from django.conf import settings
 
 import uuid
 import os
+import re
+from django.core.exceptions import ValidationError
 
 from django.utils.functional import cached_property
 
@@ -27,6 +29,30 @@ def get_application_document_file_path(instance, filename):
     filename = f"{uuid.uuid4()}{ext}"
 
     return os.path.join('uploads', 'application', filename)
+
+
+def validate_eircode(value):
+    value = value.upper()  # Convert to uppercase
+    """Check if the given value is a valid Eircode"""
+    # Regular expression for the routing key (general rule)
+    rk_regex = r'^[ACDEFHKNPRTVWXY][0-9][0-9W]$'
+    # Regular expression for unique identifier
+    ui_regex = r'^[ACDEFHKNPRTVWXY0-9]{4}$'
+
+    routing_key = value[:3]  # First 3 characters
+    unique_identifier = value[3:]  # Last 4 characters
+
+    if not re.match(rk_regex, routing_key):
+        raise ValidationError(
+            f'{value} is not a valid Eircode, invalid routing key',
+            params={'value': value},
+        )
+
+    if not re.match(ui_regex, unique_identifier):
+        raise ValidationError(
+            f'{value} is not a valid Eircode, invalid unique identifier',
+            params={'value': value},
+        )
 
 
 # region <Creating custom user model in django with extra fields name and team>
@@ -65,7 +91,7 @@ class Address(models.Model):
     line2 = models.CharField(max_length=255, blank=True)
     town_city = models.CharField(max_length=50)
     county = models.CharField(max_length=50)
-    eircode = models.CharField(max_length=7)
+    eircode = models.CharField(max_length=7, validators=[validate_eircode])
 
     def __str__(self):
         return f'{self.line1}, {self.town_city}, {self.county}, {self.eircode}'
