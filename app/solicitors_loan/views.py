@@ -22,6 +22,10 @@ from solicitors_loan.permissions import IsNonStaff
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
+from rest_framework.exceptions import ValidationError as DRFValidationError
+from django.db import transaction
+import re
+
 
 @extend_schema_view(
     list=extend_schema(
@@ -75,10 +79,23 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
             return serializers.SolicitorApplicationSerializer
         return self.serializer_class
 
+    def validate_applicants(self, applicants_data):
+        """Validate the PPS numbers of the applicants."""
+        pps_regex = re.compile(r'^\d{7}[A-Z]{1,2}$')
+        for applicant in applicants_data:
+            pps_number = applicant.get('pps_number')
+            if not pps_regex.match(pps_number):
+                raise DRFValidationError({
+                    'pps_number': 'PPS Number must be 7 digits followed by 1 or 2 letters.'
+                })
+
+    @transaction.atomic
     def perform_create(self, serializer):
         """Create a new application."""
         request_body = self.request.data
-        """Create a new application."""
+        applicants_data = request_body.get('applicants', [])
+        self.validate_applicants(applicants_data)
+
         try:
             serializer.save(user=self.request.user)
             log_event(self.request, request_body, serializer.instance)
@@ -86,13 +103,17 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
             log_event(self.request, request_body, application=serializer.instance)
             raise e  # Re-raise the caught exception
 
+    @transaction.atomic
     def perform_update(self, serializer):
-        """when updating an application."""
+        """Update an existing application."""
         request_body = self.request.data
+        applicants_data = request_body.get('applicants', [])
+        self.validate_applicants(applicants_data)
+
         try:
             instance = self.get_object()
             if instance.approved:
-                raise ValidationError("This operation is not allowed on approved applications")
+                raise DRFValidationError("This operation is not allowed on approved applications")
             else:
                 serializer.save(last_updated_by=self.request.user)
                 log_event(self.request, request_body, serializer.instance)
@@ -100,13 +121,14 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
             log_event(self.request, request_body, application=serializer.instance)
             raise e
 
+    @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         request_body = self.request.data
         instance = None
         try:
             instance = self.get_object()
             if instance.approved:
-                raise ValidationError("This operation is not allowed on approved applications")
+                raise DRFValidationError("This operation is not allowed on approved applications")
             else:
                 result = super().destroy(request, *args, **kwargs)  # carry out the deletion
                 log_event(request, request_body)  # log after deletion is done

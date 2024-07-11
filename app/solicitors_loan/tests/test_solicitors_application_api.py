@@ -17,7 +17,7 @@ from solicitors_loan import serializers
 
 from decimal import Decimal
 
-from django.utils import timezone
+from copy import deepcopy
 
 
 def get_detail_url(application_id):
@@ -390,7 +390,139 @@ class PrivateTestApplicationAPI(APITestCase):
         self.assertFalse(event.is_staff)
 
 
-from copy import deepcopy
+class ApplicationApplicantsPpsAPITests(APITestCase):
+
+    def setUp(self):
+        # Create a user and authenticate for the tests
+        self.user = get_user_model().objects.create_user(
+            email='test@example.com',
+            password='testpass'
+        )
+        self.client.force_authenticate(user=self.user)
+
+        # URL for creating applications
+        self.APPLICATIONS_URL = reverse(
+            'solicitors_loan:solicitor_application-list')  # Adjust the reverse lookup name as necessary
+
+    def test_create_application_with_invalid_pps(self):
+        """Test creating a new application with an invalid PPS number"""
+        invalid_pps_numbers = [
+            '123456GGG',  # Too many letters
+            '123456',  # Not enough digits and no letters
+            'ABCDEFG',  # Only letters
+            '12345678',  # Too many digits
+        ]
+
+        for pps_number in invalid_pps_numbers:
+            data = {
+                'amount': '2000.00',
+                'term': 24,
+                'deceased': {
+                    'first_name': 'John',
+                    'last_name': 'Doe'
+                },
+                'dispute': {
+                    'details': 'Some details'
+                },
+                'applicants': [
+                    {
+                        'title': 'Mr',
+                        'first_name': 'John',
+                        'last_name': 'Doe',
+                        'pps_number': pps_number
+                    }
+                ],
+                'estates': [
+                    {
+                        'description': 'Some estate',
+                        'value': '20000.00'
+                    }
+                ],
+            }
+
+            response = self.client.post(self.APPLICATIONS_URL, data, format='json')
+
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn('pps_number', response.data)
+            self.assertEqual(str(response.data['pps_number']).strip(),
+                             'PPS Number must be 7 digits followed by 1 or 2 letters.')
+
+    def test_update_application_with_invalid_pps(self):
+        """Test updating an application with an invalid PPS number"""
+        # Create a valid application first
+        valid_data = {
+            'amount': '2000.00',
+            'term': 24,
+            'deceased': {
+                'first_name': 'John',
+                'last_name': 'Doe'
+            },
+            'dispute': {
+                'details': 'Some details'
+            },
+            'applicants': [
+                {
+                    'title': 'Mr',
+                    'first_name': 'John',
+                    'last_name': 'Doe',
+                    'pps_number': '1234567A'
+                }
+            ],
+            'estates': [
+                {
+                    'description': 'Some estate',
+                    'value': '20000.00'
+                }
+            ],
+        }
+
+        response = self.client.post(self.APPLICATIONS_URL, valid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        application_id = response.data['id']
+        url = reverse('solicitors_loan:solicitor_application-detail',
+                      args=[application_id])  # Adjust the reverse lookup name as necessary
+
+        invalid_pps_numbers = [
+            '123456GGG',  # Too many letters
+            '123456',  # Not enough digits and no letters
+            'ABCDEFG',  # Only letters
+            '12345678',  # Too many digits
+        ]
+
+        for pps_number in invalid_pps_numbers:
+            update_data = {
+                'amount': '2500.00',
+                'term': 36,
+                'deceased': {
+                    'first_name': 'Jane',
+                    'last_name': 'Doe'
+                },
+                'dispute': {
+                    'details': 'Updated details'
+                },
+                'applicants': [
+                    {
+                        'title': 'Ms',
+                        'first_name': 'Jane',
+                        'last_name': 'Doe',
+                        'pps_number': pps_number
+                    }
+                ],
+                'estates': [
+                    {
+                        'description': 'Updated estate',
+                        'value': '25000.00'
+                    }
+                ],
+            }
+
+            response = self.client.put(url, update_data, format='json')
+
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn('pps_number', response.data)
+            self.assertEqual(str(response.data['pps_number']).strip(),
+                             'PPS Number must be 7 digits followed by 1 or 2 letters.')
 
 
 class ApplicationUpdateTests(APITestCase):
