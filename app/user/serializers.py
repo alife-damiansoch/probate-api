@@ -93,10 +93,6 @@ class UserSerializer(serializers.ModelSerializer):
 
         user = super().update(instance, validated_data)
 
-        if password:
-            user.set_password(password)
-            user.save()
-
         return user
 
     def validate_phone_number(self, value):
@@ -110,6 +106,11 @@ class UserSerializer(serializers.ModelSerializer):
                 "Please do not include the country code (+353)."
             )
         return value
+
+
+class UpdatePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, min_length=5)
+    new_password = serializers.CharField(required=True, min_length=5)
 
 
 class AuthTokenSerializer(serializers.Serializer):

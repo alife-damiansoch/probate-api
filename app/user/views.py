@@ -12,7 +12,7 @@ from rest_framework import status
 
 from core.models import User
 from user.serializers import (UserSerializer,
-                              AuthTokenSerializer, UserListSerializer
+                              AuthTokenSerializer, UserListSerializer, UpdatePasswordSerializer
                               )
 from .permissions import IsStaff
 
@@ -46,6 +46,36 @@ class CreateUserView(generics.CreateAPIView):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+class UpdatePasswordView(generics.UpdateAPIView):
+    serializer_class = UpdatePasswordSerializer
+    model = get_user_model()
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_object(self):
+        """
+        This method returns the logged in user
+        """
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+
+        if serializer.is_valid():
+            # Check old password
+            old_password = serializer.data.get("old_password")
+            if not self.object.check_password(old_password):
+                return Response({"old_password": ["Wrong password."]}, status=status.HTTP_400_BAD_REQUEST)
+            # Set new password
+            self.object.set_password(serializer.data.get("new_password"))
+            self.object.save()
+
+            return Response("Password updated successfully", status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CreateTokenView(ObtainAuthToken):

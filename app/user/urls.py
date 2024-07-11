@@ -14,4 +14,5 @@ urlpatterns = [
     path('', views.UserList.as_view(), name='list'),
     path('solicitors/', views.UserListNonStaff.as_view(), name='non-staff-users'),
     path('<int:pk>/', views.RetrieveUserView.as_view(), name='retrieve-user'),
+    path('update_password/', views.UpdatePasswordView.as_view(), name='update_password'),  # new password update URL
 ]
