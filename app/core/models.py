@@ -190,7 +190,9 @@ class Applicant(models.Model):
     title = models.CharField(max_length=5, choices=TITLE_CHOICES)
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
-    pps_number = models.CharField(max_length=9)
+    pps_number = models.CharField(max_length=13, error_messages={
+        'max_length': 'Ensure that PPS field has no more than 9 characters',
+    })
     application = models.ForeignKey(
         Application, on_delete=models.CASCADE, related_name='applicants')
 
