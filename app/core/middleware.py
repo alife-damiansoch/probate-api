@@ -7,6 +7,9 @@ from app.utils import log_event
 
 class LogEventOnErrorMiddleware(MiddlewareMixin):
     def process_response(self, request, response):
+        # Ignore '/favicon.ico' endpoint.
+        if request.path == '/favicon.ico':
+            return response
         if 400 <= response.status_code < 600:
 
             # Attempt to parse body JSON

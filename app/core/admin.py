@@ -105,7 +105,8 @@ class ApplicationAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {"fields": ("amount", "term", "user", "deceased", "dispute", "assigned_to", "last_updated_by",)}),
         (_("Details"), {"fields": (
-        "approved", "is_rejected", "rejected_reason", "rejected_date", "undertaking_ready", "loan_agreement_ready",)}),
+            "approved", "is_rejected", "rejected_reason", "rejected_date", "undertaking_ready",
+            "loan_agreement_ready",)}),
     )
 
     readonly_fields = (
@@ -197,9 +198,9 @@ class LoanAdmin(admin.ModelAdmin):
 
 class EventsAdmin(admin.ModelAdmin):
     ordering = ["-created_at"]
-    list_display = ["request_id", "path", 'response_status', 'response', 'created_at', 'user']
+    list_display = ["request_id", "path", 'response_status', 'response', 'created_at', 'user', 'is_error']
     list_filter = (
-        ('created_at', DateRangeFilter), 'response_status',
+        ('created_at', DateRangeFilter), 'response_status', 'is_error'
     )
     readonly_fields = [f.name for f in models.Event._meta.get_fields()]
 
