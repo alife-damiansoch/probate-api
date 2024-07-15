@@ -1,6 +1,6 @@
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from rest_framework import viewsets, mixins
-from rest_framework.authentication import TokenAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from core.models import Expense
 from expense.serializers import ExpenseSerializer
@@ -50,7 +50,7 @@ class ExpenseViewSet(mixins.ListModelMixin,
     """ViewSet for viewing Expense objects."""
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
-    authentication_classes = (TokenAuthentication,)
+    authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):

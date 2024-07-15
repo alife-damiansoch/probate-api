@@ -1,6 +1,6 @@
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from rest_framework import viewsets, mixins, permissions
-from rest_framework.authentication import TokenAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Event
@@ -22,7 +22,7 @@ class EventViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """
     queryset = Event.objects.all()
     serializer_class = EventSerializer
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated, IsStaff]
 
 
@@ -40,7 +40,7 @@ class EventByApplicationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """
     queryset = Event.objects.all()
     serializer_class = EventSerializer
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated, IsStaff]
 
     def get_queryset(self):

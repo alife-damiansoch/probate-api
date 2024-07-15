@@ -7,7 +7,7 @@ from django.http import JsonResponse, Http404, HttpResponse, HttpResponseNotFoun
 import os
 
 from rest_framework import (viewsets, status)
-from rest_framework.authentication import TokenAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -67,7 +67,7 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
     """Viewset for applications"""
     serializer_class = serializers.SolicitorApplicationDetailSerializer
     queryset = models.Application.objects.all()
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated, IsNonStaff]
 
     def get_queryset(self):
@@ -140,7 +140,7 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
 
 class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
     serializer_class = serializers.SolicitorDocumentSerializer
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated, IsNonStaff]
 
     def get_queryset(self):
@@ -192,7 +192,7 @@ class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
 
 
 class SolicitorDocumentDeleteView(APIView):
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated, IsNonStaff]
     serializer_class = serializers.SolicitorDocumentSerializer
 
@@ -222,7 +222,7 @@ class SolicitorDocumentDeleteView(APIView):
 
 
 class DownloadFileView(APIView):
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated]
 
     def get(self, request, filename):

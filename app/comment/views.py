@@ -3,7 +3,7 @@ from rest_framework.exceptions import NotFound
 
 from core.models import Comment, Application
 from .serializers import CommentSerializer
-from rest_framework.authentication import TokenAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from .permissions import IsStaff
 
@@ -64,7 +64,7 @@ class CommentListViewSet(mixins.ListModelMixin,
     """
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated, IsStaff]
 
     def _param_to_int(self, param):

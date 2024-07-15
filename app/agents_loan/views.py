@@ -5,7 +5,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.http import JsonResponse, Http404
 
 from rest_framework import (viewsets, status)
-from rest_framework.authentication import TokenAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -59,7 +59,7 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
     """Viewset for applications"""
     serializer_class = serializers.AgentApplicationDetailSerializer
     queryset = models.Application.objects.all()
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated, IsStaff]
 
     def get_queryset(self):
@@ -113,7 +113,7 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
 
 class AgentDocumentUploadAndViewListForApplicationIdView(APIView):
     serializer_class = serializers.AgentDocumentSerializer
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated, IsStaff]
 
     def get_queryset(self):
@@ -166,7 +166,7 @@ class AgentDocumentUploadAndViewListForApplicationIdView(APIView):
 
 class AgentDocumentDeleteView(APIView):
     serializer_class = serializers.AgentDocumentSerializer
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated, IsStaff]
 
     def get_document(self, document_id):

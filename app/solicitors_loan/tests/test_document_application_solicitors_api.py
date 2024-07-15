@@ -12,6 +12,7 @@ from rest_framework import status
 from rest_framework.status import HTTP_403_FORBIDDEN, HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST
 from rest_framework.test import APIClient, APITestCase
 from rest_framework.authtoken.models import Token
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.models import (Application, Deceased, Document, User, Event, )
 
@@ -122,14 +123,18 @@ class DocumentUploadTest(TestCase):
                                                   deceased=Deceased.objects.create(first_name='John', last_name='Doe'),
                                                   user=self.user, )
         document1 = Document.objects.create(application=application1)
-        token2 = Token.objects.create(user=user2)
+
+        # Replaced the token creation
+        refresh = RefreshToken.for_user(user2)  # Create a new Refresh Token for user2
+        token2 = str(refresh.access_token)  # Here is the string representation of the access token
+
         delete_url = reverse('solicitors_loan:solicitor-document-delete-view', args=[document1.id])
 
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + token2.key)  # Login as user2
+        client2.credentials(HTTP_AUTHORIZATION='Bearer ' + token2)  # Login as user2
         response = client2.delete(delete_url)
 
         # Confirm that the response status is HTTP 403 Forbidden
-        self.assertEqual(response.status_code, HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
         # Confirm that the document still exists.
         self.assertTrue(Document.objects.filter(id=document1.id).exists())
