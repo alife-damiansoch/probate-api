@@ -15,12 +15,23 @@ from django.utils.translation import gettext_lazy as _
 from core import models
 from core.models import LoanExtension, Transaction
 
+from rest_framework.authtoken.models import Token
+
 
 class UserAdmin(BaseUserAdmin):
     """Define admin pages for users"""
 
     ordering = ["id"]
     list_display = ["email", "name"]
+    actions = ['delete_selected_with_tokens']
+
+    def delete_selected_with_tokens(self, request, queryset):
+        for obj in queryset:
+            # Delete related tokens of the user
+            Token.objects.filter(user=obj).delete()  # delete relevant tokens here
+            obj.delete()
+
+    delete_selected_with_tokens.short_description = 'Delete selected users with related tokens'
 
     fieldsets = (
         (None, {"fields": ("email", "password", "team", "phone_number", "name", "address")}),

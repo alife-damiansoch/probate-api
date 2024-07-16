@@ -57,7 +57,8 @@ class CorsMiddleware(object):
             "/api/applications/solicitor_applications/",
             "/api/download/",
             "/api/user/",
-            "/api/user/token/"
+            "/api/user/token/",
+            "/api/user/token/refresh/"
         ]
 
         restricted_origins_paths = [
