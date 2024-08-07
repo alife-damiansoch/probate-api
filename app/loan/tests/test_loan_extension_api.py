@@ -181,7 +181,7 @@ class PrivateLoanExtensionAPITestCase(APITestCase):
         self.assertEqual(loan_extension.extension_term_months, payload['extension_term_months'])
         self.assertEqual(loan_extension.extension_fee, payload['extension_fee'])
         self.assertEqual(loan_extension.description, payload['description'])
-        self.assertAlmostEquals(loan_extension.created_date.date(), timezone.now().date())
+        self.assertAlmostEqual(loan_extension.created_date.date(), timezone.now().date())
         self.assertEqual(loan_extension.created_by, self.user)
 
     def test_delete_loan_extension(self):

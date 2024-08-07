@@ -15,6 +15,8 @@ from unittest.mock import patch
 
 from uuid import uuid4
 
+from os.path import join
+
 
 class TestModels(TestCase):
     """Tests for models"""
@@ -99,12 +101,13 @@ class ApplicationModelTest(TestCase):
 
     @patch('core.models.uuid.uuid4')
     def test_solicitor_application_file_name_uuid(self, mock_uuid):
-        """test generating file path"""
+        """Test generating file path"""
         uuid = 'test-uuid'
         mock_uuid.return_value = uuid
         file_path = models.get_application_document_file_path(None, 'example.pdf')
 
-        self.assertEqual(file_path, f'uploads/application/{uuid}.pdf')
+        expected_path = join('uploads', 'application', f'{uuid}.pdf')
+        self.assertEqual(file_path, expected_path)
 
 
 class EventModelTest(TestCase):

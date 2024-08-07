@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'rangefilter',
     'auditlog',
+    'storages',
     'core',
     'user',
     'solicitors_loan',
@@ -137,11 +138,25 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
-STATIC_URL = '/static/static/'
-MEDIA_URL = '/static/media/'
+if not DEBUG:  # in production
+    # Azure settings
+    AZURE_ACCOUNT_NAME = os.getenv('AZURE_ACCOUNT_NAME', 'your-default-account-name')
+    AZURE_CUSTOM_DOMAIN = f'{AZURE_ACCOUNT_NAME}.blob.core.windows.net'
+    AZURE_STORAGE_CONNECTION_STRING = os.getenv('AZURE_STORAGE_CONNECTION_STRING', 'your-default-connection-string')
+    AZURE_CONTAINER = os.getenv('AZURE_CONTAINER', 'your-default-container-name')
 
-MEDIA_ROOT = '/vol/web/media'
-STATIC_ROOT = '/vol/web/static'
+    DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+    STATICFILES_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+
+    MEDIA_URL = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/"
+    STATIC_URL = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/"
+
+else:  # in development
+    MEDIA_URL = '/media/'
+    STATIC_URL = '/static/static/'
+    STATICFILES_DIRS = [BASE_DIR / "static"]
+    STATIC_ROOT = "staticfiles"
+    MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field

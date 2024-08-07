@@ -9,6 +9,7 @@ from django.core.files.base import ContentFile
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
+from django.conf import settings
 
 from rest_framework import status
 from rest_framework.status import HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST
@@ -20,6 +21,7 @@ from reportlab.pdfgen import canvas
 
 import tempfile
 import os
+import shutil
 
 
 def get_detail_url(application_id):
@@ -66,25 +68,35 @@ class DocumentUploadTest(TestCase):
         self.application = create_application(
             user=self.user,
         )
+        self.test_dir = os.path.join(settings.MEDIA_ROOT, "test_dir")
+        os.makedirs(self.test_dir, exist_ok=True)
 
     def tearDown(self):
         self.application.documents.all().delete()
 
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()  # Call the super class method first
+        shutil.rmtree('media/uploads/application')
+
     def test_upload_document_file(self):
         """Test uploading a new document"""
         url = get_document_upload_url(application_id=self.application.id)
-        with tempfile.NamedTemporaryFile(suffix='.pdf') as document_file:
-            # creating empty pdf
-            c = canvas.Canvas(document_file.name)
-            c.drawString(100, 750, "Hello, this is a test PDF document")
-            c.showPage()
-            c.save()
 
-            document_file.seek(0)
+        with tempfile.NamedTemporaryFile(suffix='.pdf', dir=self.test_dir, delete=False) as document_file:
+            document_file_name = document_file.name  # We store the name to reopen it later
+
+        c = canvas.Canvas(document_file_name)
+        c.drawString(100, 750, "Hello, this is a test PDF document")
+        c.showPage()
+        c.save()
+
+        with open(document_file_name, 'rb') as document_file:
             payload = {"document": document_file}
             response = self.client.post(url, data=payload, format='multipart')
 
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        os.remove(document_file_name)  # Delete the pdf after the test
 
         self.assertTrue(Document.objects.filter(application=self.application).exists())
         application = Application.objects.get(id=self.application.id)

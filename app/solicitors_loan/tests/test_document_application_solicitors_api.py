@@ -21,6 +21,8 @@ from reportlab.pdfgen import canvas
 import tempfile
 import os
 
+import shutil
+
 
 def get_detail_url(application_id):
     """create the detail url"""
@@ -69,21 +71,29 @@ class DocumentUploadTest(TestCase):
     def tearDown(self):
         self.application.documents.all().delete()
 
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()  # Call the super class method first
+        shutil.rmtree('media/uploads/application')
+
     def test_upload_document_file(self):
         """Test uploading a new document"""
         url = get_document_upload_url(application_id=self.application.id)
-        with tempfile.NamedTemporaryFile(suffix='.pdf') as document_file:
-            # creating empty pdf
-            c = canvas.Canvas(document_file.name)
-            c.drawString(100, 750, "Hello, this is a test PDF document")
-            c.showPage()
-            c.save()
 
-            document_file.seek(0)
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as document_file:
+            document_file_name = document_file.name  # We store the name to reopen it later
+
+        c = canvas.Canvas(document_file_name)
+        c.drawString(100, 750, "Hello, this is a test PDF document")
+        c.showPage()
+        c.save()
+
+        with open(document_file_name, 'rb') as document_file:
             payload = {"document": document_file}
             response = self.client.post(url, data=payload, format='multipart')
 
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        os.remove(document_file_name)  # Delete the pdf after the test
 
         self.assertTrue(Document.objects.filter(application=self.application).exists())
         application = Application.objects.get(id=self.application.id)
