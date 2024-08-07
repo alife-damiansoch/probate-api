@@ -4,18 +4,16 @@ api for the probate app
 
 ### Docker commands:
 
-    -   docker-compose run --rm app sh -c "django-admin startproject app ." - starting the app for the first time
+    -   "django-admin startproject app ." - starting the app for the first time
 
-    -   docker-compose up
-    -   docker-compose down
-    -   docker build
-    -   docker-compose run --rm app sh -c "python manage.py test" - to run all tests
-    -   docker-compose run --rm app sh -c "python manage.py wait_for_db" - to check wait_for_db method
-    -   docker-compose run --rm app sh -c "python manage.py makemigrations"
-    -   docker-compose run --rm app sh -c "python manage.py wait_for_db && python manage.py migrate"
-    -   docker-compose run --rm app sh -c "python manage.py createsuperuser"
+  
+    -   "python manage.py test"
+    -   "python manage.py wait_for_db" - to check wait_for_db method
+    -   "python manage.py makemigrations"
+    -   "python manage.py wait_for_db && python manage.py migrate"
+    -   "python manage.py createsuperuser"
 
-    -   docker-compose run --rm app sh -c "python manage.py startapp user" - this is for starting creating new app (for api queries)
+    -   "python manage.py startapp user" - this is for starting creating new app (for api queries)
 
 ### Git commands:
 

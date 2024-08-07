@@ -9,9 +9,13 @@ https://docs.djangoproject.com/en/3.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
+from dotenv import load_dotenv
 import os
 from datetime import timedelta
 from pathlib import Path
+
+# Load environment variables from the .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,15 +24,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', "changeme")
+SECRET_KEY = os.getenv('SECRET_KEY', 'changeme')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = bool(int(os.environ.get('DEBUG', 0)))
+DEBUG = bool(int(os.getenv('DEBUG', 0)))
 
-ALLOWED_HOSTS = []
-ALLOWED_HOSTS.extend(
-    filter(None, os.environ.get('ALLOWED_HOSTS', '').split(','))
-)
+ALLOWED_HOSTS = list(filter(None, os.getenv('ALLOWED_HOSTS', '').split(',')))
 
 # Application definition
 
@@ -172,8 +173,8 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-# CORS_ORIGIN_ALLOW_ALL = True  # If you want to allow all origins, or...
+CORS_ORIGIN_ALLOW_ALL = True  # If you want to allow all origins, or...
 
-# CORS_ALLOWED_ORIGINS = [
-#     "http://127.0.0.1", "http://127.0.0.1:3000", 'http://localhost:3000',
-# ]
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1", "http://127.0.0.1:3000", 'http://localhost:3000',
+]
