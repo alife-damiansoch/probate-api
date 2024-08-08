@@ -22,5 +22,6 @@ urlpatterns = [
     path('applications/agent_applications/document_file/<int:application_id>/',
          views.AgentDocumentUploadAndViewListForApplicationIdView.as_view(),
          name='agent_application-upload-document'),
-
+    path('applications/agent_applications/document_patch/<int:document_id>/', views.AgentDocumentPatchView.as_view(),
+         name='agents-document-patch-view'),
 ]

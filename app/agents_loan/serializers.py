@@ -15,7 +15,7 @@ class AgentDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
         fields = ['id', 'application', 'document', 'original_name', 'is_signed', 'is_undertaking', 'is_loan_agreement']
-        read_only_fields = ('id', 'application', 'is_signed', 'is_undertaking', 'is_loan_agreement')
+        read_only_fields = ('id', 'application',)
         extra_kwargs = {'document': {'required': True}}
 
 

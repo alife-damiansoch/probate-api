@@ -191,3 +191,31 @@ class AgentDocumentDeleteView(APIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except models.Document.DoesNotExist:
             raise NotFound("Document with given id does not exist")
+
+
+class AgentDocumentPatchView(APIView):
+    serializer_class = serializers.AgentDocumentSerializer
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = [IsAuthenticated, IsStaff]
+
+    def get_document(self, document_id):
+        try:
+            return models.Document.objects.get(id=document_id)
+        except models.Document.DoesNotExist:
+            raise Http404
+
+    @extend_schema(
+        summary="Updates a document with the given ID. {-Works only for staff users-}",
+        description="Updates a document",
+        tags=["document_agent"],
+    )
+    def patch(self, request, document_id, format=None):
+        document = self.get_document(document_id)
+        serializer = serializers.AgentDocumentSerializer(
+            document, data=request.data, partial=True)
+        # set partial=True to update a data partially
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
