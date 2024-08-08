@@ -10,8 +10,9 @@ class CommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ['id', 'text', 'created_by_email', 'updated_by_email', 'is_completed', 'is_important', 'application']
-        read_only_fields = ['id', 'created_by_email', 'updated_by_email']
+        fields = ['id', 'text', 'created_by_email', 'updated_by_email', 'is_completed', 'is_important', 'application',
+                  'created_on', 'updated_on']
+        read_only_fields = ['id', 'created_by_email', 'updated_by_email', 'created_on', 'updated_on']
 
     def get_fields(self):
         fields = super().get_fields()

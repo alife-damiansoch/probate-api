@@ -184,6 +184,8 @@ class Comment(models.Model):
     application = models.ForeignKey(Application, on_delete=models.CASCADE, null=True, blank=True, default=None)
     updated_by = ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
                             related_name='comment_user_updated')
+    created_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(auto_now=True)
 
 
 class Applicant(models.Model):
