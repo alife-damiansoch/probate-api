@@ -6,6 +6,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from core.models import (Application, Deceased, Dispute, Applicant, Estate, Document, )
 from expense.serializers import ExpenseSerializer
+from user.serializers import UserSerializer
 
 
 class AgentDocumentSerializer(serializers.ModelSerializer):
@@ -45,12 +46,14 @@ class AgentEstateSerializer(serializers.ModelSerializer):
 class AgentApplicationSerializer(serializers.ModelSerializer):
     """serializer for application list"""
 
+    user = UserSerializer(read_only=True)
+
     class Meta:
         model = Application
         fields = ['id', 'amount', 'term', 'approved', 'is_rejected', 'rejected_date', 'rejected_reason',
                   'date_submitted', 'undertaking_ready',
-                  'loan_agreement_ready']
-        read_only_fields = ('id', 'last_updated_by', 'date_submitted', 'assigned_to',)
+                  'loan_agreement_ready', 'user']
+        read_only_fields = ('id', 'last_updated_by', 'date_submitted', 'assigned_to', 'user',)
 
 
 class AgentApplicationDetailSerializer(AgentApplicationSerializer):
