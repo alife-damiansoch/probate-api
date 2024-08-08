@@ -153,8 +153,8 @@ class Application(models.Model):
                                     blank=True)  # Each application has one deceased
     dispute = models.OneToOneField(
         Dispute, on_delete=models.SET_NULL, null=True, blank=True, related_name='application')
-    undertaking_ready = models.BooleanField(default=False)
-    loan_agreement_ready = models.BooleanField(default=False)
+    # undertaking_ready = models.BooleanField(default=False)
+    # loan_agreement_ready = models.BooleanField(default=False)
     assigned_to = ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, default=None,
                              related_name='assigned_applications_set')
     is_rejected = models.BooleanField(default=False)
@@ -165,6 +165,14 @@ class Application(models.Model):
         estates_sum = self.estates.aggregate(total_estate_value=Sum('value'))['total_estate_value'] or 0
         expenses_sum = self.expenses.aggregate(total_expense_value=Sum('value'))['total_expense_value'] or 0
         return estates_sum - expenses_sum
+
+    @property
+    def undertaking_ready(self):
+        return Document.objects.filter(application=self, is_undertaking=True).exists()
+
+    @property
+    def loan_agreement_ready(self):
+        return Document.objects.filter(application=self, is_loan_agreement=True).exists()
 
 
 class Comment(models.Model):
