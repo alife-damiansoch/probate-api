@@ -109,6 +109,42 @@ class ApplicationModelTest(TestCase):
         expected_path = join('uploads', 'application', f'{uuid}.pdf')
         self.assertEqual(file_path, expected_path)
 
+    def test_deceased_deleted_when_application_deleted(self):
+        """Test that the Deceased instance is deleted when the Application is deleted."""
+        application = models.Application.objects.create(
+            amount=100.0,
+            term=12,
+            user=self.user,
+            deceased=self.deceased,
+            dispute=self.dispute,
+            approved=False
+        )
+
+        # Delete the application
+        application.delete()
+
+        # Check that the Deceased instance is also deleted
+        deceased_exists = models.Deceased.objects.filter(id=self.deceased.id).exists()
+        self.assertFalse(deceased_exists, "Deceased instance was not deleted when the Application was deleted.")
+
+    def test_dispute_deleted_when_application_deleted(self):
+        """Test that the Dispute instance is deleted when the Application is deleted."""
+        application = models.Application.objects.create(
+            amount=100.0,
+            term=12,
+            user=self.user,
+            deceased=self.deceased,
+            dispute=self.dispute,
+            approved=False
+        )
+
+        # Delete the application
+        application.delete()
+
+        # Check that the Dispute instance is also deleted
+        dispute_exists = models.Dispute.objects.filter(id=self.dispute.id).exists()
+        self.assertFalse(dispute_exists, "Dispute instance was not deleted when the Application was deleted.")
+
 
 class EventModelTest(TestCase):
 
