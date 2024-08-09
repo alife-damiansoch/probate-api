@@ -543,8 +543,6 @@ class ApplicationUpdateTests(APITestCase):
             dispute=self.dispute,
             approved=False,
             last_updated_by=None,
-            undertaking_ready=False,
-            loan_agreement_ready=False,
             assigned_to=None,
             is_rejected=False,
             rejected_reason=None,

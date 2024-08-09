@@ -153,8 +153,6 @@ class Application(models.Model):
                                     blank=True)  # Each application has one deceased
     dispute = models.OneToOneField(
         Dispute, on_delete=models.SET_NULL, null=True, blank=True, related_name='application')
-    # undertaking_ready = models.BooleanField(default=False)
-    # loan_agreement_ready = models.BooleanField(default=False)
     assigned_to = ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, default=None,
                              related_name='assigned_applications_set')
     is_rejected = models.BooleanField(default=False)

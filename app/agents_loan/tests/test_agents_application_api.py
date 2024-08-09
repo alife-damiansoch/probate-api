@@ -455,8 +455,6 @@ class ApplicationUpdateTests(APITestCase):
             dispute=self.dispute,
             approved=False,
             last_updated_by=None,
-            undertaking_ready=False,
-            loan_agreement_ready=False,
             assigned_to=None,
             is_rejected=False,
             rejected_reason=None,
@@ -522,35 +520,6 @@ class ApplicationUpdateTests(APITestCase):
 
         # Check that no other fields have changed.
         self.assertOtherFieldsUnchanged(old_instance, ['approved', 'last_updated_by'])
-
-    # Test 'undertaking_ready' field
-    def test_update_undertaking_ready(self):
-        data = {'undertaking_ready': True}
-        old_instance = deepcopy(self.application)
-
-        response = self.client.patch(self.url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK, msg=f"error: {response.data}")
-
-        # Check the field has been updated.
-        self.refresh_application()
-        self.assertEqual(self.application.undertaking_ready, data['undertaking_ready'])
-
-        # Check that no other fields have changed.
-        self.assertOtherFieldsUnchanged(old_instance, ['undertaking_ready', 'last_updated_by'])
-
-    # Test 'loan_agreement_ready' field
-    def test_update_loan_agreement_ready(self):
-        data = {'loan_agreement_ready': True}
-        old_instance = deepcopy(self.application)
-
-        response = self.client.patch(self.url, data, format='json')
-
-        # Check the field has been updated.
-        self.refresh_application()
-        self.assertEqual(self.application.loan_agreement_ready, data['loan_agreement_ready'])
-
-        # Check that no other fields have changed.
-        self.assertOtherFieldsUnchanged(old_instance, ['loan_agreement_ready', 'last_updated_by'])
 
     # Test 'is_rejected' field
     def test_update_is_rejected(self):
