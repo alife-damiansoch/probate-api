@@ -123,12 +123,22 @@ class Deceased(models.Model):
     def __str__(self):
         return f'{self.first_name} {self.last_name}'
 
+    def delete(self, *args, **kwargs):
+        if hasattr(self, 'application'):
+            raise ValidationError("Cannot delete Deceased because an Application exists.")
+        super().delete(*args, **kwargs)
+
 
 class Dispute(models.Model):
     details = models.TextField()
 
     def __str__(self):
         return self.details
+
+    def delete(self, *args, **kwargs):
+        if hasattr(self, 'application'):
+            raise ValidationError("Cannot delete Dispute because an Application exists.")
+        super().delete(*args, **kwargs)
 
 
 class RejectionReason(models.Model):
@@ -149,14 +159,14 @@ class Application(models.Model):
                                  default=None,
                                  related_name='updated_applications_set')
     date_submitted = models.DateTimeField(auto_now_add=True)
-    deceased = models.OneToOneField(Deceased, on_delete=models.PROTECT, null=True,
+    deceased = models.OneToOneField(Deceased, on_delete=models.CASCADE, null=True,
                                     blank=True)  # Each application has one deceased
     dispute = models.OneToOneField(
-        Dispute, on_delete=models.SET_NULL, null=True, blank=True, related_name='application')
+        Dispute, on_delete=models.CASCADE, null=True, blank=True, related_name='application')
     assigned_to = ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, default=None,
                              related_name='assigned_applications_set')
     is_rejected = models.BooleanField(default=False)
-    rejected_reason = models.ForeignKey(RejectionReason, on_delete=models.PROTECT, null=True, blank=True, default=None)
+    rejected_reason = models.ForeignKey(RejectionReason, on_delete=models.CASCADE, null=True, blank=True, default=None)
     rejected_date = models.DateField(null=True, blank=True, default=None)
 
     def value_of_the_estate_after_expenses(self):

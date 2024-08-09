@@ -13,7 +13,7 @@ from rangefilter.filters import DateRangeFilter
 from django.utils.translation import gettext_lazy as _
 
 from core import models
-from core.models import LoanExtension, Transaction
+from core.models import LoanExtension, Transaction, Document
 
 from rest_framework.authtoken.models import Token
 
@@ -108,6 +108,10 @@ class ApplicationForm(forms.ModelForm):
         fields = '__all__'
 
 
+from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
+
+
 class ApplicationAdmin(admin.ModelAdmin):
     ordering = ["id"]
     form = ApplicationForm
@@ -116,15 +120,17 @@ class ApplicationAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {"fields": ("amount", "term", "user", "deceased", "dispute", "assigned_to", "last_updated_by",)}),
         (_("Details"), {"fields": (
-            "approved", "is_rejected", "rejected_reason", "rejected_date", "undertaking_ready",
-            "loan_agreement_ready",)}),
+            "approved", "is_rejected", "rejected_reason", "rejected_date", "undertaking_ready", "loan_agreement_ready",
+            "value_of_the_estate_after_expenses")}),
     )
 
     readonly_fields = (
         'id', 'last_updated_by', 'deceased_full_name', 'dispute_details', 'date_submitted', 'deceased', 'dispute',
-        'user', "rejected_date")
+        'user', "rejected_date", "undertaking_ready", "loan_agreement_ready", "value_of_the_estate_after_expenses")
+
     search_fields = ["id", ]
-    list_display = ("id", "user", "assigned_to", "deceased_full_name", "dispute_details")
+    list_display = ("id", "user", "assigned_to", "deceased_full_name", "dispute_details",
+                    "value_of_the_estate_after_expenses", "undertaking_ready", "loan_agreement_ready")
 
     def deceased_full_name(self, obj):
         if obj.deceased:
@@ -140,7 +146,7 @@ class ApplicationAdmin(admin.ModelAdmin):
     dispute_details.short_description = 'Dispute'
 
     def save_model(self, request, obj, form, change):
-        if not obj.pk:  # If object is being created
+        if not obj.pk:  # If the object is being created
             obj.user = request.user
         else:  # Object is being updated
             obj.last_updated_by = request.user
