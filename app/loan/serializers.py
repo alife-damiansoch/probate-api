@@ -46,14 +46,16 @@ class LoanSerializer(serializers.ModelSerializer):
     extension_fees_total = serializers.SerializerMethodField()
     current_balance = serializers.SerializerMethodField()
     maturity_date = serializers.SerializerMethodField()
+    last_updated_by_email = serializers.SerializerMethodField()  # Add this line
+    approved_by_email = serializers.SerializerMethodField()  # Add this line
 
     class Meta:
         model = Loan
         fields = ['id', 'amount_agreed', 'fee_agreed', 'amount_paid', 'extension_fees_total', 'current_balance',
-                  'term_agreed', 'approved_date', 'is_settled', 'settled_date', 'maturity_date', 'approved_by',
-                  'last_updated_by', 'application']
-        read_only_fields = ['id', 'extension_fees_total', 'current_balance', 'maturity_date', 'approved_by',
-                            'last_updated_by']
+                  'term_agreed', 'approved_date', 'is_settled', 'settled_date', 'maturity_date', 'approved_by_email',
+                  'last_updated_by_email', 'application']
+        read_only_fields = ['id', 'extension_fees_total', 'current_balance', 'maturity_date', 'approved_by_email',
+                            'last_updated_by_email']
         extra_kwargs = {"application": {'required': True}}
 
     @extend_schema_field(OpenApiTypes.NUMBER)
@@ -71,3 +73,11 @@ class LoanSerializer(serializers.ModelSerializer):
     @extend_schema_field(OpenApiTypes.DATE)
     def get_maturity_date(self, obj):
         return obj.maturity_date
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_last_updated_by_email(self, obj):  # New method to get last_updated_by email
+        return obj.last_updated_by.email if obj.last_updated_by else None
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_approved_by_email(self, obj):  # New method to get approved_by email
+        return obj.approved_by.email if obj.approved_by else None
