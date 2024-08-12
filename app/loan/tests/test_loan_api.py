@@ -50,8 +50,8 @@ def create_test_loan(user, application):
         approved_date=timezone.now(),
         is_settled=False,
         settled_date=None,
-        approved_by=user,
-        last_updated_by=user
+        # approved_by=user,
+        # last_updated_by=user
     )
     return loan
 
@@ -183,7 +183,7 @@ class PrivateLoanAPI(APITestCase):
         self.assertEqual(serializer.data['term_agreed'], data['term_agreed'])
         self.assertEqual(serializer.data['is_settled'], data['is_settled'])
         self.assertEqual(serializer.data['application'], data['application'])
-        self.assertEqual(serializer.data['approved_by'], self.user.id)
+        self.assertEqual(serializer.data['approved_by_email'], self.user.email)
         self.assertIsNotNone(serializer.data['approved_date'])
         self.assertFalse(serializer.data['is_settled'])
-        self.assertIsNone(serializer.data['last_updated_by'])
+        self.assertIsNone(serializer.data['last_updated_by_email'])
