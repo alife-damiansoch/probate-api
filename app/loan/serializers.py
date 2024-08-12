@@ -8,10 +8,15 @@ from core.models import (Loan, Transaction, LoanExtension)
 
 
 class TransactionSerializer(serializers.ModelSerializer):
+    created_by_email = serializers.SerializerMethodField()
+
     class Meta:
         model = Transaction
-        fields = ['id', 'loan', 'amount', 'transaction_date', 'created_by', 'description']
-        read_only_fields = ['id', 'created_by', 'transaction_date']
+        fields = ['id', 'loan', 'amount', 'transaction_date', 'created_by_email', 'description']
+        read_only_fields = ['id', 'created_by_email', 'transaction_date']
+
+    def get_created_by_email(self, obj):
+        return obj.created_by.email
 
     def update(self, instance, validated_data):
         """
@@ -25,10 +30,16 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 
 class LoanExtensionSerializer(serializers.ModelSerializer):
+    created_by_email = serializers.SerializerMethodField()
+
     class Meta:
         model = LoanExtension
-        fields = ['id', 'loan', 'extension_term_months', 'extension_fee', 'description', 'created_by', 'created_date']
-        read_only_fields = ['id', 'created_by', 'created_date']
+        fields = ['id', 'loan', 'extension_term_months', 'extension_fee', 'description', 'created_by_email',
+                  'created_date']
+        read_only_fields = ['id', 'created_by_email', 'created_date']
+
+    def get_created_by_email(self, obj):
+        return obj.created_by.email
 
     def update(self, instance, validated_data):
         """
