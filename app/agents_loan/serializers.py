@@ -52,8 +52,8 @@ class AgentApplicationSerializer(serializers.ModelSerializer):
         model = Application
         fields = ['id', 'amount', 'term', 'approved', 'is_rejected', 'rejected_date', 'rejected_reason',
                   'date_submitted', 'undertaking_ready',
-                  'loan_agreement_ready', 'user']
-        read_only_fields = ('id', 'last_updated_by', 'date_submitted', 'assigned_to', 'user',)
+                  'loan_agreement_ready', 'user', 'assigned_to']
+        read_only_fields = ('id', 'last_updated_by', 'date_submitted', 'user',)
 
 
 class AgentApplicationDetailSerializer(AgentApplicationSerializer):
