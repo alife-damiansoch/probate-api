@@ -231,5 +231,5 @@ admin.site.register(models.Estate)
 admin.site.register(models.Dispute)
 admin.site.register(models.Event, EventsAdmin)
 admin.site.register(models.Loan, LoanAdmin)
-admin.site.register(models.RejectionReason)
+
 admin.site.register(models.Applicant)

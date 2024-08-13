@@ -141,13 +141,6 @@ class Dispute(models.Model):
     #     super().delete(*args, **kwargs)
 
 
-class RejectionReason(models.Model):
-    reason_text = models.CharField(max_length=255)
-
-    def __str__(self):
-        return self.reason_text
-
-
 class Application(models.Model):
     """Application model"""
     amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -175,9 +168,7 @@ class Application(models.Model):
         related_name='assigned_applications_set'
     )
     is_rejected = models.BooleanField(default=False)
-    rejected_reason = models.ForeignKey(
-        RejectionReason, on_delete=models.CASCADE, null=True, blank=True, default=None
-    )
+    rejected_reason = models.TextField(null=True, blank=True, default=None)
     rejected_date = models.DateField(null=True, blank=True, default=None)
 
     def value_of_the_estate_after_expenses(self):
@@ -198,8 +189,6 @@ class Application(models.Model):
             self.deceased.delete()
         if self.dispute is not None:
             self.dispute.delete()
-        if self.rejected_reason is not None:
-            self.rejected_reason.delete()
         super().delete(*args, **kwargs)
 
 

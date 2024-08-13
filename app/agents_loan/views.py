@@ -102,6 +102,8 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
             instance = self.get_object()
             if instance.approved:
                 raise ValidationError("This operation is not allowed on approved applications")
+            elif instance.is_rejected:
+                raise ValidationError("This operation is not allowed on rejected applications")
             else:
                 result = super().destroy(request, *args, **kwargs)  # carry out the deletion
                 log_event(request, request_body, response_status=204)  # log after deletion is done
