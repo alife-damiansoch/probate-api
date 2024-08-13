@@ -47,13 +47,19 @@ class AgentApplicationSerializer(serializers.ModelSerializer):
     """serializer for application list"""
 
     user = UserSerializer(read_only=True)
+    assigned_to_email = serializers.SerializerMethodField()
 
     class Meta:
         model = Application
         fields = ['id', 'amount', 'term', 'approved', 'is_rejected', 'rejected_date', 'rejected_reason',
                   'date_submitted', 'undertaking_ready',
-                  'loan_agreement_ready', 'user', 'assigned_to']
-        read_only_fields = ('id', 'last_updated_by', 'date_submitted', 'user',)
+                  'loan_agreement_ready', 'user', 'assigned_to', 'assigned_to_email']
+        read_only_fields = ('id', 'last_updated_by', 'date_submitted', 'user', 'assigned_to_email',)
+
+    def get_assigned_to_email(self, obj):
+        if obj.assigned_to:
+            return obj.assigned_to.email
+        return None
 
 
 class AgentApplicationDetailSerializer(AgentApplicationSerializer):
