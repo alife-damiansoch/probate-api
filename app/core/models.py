@@ -198,6 +198,8 @@ class Application(models.Model):
             self.deceased.delete()
         if self.dispute is not None:
             self.dispute.delete()
+        if self.rejected_reason is not None:
+            self.rejected_reason.delete()
         super().delete(*args, **kwargs)
 
 

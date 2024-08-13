@@ -235,7 +235,7 @@ class PrivateLoanExtensionAPITestCase(APITestCase):
         other_loan = create_test_loan(self.user, application=other_application)
         detail_url = get_detail_url(ext1.id)
         response = self.client.patch(detail_url, {'loan': other_loan.id})
-        self.assertEqual(response.data['loan'], 'Cannot update loan for a transaction')
+        self.assertEqual(response.data['loan'], 'Cannot update loan for the extension')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         ext1.refresh_from_db()
         self.assertEqual(ext1.loan, loan)

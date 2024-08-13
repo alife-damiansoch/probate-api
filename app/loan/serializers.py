@@ -47,7 +47,7 @@ class LoanExtensionSerializer(serializers.ModelSerializer):
         or throw a validation error if 'loan' is in the data
         """
         if 'loan' in validated_data:
-            raise serializers.ValidationError({"loan": "Cannot update loan for a transaction"})
+            raise serializers.ValidationError({"loan": "Cannot update loan for the extension"})
 
         return super().update(instance, validated_data)
 

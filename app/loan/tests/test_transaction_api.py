@@ -176,7 +176,7 @@ class PrivateTransactionAPITestCase(APITestCase):
         self.assertEqual(Decimal(loan.current_balance),
                          Decimal(loan.amount_agreed) + Decimal(loan.fee_agreed) - Decimal(payload['amount']))
         self.assertEqual(Decimal(loan.amount_paid), Decimal(payload['amount']))
-        self.assertEqual(response.data["created_by"], self.user.id)
+        self.assertEqual(response.data["created_by_email"], self.user.email)
 
     def test_delete_transaction(self):
         """test deleting transaction"""
