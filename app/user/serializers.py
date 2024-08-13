@@ -5,11 +5,27 @@ from django.contrib.auth import (get_user_model, authenticate, )
 from django.utils.translation import gettext as _
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from core.models import Team, Address, User
+from core.models import Team, Address, User, Application, Loan
 
 import re
 
 from django.core.exceptions import ValidationError
+
+
+# this serializer is only created to return extra info in the list user
+class LoanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Loan
+        fields = '__all__'  # Adjust the fields as per your requirement
+
+
+# this serializer is only created to return extra info in the list user
+class ApplicationSerializer(serializers.ModelSerializer):
+    loan = LoanSerializer(read_only=True)
+
+    class Meta:
+        model = Application
+        fields = '__all__'
 
 
 class TeamSerializer(serializers.ModelSerializer):
@@ -26,11 +42,16 @@ class AddressSerializer(serializers.ModelSerializer):
 
 class UserListSerializer(serializers.ModelSerializer):
     """Serializer for listing users, returns only id and email fields"""
+    applications = serializers.SerializerMethodField()
 
     class Meta:
         model = get_user_model()
-        fields = ['id', 'email', 'name', 'team', 'is_active', 'is_staff', 'is_superuser']
-        read_only_fields = ['id', 'email', 'name', 'team', 'is_active', 'is_staff', 'is_superuser']
+        fields = ['id', 'email', 'name', 'team', 'is_active', 'is_staff', 'is_superuser', 'applications']
+        read_only_fields = ['id', 'email', 'name', 'team', 'is_active', 'is_staff', 'is_superuser', 'applications']
+
+    def get_applications(self, user):
+        applications = Application.objects.filter(user=user)
+        return ApplicationSerializer(applications, many=True).data
 
 
 class UserSerializer(serializers.ModelSerializer):

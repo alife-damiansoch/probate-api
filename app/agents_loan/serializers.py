@@ -7,6 +7,7 @@ from rest_framework import serializers
 from core.models import (Application, Deceased, Dispute, Applicant, Estate, Document, )
 from expense.serializers import ExpenseSerializer
 from user.serializers import UserSerializer
+from loan.serializers import LoanSerializer
 
 
 class AgentDocumentSerializer(serializers.ModelSerializer):
@@ -48,13 +49,14 @@ class AgentApplicationSerializer(serializers.ModelSerializer):
 
     user = UserSerializer(read_only=True)
     assigned_to_email = serializers.SerializerMethodField()
+    loan = LoanSerializer(read_only=True)
 
     class Meta:
         model = Application
         fields = ['id', 'amount', 'term', 'approved', 'is_rejected', 'rejected_date', 'rejected_reason',
                   'date_submitted', 'undertaking_ready',
-                  'loan_agreement_ready', 'user', 'assigned_to', 'assigned_to_email']
-        read_only_fields = ('id', 'last_updated_by', 'date_submitted', 'user', 'assigned_to_email',)
+                  'loan_agreement_ready', 'user', 'assigned_to', 'assigned_to_email', 'loan']
+        read_only_fields = ('id', 'last_updated_by', 'date_submitted', 'user', 'assigned_to_email', 'loan',)
 
     def get_assigned_to_email(self, obj):
         if obj.assigned_to:
