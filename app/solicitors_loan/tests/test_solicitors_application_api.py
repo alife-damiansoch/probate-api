@@ -11,7 +11,7 @@ from rest_framework import status
 
 from rest_framework.test import APIClient, APITestCase
 
-from core.models import (Application, Deceased, Dispute, RejectionReason, Event, )
+from core.models import (Application, Deceased, Dispute, Event, )
 
 from solicitors_loan import serializers
 
@@ -534,7 +534,7 @@ class ApplicationUpdateTests(APITestCase):
 
         self.deceased = Deceased.objects.create(first_name='John', last_name='Doe')
         self.dispute = Dispute.objects.create(details='Some details')
-        self.rejection_reason = RejectionReason.objects.create(reason_text='Some reason')
+        self.rejection_reason = 'Some reason'
 
         self.application = Application.objects.create(
             amount=2000.00,
@@ -651,7 +651,7 @@ class ApplicationUpdateTests(APITestCase):
 
     # Test 'rejected_reason' field
     def test_update_rejected_reason_not_working(self):
-        data = {'rejected_reason': self.rejection_reason.id}
+        data = {'rejected_reason': self.rejection_reason}
         old_instance = deepcopy(self.application)
 
         response = self.client.patch(self.url, data, format='json')

@@ -17,7 +17,7 @@ from rest_framework.test import APIClient, APITestCase
 from rest_framework.authtoken.models import Token
 
 from agents_loan.serializers import AgentApplicationSerializer
-from core.models import (Application, Deceased, Document, User, Event, RejectionReason, Dispute, Estate, Applicant)
+from core.models import (Application, Deceased, Document, User, Event, Dispute, Estate, Applicant)
 
 from agents_loan import serializers
 
@@ -407,7 +407,6 @@ class PrivateTestApplicationAPI(APITestCase):
             dispute=Dispute.objects.create(details='Some details'),
             user=self.user,
         )
-        rejection_reason = RejectionReason.objects.create(reason_text="Test,reason")
 
         application = self.client.get(get_detail_url(application_id=app.id))
         original_data = application.data.copy()
@@ -416,7 +415,7 @@ class PrivateTestApplicationAPI(APITestCase):
         updated_data = application.data.copy()
         updated_data['is_rejected'] = True
         updated_data['rejected_date'] = timezone.now().date().isoformat()
-        updated_data['rejected_reason'] = rejection_reason.id
+        updated_data['rejected_reason'] = "test rejection"
 
         response = self.client.put(get_detail_url(application_id=app.id), updated_data, format='json')
 
@@ -425,7 +424,7 @@ class PrivateTestApplicationAPI(APITestCase):
         app.refresh_from_db()
 
         self.assertEqual(app.is_rejected, True)
-        self.assertEqual(app.rejected_reason.id, rejection_reason.id)
+        self.assertEqual(app.rejected_reason, "test rejection")
         self.assertEqual(app.rejected_date, timezone.now().date())
 
         # Check that all other fields have not changed
@@ -446,7 +445,7 @@ class ApplicationUpdateTests(APITestCase):
 
         self.deceased = Deceased.objects.create(first_name='John', last_name='Doe')
         self.dispute = Dispute.objects.create(details='Some details')
-        self.rejection_reason = RejectionReason.objects.create(reason_text='Some reason')
+        self.rejection_reason = 'Some reason'
 
         self.application = Application.objects.create(
             amount=2000.00,
@@ -538,7 +537,7 @@ class ApplicationUpdateTests(APITestCase):
 
     # Test 'rejected_reason' field
     def test_update_rejected_reason(self):
-        data = {'rejected_reason': self.rejection_reason.id}
+        data = {'rejected_reason': self.rejection_reason}
         old_instance = deepcopy(self.application)
 
         response = self.client.patch(self.url, data, format='json')
@@ -546,7 +545,7 @@ class ApplicationUpdateTests(APITestCase):
 
         # Check the field has been updated.
         self.refresh_application()
-        self.assertEqual(self.application.rejected_reason.id, data['rejected_reason'])
+        self.assertEqual(self.application.rejected_reason, data['rejected_reason'])
         # Check that no other fields have changed.
         self.assertOtherFieldsUnchanged(old_instance, ['rejected_reason', 'last_updated_by'])
 
