@@ -50,7 +50,7 @@ class UserListSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'email', 'name', 'team', 'is_active', 'is_staff', 'is_superuser', 'applications']
 
     def get_applications(self, user):
-        applications = Application.objects.filter(user=user)
+        applications = Application.objects.filter(assigned_to=user)
         return ApplicationSerializer(applications, many=True).data
 
 
