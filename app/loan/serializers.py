@@ -4,7 +4,7 @@ Serializers for the Loan APIs
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from core.models import (Loan, Transaction, LoanExtension)
+from core.models import (Loan, Transaction, LoanExtension, User)
 
 
 class TransactionSerializer(serializers.ModelSerializer):
@@ -52,6 +52,12 @@ class LoanExtensionSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User  # Replace `User` with the correct model name if different
+        fields = ['id', 'email']  #
+
+
 class LoanSerializer(serializers.ModelSerializer):
     amount_paid = serializers.SerializerMethodField()
     extension_fees_total = serializers.SerializerMethodField()
@@ -59,12 +65,13 @@ class LoanSerializer(serializers.ModelSerializer):
     maturity_date = serializers.SerializerMethodField()
     last_updated_by_email = serializers.SerializerMethodField()  # Add this line
     approved_by_email = serializers.SerializerMethodField()  # Add this line
+    assigned_to_email = serializers.SerializerMethodField()
 
     class Meta:
         model = Loan
         fields = ['id', 'amount_agreed', 'fee_agreed', 'amount_paid', 'extension_fees_total', 'current_balance',
                   'term_agreed', 'approved_date', 'is_settled', 'settled_date', 'maturity_date', 'approved_by_email',
-                  'last_updated_by_email', 'application']
+                  'last_updated_by_email', 'application', 'assigned_to_email']
         read_only_fields = ['id', 'extension_fees_total', 'current_balance', 'maturity_date', 'approved_by_email',
                             'last_updated_by_email']
         extra_kwargs = {"application": {'required': True}}
@@ -92,3 +99,7 @@ class LoanSerializer(serializers.ModelSerializer):
     @extend_schema_field(OpenApiTypes.STR)
     def get_approved_by_email(self, obj):  # New method to get approved_by email
         return obj.approved_by.email if obj.approved_by else None
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_assigned_to_email(self, obj):  # New method to get assigned_to email
+        return obj.application.assigned_to.email if obj.application and obj.application.assigned_to else None
