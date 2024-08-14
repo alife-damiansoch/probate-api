@@ -431,7 +431,8 @@ class PrivateTestApplicationAPI(APITestCase):
         response = self.client.get(get_detail_url(application_id=app.id))
         final_data = response.data
         for field in original_data:
-            if field not in ['is_rejected', 'rejected_date', 'rejected_reason']:
+            if field not in ['is_rejected', 'rejected_date', 'rejected_reason', 'last_updated_by',
+                             'last_updated_by_email']:
                 self.assertEqual(final_data[field], original_data[field], f"Failed on field: {field}")
 
 
