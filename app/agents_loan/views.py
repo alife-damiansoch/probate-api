@@ -15,6 +15,7 @@ from agents_loan import serializers
 from app.utils import log_event
 from core import models
 from agents_loan.permissions import IsStaff
+from app.pagination import CustomPageNumberPagination
 
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 
@@ -66,6 +67,7 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
     queryset = models.Application.objects.all()
     authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated, IsStaff]
+    pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
         queryset = self.queryset
