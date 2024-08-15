@@ -2,7 +2,7 @@
 viewsets for Loan api
 """
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema_view, extend_schema
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter
 from rest_framework import (viewsets, )
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
@@ -117,6 +117,11 @@ class LoanExtensionViewSet(viewsets.ModelViewSet):
         summary='Retrieve all loans {-Works only for staff users-}',
         description='Returns  all loans.',
         tags=['loans'],
+        parameters=[
+            OpenApiParameter(name='status',
+                             description='Filter by application status - optional (active,settled)',
+                             required=False, type=str),
+        ]
     ),
     retrieve=extend_schema(
         summary='Retrieve a loan {-Works only for staff users-}',
@@ -156,7 +161,14 @@ class LoanViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.LoanSerializer
 
     def get_queryset(self):
-        return self.queryset.order_by('-id')
+        queryset = self.queryset
+        stat = self.request.query_params.get('status', None)
+        if stat is not None:
+            if stat == 'active':
+                queryset = queryset.filter(is_settled=False)
+            elif stat == 'settled':
+                queryset = queryset.filter(is_settled=True)
+        return queryset.order_by('-id')
 
     def perform_create(self, serializer):
         serializer.save(approved_by=self.request.user)

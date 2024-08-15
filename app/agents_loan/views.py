@@ -16,7 +16,7 @@ from app.utils import log_event
 from core import models
 from agents_loan.permissions import IsStaff
 
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 
 
 @extend_schema_view(
@@ -24,6 +24,11 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
         summary='Retrieve all applications {-Works only for staff users-}',
         description='Returns  all applications.',
         tags=['agent_application'],
+        parameters=[
+            OpenApiParameter(name='status',
+                             description='Filter by application status - optional (active,rejected,approved)',
+                             required=False, type=str),
+        ]
     ),
     retrieve=extend_schema(
         summary='Retrieve an application {-Works only for staff users-}',
@@ -63,7 +68,18 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsStaff]
 
     def get_queryset(self):
-        return self.queryset.order_by('-id')
+        queryset = self.queryset
+
+        stat = self.request.query_params.get('status', None)
+        if stat is not None:
+            if stat == 'active':
+                queryset = queryset.filter(is_rejected=False, approved=False)
+            elif stat == 'rejected':
+                queryset = queryset.filter(is_rejected=True)
+            elif stat == 'approved':
+                queryset = queryset.filter(approved=True)
+
+        return queryset.order_by('-id')
 
     def get_serializer_class(self):
         """Return serializer class for the requested model."""
