@@ -227,6 +227,16 @@ class DownloadFileView(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={
+            200: {
+                "content": {"application/pdf": {}},
+                "description": "A PDF file."
+            },
+            403: {"description": "Forbidden - You do not have permission to access this file."},
+            404: {"description": "Not Found - File not found."}
+        }
+    )
     def get(self, request, filename):
         try:
             document = Document.objects.get(document__endswith=filename)

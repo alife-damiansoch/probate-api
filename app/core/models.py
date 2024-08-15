@@ -177,11 +177,11 @@ class Application(models.Model):
         return estates_sum - expenses_sum
 
     @property
-    def undertaking_ready(self):
+    def undertaking_ready(self) -> bool:
         return Document.objects.filter(application=self, is_undertaking=True).exists()
 
     @property
-    def loan_agreement_ready(self):
+    def loan_agreement_ready(self) -> bool:
         return Document.objects.filter(application=self, is_loan_agreement=True).exists()
 
     def delete(self, *args, **kwargs):

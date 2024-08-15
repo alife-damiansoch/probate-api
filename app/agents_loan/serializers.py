@@ -58,13 +58,15 @@ class AgentApplicationSerializer(serializers.ModelSerializer):
                   'date_submitted', 'undertaking_ready', 'last_updated_by',
                   'loan_agreement_ready', 'user', 'assigned_to', 'assigned_to_email', 'loan', 'last_updated_by_email']
         read_only_fields = (
-        'id', 'last_updated_by_email', 'date_submitted', 'user', 'assigned_to_email', 'loan', 'last_updated_by')
+            'id', 'last_updated_by_email', 'date_submitted', 'user', 'assigned_to_email', 'loan', 'last_updated_by')
 
+    @extend_schema_field(serializers.CharField)
     def get_assigned_to_email(self, obj):
         if obj.assigned_to:
             return obj.assigned_to.email
         return None
 
+    @extend_schema_field(serializers.CharField)
     def get_last_updated_by_email(self, obj):
         """Returns the email of the user who last updated the application."""
         if obj.last_updated_by:

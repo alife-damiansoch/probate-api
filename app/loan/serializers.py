@@ -15,6 +15,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         fields = ['id', 'loan', 'amount', 'transaction_date', 'created_by_email', 'description']
         read_only_fields = ['id', 'created_by_email', 'transaction_date']
 
+    @extend_schema_field(serializers.CharField)
     def get_created_by_email(self, obj):
         return obj.created_by.email
 
@@ -38,6 +39,7 @@ class LoanExtensionSerializer(serializers.ModelSerializer):
                   'created_date']
         read_only_fields = ['id', 'created_by_email', 'created_date']
 
+    @extend_schema_field(serializers.CharField)
     def get_created_by_email(self, obj):
         return obj.created_by.email
 
