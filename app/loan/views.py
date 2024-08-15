@@ -6,6 +6,8 @@ from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiPara
 from rest_framework import (viewsets, )
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
+
+from app.pagination import CustomPageNumberPagination
 from .permissions import IsStaff
 
 from core.models import Loan, Transaction, LoanExtension
@@ -159,6 +161,7 @@ class LoanViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsStaff]
     queryset = Loan.objects.all()
     serializer_class = serializers.LoanSerializer
+    pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
         queryset = self.queryset
