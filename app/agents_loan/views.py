@@ -74,6 +74,8 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
 
         stat = self.request.query_params.get('status', None)
         assigned = self.request.query_params.get('assigned', None)
+        old_to_new = self.request.query_params.get('oldToNew', None)
+
         if assigned is not None:
             if assigned == "true":
                 queryset = queryset.filter(assigned_to=self.request.user)
@@ -87,6 +89,10 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(is_rejected=True)
             elif stat == 'approved':
                 queryset = queryset.filter(approved=True)
+
+        if old_to_new is not None:
+            if old_to_new == "true":
+                return queryset.order_by('id')
 
         return queryset.order_by('-id')
 
