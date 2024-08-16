@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from app import settings
+from app.pagination import CustomPageNumberPagination
 from app.utils import log_event
 from core.models import Document
 from solicitors_loan import serializers
@@ -69,6 +70,7 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
     queryset = models.Application.objects.all()
     authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated, IsNonStaff]
+    pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user).order_by('-id')
@@ -114,7 +116,12 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
         try:
             instance = self.get_object()
             if instance.approved:
+                log_event(self.request, request_body, serializer.instance)
                 raise DRFValidationError("This operation is not allowed on approved applications")
+            elif instance.is_rejected:
+                log_event(self.request, request_body, serializer.instance)
+                raise ValidationError("This operation is not allowed on rejected applications")
+
             else:
                 serializer.save(last_updated_by=self.request.user)
                 log_event(self.request, request_body, serializer.instance)

@@ -125,8 +125,10 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
                 log_event(self.request, request_body, serializer.instance, response_status=201)
             else:
                 if instance.approved:
+                    log_event(self.request, request_body, serializer.instance)
                     raise ValidationError("This operation is not allowed on approved applications")
                 elif instance.is_rejected:
+                    log_event(self.request, request_body, serializer.instance)
                     raise ValidationError("This operation is not allowed on rejected applications")
                 else:
                     serializer.save(last_updated_by=self.request.user)

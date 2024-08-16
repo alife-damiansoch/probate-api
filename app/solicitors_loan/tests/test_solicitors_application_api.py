@@ -83,7 +83,7 @@ class PrivateTestApplicationAPI(APITestCase):
         applications = Application.objects.all().order_by('-id')
         serializer = serializers.SolicitorApplicationSerializer(applications, many=True)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data, serializer.data)
+        self.assertEqual(response.data["results"], serializer.data)
 
     def test_retrieve_self_applications(self):
         """Test retrieving applications created by self.user"""
@@ -103,8 +103,8 @@ class PrivateTestApplicationAPI(APITestCase):
         user_applications = Application.objects.filter(user=self.user).order_by('-id')
         serializer = serializers.SolicitorApplicationSerializer(user_applications, many=True)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
-        self.assertEqual(response.data, serializer.data)
+        self.assertEqual(len(response.data["results"]), 2)
+        self.assertEqual(response.data["results"], serializer.data)
 
     def test_receive_application_details(self):
         """test recieving details of an application"""
