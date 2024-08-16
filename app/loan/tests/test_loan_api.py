@@ -104,7 +104,7 @@ class PrivateLoanAPI(APITestCase):
         loans = Loan.objects.all().order_by('-id')
         serializer = LoanSerializer(loans, many=True)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data, serializer.data)
+        self.assertEqual(response.data['results'], serializer.data)
 
     def test_retrieve_loans_list_not_limited_to_authenticated_user(self):
         """Test retrieving loans for all users"""
@@ -120,10 +120,10 @@ class PrivateLoanAPI(APITestCase):
 
         response = self.client.get(self.LOANS_URL)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(response.data["results"]), 2)
         loans = Loan.objects.all().order_by('-id')
         serializer = LoanSerializer(loans, many=True)
-        self.assertEqual(response.data, serializer.data)
+        self.assertEqual(response.data["results"], serializer.data)
 
     def test_retrieve_loan_by_the_id(self):
         """test retrieving loan by id"""

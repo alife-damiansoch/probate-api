@@ -74,7 +74,7 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
 
         stat = self.request.query_params.get('status', None)
         assigned = self.request.query_params.get('assigned', None)
-        old_to_new = self.request.query_params.get('oldToNew', None)
+        old_to_new = self.request.query_params.get('old_to_new', None)
 
         if assigned is not None:
             if assigned == "true":
@@ -93,8 +93,8 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
         if old_to_new is not None:
             if old_to_new == "true":
                 return queryset.order_by('id')
-
-        return queryset.order_by('-id')
+        else:
+            return queryset.order_by('-id')
 
     def get_serializer_class(self):
         """Return serializer class for the requested model."""

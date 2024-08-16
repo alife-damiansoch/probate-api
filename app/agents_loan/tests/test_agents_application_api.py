@@ -130,7 +130,7 @@ class PrivateTestApplicationAPI(APITestCase):
         serializer = serializers.AgentApplicationSerializer(applications, many=True)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data, serializer.data)
+        self.assertEqual(response.data["results"], serializer.data)
 
     def test_receive_application_details(self):
         """test recieving details of an application"""
