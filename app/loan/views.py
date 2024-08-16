@@ -165,13 +165,28 @@ class LoanViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = self.queryset
+
         stat = self.request.query_params.get('status', None)
+        assigned = self.request.query_params.get('assigned', None)
+        old_to_new = self.request.query_params.get('old_to_new', None)
+
+        if assigned is not None:
+            if assigned.lower() == "true":
+                queryset = queryset.filter(application__assigned_to=self.request.user)
+            if assigned.lower() == "false":
+                queryset = queryset.filter(application__assigned_to=None)
+
         if stat is not None:
             if stat == 'active':
                 queryset = queryset.filter(is_settled=False)
             elif stat == 'settled':
                 queryset = queryset.filter(is_settled=True)
-        return queryset.order_by('-id')
+
+        if old_to_new is not None:
+            if old_to_new == "true":
+                return queryset.order_by('id')
+        else:
+            return queryset.order_by('-id')
 
     def perform_create(self, serializer):
         serializer.save(approved_by=self.request.user)
