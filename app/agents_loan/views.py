@@ -77,6 +77,8 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
         if assigned is not None:
             if assigned == "true":
                 queryset = queryset.filter(assigned_to=self.request.user)
+            if assigned == "false":
+                queryset = queryset.filter(assigned_to=None)
 
         if stat is not None:
             if stat == 'active':
