@@ -84,6 +84,7 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
         pps_regex = re.compile(r'^\d{7}[A-Z]{1,2}$')
         for applicant in applicants_data:
             pps_number = applicant.get('pps_number')
+            pps_number = pps_number.upper()
             if not pps_regex.match(pps_number):
                 raise DRFValidationError({
                     'pps_number': 'PPS Number must be 7 digits followed by 1 or 2 letters.'
