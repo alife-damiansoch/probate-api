@@ -1,6 +1,8 @@
 """
 Views for the user Api
 """
+import logging
+
 from django.contrib.auth import get_user_model
 from rest_framework import generics, permissions
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -86,8 +88,16 @@ class UpdatePasswordView(generics.UpdateAPIView):
 #     serializer_class = AuthTokenSerializer
 #     renderer_classes = api_settings.DEFAULT_RENDERER_CLASSES
 
+logger = logging.getLogger(__name__)
+
+
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
+
+    def post(self, request, *args, **kwargs):
+        logger.info(f"Request data: {request.data}")
+        print(f"Request data: {request.data}")
+        return super().post(request, *args, **kwargs)
 
 
 class ManageUserView(generics.RetrieveUpdateAPIView):

@@ -61,7 +61,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'core.middleware.CorsMiddleware',  # Add this
+    # 'core.middleware.CorsMiddleware',  # Add this
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -170,7 +170,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    
+
 }
 
 SIMPLE_JWT = {
@@ -191,6 +191,6 @@ SPECTACULAR_SETTINGS = {
 
 CORS_ORIGIN_ALLOW_ALL = True  # If you want to allow all origins, or...
 
-CORS_ALLOWED_ORIGINS = [
-    "http://127.0.0.1", "http://127.0.0.1:3000", 'http://localhost:3000',
-]
+# CORS_ALLOWED_ORIGINS = [
+#     "http://127.0.0.1", "http://127.0.0.1:3000", 'http://localhost:3000',
+# ]
