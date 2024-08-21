@@ -94,11 +94,6 @@ logger = logging.getLogger(__name__)
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
-    def post(self, request, *args, **kwargs):
-        logger.info(f"Request data: {request.data}")
-        print(f"Request data: {request.data}")
-        return super().post(request, *args, **kwargs)
-
 
 class ManageUserView(generics.RetrieveUpdateAPIView):
     """Manage the authenticated user"""
