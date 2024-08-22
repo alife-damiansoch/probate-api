@@ -1,7 +1,10 @@
 """
 Views for agents_application API
 """
+import re
+
 from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.db import transaction
 from django.http import JsonResponse, Http404
 
 from rest_framework import (viewsets, status)
@@ -18,6 +21,8 @@ from agents_loan.permissions import IsStaff
 from app.pagination import CustomPageNumberPagination
 
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+
+from rest_framework.exceptions import ValidationError as DRFValidationError
 
 
 @extend_schema_view(
@@ -102,8 +107,22 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
             return serializers.AgentApplicationSerializer
         return self.serializer_class
 
+    def validate_applicants(self, applicants_data):
+        """Validate the PPS numbers of the applicants."""
+        pps_regex = re.compile(r'^\d{7}[A-Z]{1,2}$')
+        for applicant in applicants_data:
+            pps_number = applicant.get('pps_number')
+            pps_number = pps_number.upper()
+            if not pps_regex.match(pps_number):
+                raise DRFValidationError({
+                    'pps_number': 'PPS Number must be 7 digits followed by 1 or 2 letters.'
+                })
+
+    @transaction.atomic
     def perform_create(self, serializer):
         request_body = self.request.data
+        applicants_data = request_body.get('applicants', [])
+        self.validate_applicants(applicants_data)
         """Create a new application."""
         try:
             serializer.save(user=self.request.user)
@@ -112,9 +131,13 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
             log_event(self.request, request_body, application=serializer.instance)
             raise e  # Re-raise the caught exception
 
+    @transaction.atomic
     def perform_update(self, serializer):
         """when updating an application."""
         request_body = self.request.data
+        applicants_data = request_body.get('applicants', [])
+        self.validate_applicants(applicants_data)
+
         try:
             instance = self.get_object()
 
@@ -137,6 +160,7 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
             log_event(self.request, request_body, application=serializer.instance)
             raise e
 
+    @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         request_body = self.request.data
         instance = None
