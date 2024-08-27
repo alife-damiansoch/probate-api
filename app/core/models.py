@@ -355,6 +355,23 @@ class LoanExtension(models.Model):
     created_date = models.DateTimeField(default=timezone.now)
 
 
+class Notification(models.Model):
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
+    text = models.CharField(max_length=500)
+    seen = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(default=timezone.now)
+    created_by = models.ForeignKey(
+        User, on_delete=models.PROTECT, null=True, blank=True, related_name='created_notifications'
+    )
+    application = models.ForeignKey(
+        'Application', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications_application'
+    )
+
+    def __str__(self):
+        recipient_email = self.recipient.email if self.recipient else 'Application not assigned'
+        return f'{recipient_email}: {self.text}'
+
+
 auditlog.register(User)
 auditlog.register(Application)
 auditlog.register(Document)

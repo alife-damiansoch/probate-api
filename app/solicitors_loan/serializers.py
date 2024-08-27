@@ -115,15 +115,66 @@ class SolicitorApplicationDetailSerializer(SolicitorApplicationSerializer):
             dispute_serializer.is_valid(raise_exception=True)
             dispute_serializer.save()
 
-        # Delete old Applicant and Estate instances
-        Applicant.objects.filter(application=instance.id).delete()
-        Estate.objects.filter(application=instance.id).delete()
+        # Fetch current applicants and estates related to this application
+        current_applicants = Applicant.objects.filter(application=instance)
+        current_estates = Estate.objects.filter(application=instance)
 
-        # Create new Applicant and Estate instances
+        # Convert current applicants and estates to a dictionary keyed by a unique combination of fields
+        current_applicants_dict = {
+            (applicant.first_name, applicant.last_name, applicant.pps_number): applicant
+            for applicant in current_applicants
+        }
+
+        current_estates_dict = {
+            (estate.description, estate.value): estate
+            for estate in current_estates
+        }
+
+        # Track applicants and estates to keep
+        applicants_to_keep = []
+        estates_to_keep = []
+
+        # Update or create applicants
         for applicant_data in applicants_data:
-            Applicant.objects.create(application=instance, **applicant_data)
+            key = (applicant_data.get('first_name'), applicant_data.get('last_name'), applicant_data.get('pps_number'))
+            applicant_instance = current_applicants_dict.get(key)
+
+            if applicant_instance:
+                # Update existing applicant
+                for attr, value in applicant_data.items():
+                    setattr(applicant_instance, attr, value)
+                applicant_instance.save()
+                applicants_to_keep.append(applicant_instance)
+            else:
+                # Create new applicant if no match found
+                new_applicant = Applicant.objects.create(application=instance, **applicant_data)
+                applicants_to_keep.append(new_applicant)
+
+        # Remove applicants not in the new data set
+        for applicant in current_applicants:
+            if applicant not in applicants_to_keep:
+                applicant.delete()
+
+        # Update or create estates
         for estate_data in estates_data:
-            Estate.objects.create(application=instance, **estate_data)
+            key = (estate_data.get('description'), estate_data.get('value'))
+            estate_instance = current_estates_dict.get(key)
+
+            if estate_instance:
+                # Update existing estate
+                for attr, value in estate_data.items():
+                    setattr(estate_instance, attr, value)
+                estate_instance.save()
+                estates_to_keep.append(estate_instance)
+            else:
+                # Create new estate if no match found
+                new_estate = Estate.objects.create(application=instance, **estate_data)
+                estates_to_keep.append(new_estate)
+
+        # Remove estates not in the new data set
+        for estate in current_estates:
+            if estate not in estates_to_keep:
+                estate.delete()
 
         return instance
 

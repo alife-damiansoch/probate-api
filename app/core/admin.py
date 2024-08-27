@@ -233,3 +233,4 @@ admin.site.register(models.Event, EventsAdmin)
 admin.site.register(models.Loan, LoanAdmin)
 
 admin.site.register(models.Applicant)
+admin.site.register(models.Notification)

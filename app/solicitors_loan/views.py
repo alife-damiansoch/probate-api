@@ -1,6 +1,8 @@
 """
 Views for solicitors_application API
 """
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.http import JsonResponse, Http404, HttpResponse, HttpResponseNotFound, HttpResponseForbidden
 
@@ -16,7 +18,7 @@ from rest_framework.views import APIView
 from app import settings
 from app.pagination import CustomPageNumberPagination
 from app.utils import log_event
-from core.models import Document
+from core.models import Document, Notification
 from solicitors_loan import serializers
 from core import models
 from solicitors_loan.permissions import IsNonStaff
@@ -96,7 +98,10 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Create a new application."""
         request_body = self.request.data
+
+        # check and assign applicants
         applicants_data = request_body.get('applicants', [])
+
         self.validate_applicants(applicants_data)
 
         try:
@@ -106,28 +111,196 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
             log_event(self.request, request_body, application=serializer.instance)
             raise e  # Re-raise the caught exception
 
+            # Broadcast the notification
+        assigned_to_user = serializer.instance.assigned_to
+
+        notification = Notification.objects.create(
+            recipient=assigned_to_user,
+            text='Application created',
+            seen=False,
+            created_by=self.request.user,
+            application=serializer.instance
+        )
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            'broadcast',
+            {
+                'type': 'notification',
+                'message': notification.text,
+                'recipient': notification.recipient.email if notification.recipient else None,
+                'notification_id': notification.id,
+                'application_id': serializer.instance.id,
+                'seen': notification.seen,
+            }
+        )
+
     @transaction.atomic
     def perform_update(self, serializer):
         """Update an existing application."""
         request_body = self.request.data
         applicants_data = request_body.get('applicants', [])
+        estates_data = request_body.get('estates', [])
+
+        # Ensure applicants_data and estates_data are lists or empty lists
+        if applicants_data is None:
+            applicants_data = []
+        if estates_data is None:
+            estates_data = []
+
         self.validate_applicants(applicants_data)
 
         try:
-            instance = self.get_object()
+            instance = self.get_object()  # Get the current instance
+            original_data = instance.__dict__.copy()  # Get a copy of the original data as a dictionary
+
+            # Get the original applicants and estates data, ensuring they're lists
+            original_applicants = list(instance.applicants.all().values()) if instance.applicants.exists() else []
+            original_estates = list(instance.estates.all().values()) if instance.estates.exists() else []
+
             if instance.approved:
                 log_event(self.request, request_body, serializer.instance)
                 raise DRFValidationError("This operation is not allowed on approved applications")
             elif instance.is_rejected:
                 log_event(self.request, request_body, serializer.instance)
                 raise ValidationError("This operation is not allowed on rejected applications")
-
             else:
+                # Save the updated instance
                 serializer.save(last_updated_by=self.request.user)
                 log_event(self.request, request_body, serializer.instance)
+
+                # Get updated instance data
+                updated_instance = serializer.instance
+                updated_data = updated_instance.__dict__.copy()  # Get a copy of the updated data as a dictionary
+
+                # Get updated applicants and estates data, ensuring they're lists
+                updated_applicants = list(
+                    updated_instance.applicants.all().values()) if updated_instance.applicants.exists() else []
+                updated_estates = list(
+                    updated_instance.estates.all().values()) if updated_instance.estates.exists() else []
+
+                # Compare original and updated data to find changes in main fields
+                changes = []
+                for field, original_value in original_data.items():
+                    if field in updated_data and field not in ['_state',
+                                                               'id']:  # Ignore non-field attributes and primary key
+                        updated_value = updated_data[field]
+                        if original_value != updated_value:
+                            changes.append(f"{field} changed from {original_value} to {updated_value}")
+
+                # Compare original and updated applicants data
+                applicants_changes = self.compare_applicants(original_applicants, updated_applicants)
+                changes.extend(applicants_changes)
+
+                # Compare original and updated estates data
+                estates_changes = self.compare_estates(original_estates, updated_estates)
+                changes.extend(estates_changes)
+
+                # Create a change message only if there are actual changes
+                if changes:
+                    change_message = "; ".join(changes)
+
+                    # Broadcast the notification
+                    assigned_to_user = serializer.instance.assigned_to
+
+                    notification = Notification.objects.create(
+                        recipient=assigned_to_user,
+                        text=f'Application updated: {change_message}',
+                        seen=False,
+                        created_by=self.request.user,
+                        application=serializer.instance
+                    )
+
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                        'broadcast',
+                        {
+                            'type': 'notification',
+                            'message': notification.text,
+                            'recipient': notification.recipient.email if notification.recipient else None,
+                            'notification_id': notification.id,
+                            'application_id': serializer.instance.id,
+                            'seen': notification.seen,
+                            'changes': changes
+                        }
+                    )
         except Exception as e:
             log_event(self.request, request_body, application=serializer.instance)
             raise e
+
+    def compare_applicants(self, original_applicants, updated_applicants):
+        """
+        Compare original and updated applicants data and return a list of changes.
+        """
+        changes = []
+
+        # Ensure both original and updated applicants are not None
+        original_applicants = original_applicants or []
+        updated_applicants = updated_applicants or []
+
+        # Convert list of dictionaries to sets for easier comparison
+        original_set = set(tuple(sorted(d.items())) for d in original_applicants)
+        updated_set = set(tuple(sorted(d.items())) for d in updated_applicants)
+
+        # Detect added applicants
+        added_applicants = updated_set - original_set
+        for applicant in added_applicants:
+            changes.append(f"Applicant added: {dict(applicant)}")
+
+        # Detect removed applicants
+        removed_applicants = original_set - updated_set
+        for applicant in removed_applicants:
+            changes.append(f"Applicant removed: {dict(applicant)}")
+
+        # Detect modified applicants
+        for original_applicant in original_applicants:
+            matching_updated_applicant = next(
+                (app for app in updated_applicants if app['id'] == original_applicant['id']), None)
+            if matching_updated_applicant:
+                for key in original_applicant:
+                    if original_applicant[key] != matching_updated_applicant[key]:
+                        changes.append(
+                            f"Applicant {original_applicant['id']} field '{key}' changed from {original_applicant[key]} to {matching_updated_applicant[key]}"
+                        )
+
+        return changes
+
+    def compare_estates(self, original_estates, updated_estates):
+        """
+        Compare original and updated estates data and return a list of changes.
+        """
+        changes = []
+
+        # Ensure both original and updated estates are not None
+        original_estates = original_estates or []
+        updated_estates = updated_estates or []
+
+        # Convert list of dictionaries to sets for easier comparison
+        original_set = set(tuple(sorted(d.items())) for d in original_estates)
+        updated_set = set(tuple(sorted(d.items())) for d in updated_estates)
+
+        # Detect added estates
+        added_estates = updated_set - original_set
+        for estate in added_estates:
+            changes.append(f"Estate added: {dict(estate)}")
+
+        # Detect removed estates
+        removed_estates = original_set - updated_set
+        for estate in removed_estates:
+            changes.append(f"Estate removed: {dict(estate)}")
+
+        # Detect modified estates
+        for original_estate in original_estates:
+            matching_updated_estate = next(
+                (est for est in updated_estates if est['id'] == original_estate['id']), None)
+            if matching_updated_estate:
+                for key in original_estate:
+                    if original_estate[key] != matching_updated_estate[key]:
+                        changes.append(
+                            f"Estate {original_estate['id']} field '{key}' changed from {original_estate[key]} to {matching_updated_estate[key]}"
+                        )
+
+        return changes
 
     @transaction.atomic
     def destroy(self, request, *args, **kwargs):
@@ -142,6 +315,30 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
             else:
                 result = super().destroy(request, *args, **kwargs)  # carry out the deletion
                 log_event(request, request_body)  # log after deletion is done
+
+                # Broadcast notification
+                assigned_to_user = instance.assigned_to
+
+                notification = Notification.objects.create(
+                    recipient=assigned_to_user,
+                    text=f'Application id {instance.id} deleted',
+                    seen=False,
+                    created_by=request.user,
+                    application=None
+                )
+
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    'broadcast',
+                    {
+                        'type': 'notification',
+                        'message': notification.text,
+                        'recipient': notification.recipient.email if notification.recipient else None,
+                        'notification_id': notification.id,
+                        'application_id': None,
+                        'seen': notification.seen,
+                    }
+                )
                 return result
         except Exception as e:
             log_event(request, request_body, application=instance)
@@ -196,6 +393,30 @@ class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
                     request_body[key] = 'A new file was uploaded.'
 
             log_event(request=request, request_body=request_body, application=application)
+
+            # Broadcast the notification
+            assigned_to_user = application.assigned_to
+
+            notification = Notification.objects.create(
+                recipient=assigned_to_user,
+                text='New document uploaded',
+                seen=False,
+                created_by=request.user
+            )
+
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                'broadcast',
+                {
+                    'type': 'notification',
+                    'message': notification.text,
+                    'recipient': notification.recipient.email if notification.recipient else None,
+                    'notification_id': notification.id,
+                    'application_id': application.id,
+                    'seen': notification.seen,
+                }
+            )
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

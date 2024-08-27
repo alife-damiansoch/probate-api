@@ -9,3 +9,4 @@ python-dotenv == 1.0.1
 django-cors-headers==4.4.0
 djangorestframework_simplejwt==5.3.1
 django-storages[azure]==1.14.4
+channels==3.0.4

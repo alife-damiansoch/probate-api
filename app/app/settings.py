@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'rangefilter',
     'auditlog',
     'storages',
+    'channels',
     'core',
     'user',
     'solicitors_loan',
@@ -56,6 +57,7 @@ INSTALLED_APPS = [
     'comment',
     'expense',
     'loan',
+    'notifications'
 ]
 
 MIDDLEWARE = [
@@ -186,6 +188,14 @@ SPECTACULAR_SETTINGS = {
         'persistAuthorization': True,
         'displayRequestDuration': True,
         'docExpansion': 'list'
+    },
+}
+
+ASGI_APPLICATION = 'app.routing.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
     },
 }
 
