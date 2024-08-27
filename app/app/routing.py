@@ -6,7 +6,8 @@ from notifications import consumers
 application = ProtocolTypeRouter({
     'websocket': AuthMiddlewareStack(
         URLRouter([
-            re_path(r'ws/notifications/', consumers.NotificationConsumer.as_asgi()),  # Websocket route
+            re_path(r'ws/notifications/', consumers.NotificationConsumer.as_asgi()),  # Websocket localhost route
+            re_path(r'wss/notifications/', consumers.NotificationConsumer.as_asgi()),  # Websocket live route
         ])
     ),
 })
