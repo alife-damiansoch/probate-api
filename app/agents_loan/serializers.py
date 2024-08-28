@@ -51,14 +51,17 @@ class AgentApplicationSerializer(serializers.ModelSerializer):
     assigned_to_email = serializers.SerializerMethodField()
     loan = LoanSerializer(read_only=True)
     last_updated_by_email = serializers.SerializerMethodField()
+    applicants = AgentApplicantSerializer(
+        many=True, required=True)
 
     class Meta:
         model = Application
         fields = ['id', 'amount', 'term', 'approved', 'is_rejected', 'rejected_date', 'rejected_reason',
-                  'date_submitted', 'undertaking_ready', 'last_updated_by',
+                  'date_submitted', 'undertaking_ready', 'last_updated_by', 'applicants',
                   'loan_agreement_ready', 'user', 'assigned_to', 'assigned_to_email', 'loan', 'last_updated_by_email']
         read_only_fields = (
-            'id', 'last_updated_by_email', 'date_submitted', 'user', 'assigned_to_email', 'loan', 'last_updated_by')
+            'id', 'last_updated_by_email', 'date_submitted', 'user', 'assigned_to_email', 'loan', 'last_updated_by',
+            'applicants')
 
     @extend_schema_field(serializers.CharField)
     def get_assigned_to_email(self, obj):
