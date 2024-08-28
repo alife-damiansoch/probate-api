@@ -158,6 +158,10 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
             original_applicants = list(instance.applicants.all().values()) if instance.applicants.exists() else []
             original_estates = list(instance.estates.all().values()) if instance.estates.exists() else []
 
+            # Get the original deceased and dispute objects
+            original_deceased = instance.deceased
+            original_dispute = instance.dispute
+
             if instance.approved:
                 log_event(self.request, request_body, serializer.instance)
                 raise DRFValidationError("This operation is not allowed on approved applications")
@@ -179,6 +183,10 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                 updated_estates = list(
                     updated_instance.estates.all().values()) if updated_instance.estates.exists() else []
 
+                # Get the updated deceased and dispute objects
+                updated_deceased = updated_instance.deceased
+                updated_dispute = updated_instance.dispute
+
                 # Compare original and updated data to find changes in main fields
                 changes = []
                 for field, original_value in original_data.items():
@@ -195,6 +203,16 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                 # Compare original and updated estates data
                 estates_changes = self.compare_estates(original_estates, updated_estates)
                 changes.extend(estates_changes)
+
+                # Check for changes in deceased fields
+                if original_deceased and updated_deceased:
+                    deceased_changes = self.compare_deceased(original_deceased, updated_deceased)
+                    changes.extend(deceased_changes)
+
+                # Check for changes in dispute fields
+                if original_dispute and updated_dispute:
+                    dispute_changes = self.compare_dispute(original_dispute, updated_dispute)
+                    changes.extend(dispute_changes)
 
                 # Create a change message only if there are actual changes
                 if changes:
@@ -227,6 +245,33 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
         except Exception as e:
             log_event(self.request, request_body, application=serializer.instance)
             raise e
+
+    def compare_deceased(self, original_deceased, updated_deceased):
+        """
+        Compare original and updated deceased data and return a list of changes.
+        """
+        changes = []
+
+        if original_deceased.first_name != updated_deceased.first_name:
+            changes.append(
+                f"Deceased's first name changed from {original_deceased.first_name} to {updated_deceased.first_name}")
+
+        if original_deceased.last_name != updated_deceased.last_name:
+            changes.append(
+                f"Deceased's last name changed from {original_deceased.last_name} to {updated_deceased.last_name}")
+
+        return changes
+
+    def compare_dispute(self, original_dispute, updated_dispute):
+        """
+        Compare original and updated dispute data and return a list of changes.
+        """
+        changes = []
+
+        if original_dispute.details != updated_dispute.details:
+            changes.append(f"Dispute details changed from '{original_dispute.details}' to '{updated_dispute.details}'")
+
+        return changes
 
     def compare_applicants(self, original_applicants, updated_applicants):
         """
