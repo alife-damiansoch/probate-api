@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from core.models import AssignedSolicitor
+from core.models import Solicitor
 from assigned_solicitor.serializers import AssignedSolicitorSerializer
 
 
@@ -16,7 +16,7 @@ def create_assigned_solicitor(user, **params):
         'own_phone_number': '1234567890',
     }
     defaults.update(params)
-    return AssignedSolicitor.objects.create(user=user, **defaults)
+    return Solicitor.objects.create(user=user, **defaults)
 
 
 def get_detail_url(solicitor_id):
@@ -59,7 +59,7 @@ class AssignedSolicitorModelTest(APITestCase):
         response = self.client.get(self.ASSIGNED_SOLICITORS_URL)
 
         # Filter the queryset to match expected results
-        solicitors = AssignedSolicitor.objects.filter(user=self.user).order_by('-id')
+        solicitors = Solicitor.objects.filter(user=self.user).order_by('-id')
         serializer = AssignedSolicitorSerializer(solicitors, many=True)
 
         # Check the response
@@ -81,7 +81,7 @@ class AssignedSolicitorModelTest(APITestCase):
         response = self.client.get(self.ASSIGNED_SOLICITORS_URL)
 
         # Filter the queryset to match expected results
-        solicitors = AssignedSolicitor.objects.all().order_by('-id')
+        solicitors = Solicitor.objects.all().order_by('-id')
         serializer = AssignedSolicitorSerializer(solicitors, many=True)
 
         # Check the response
@@ -115,7 +115,7 @@ class AssignedSolicitorModelTest(APITestCase):
         response = self.client.post(self.ASSIGNED_SOLICITORS_URL, payload)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        solicitor = AssignedSolicitor.objects.get(id=response.data['id'])
+        solicitor = Solicitor.objects.get(id=response.data['id'])
         self.assertEqual(solicitor.user, self.user)
         self.assertEqual(solicitor.title, payload['title'])
         self.assertEqual(solicitor.first_name, payload['first_name'])
@@ -224,7 +224,7 @@ class AssignedSolicitorModelTest(APITestCase):
         response = self.client.delete(url)
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(AssignedSolicitor.objects.filter(id=solicitor.id).exists())
+        self.assertFalse(Solicitor.objects.filter(id=solicitor.id).exists())
 
     def test_partial_update_assigned_solicitor_other_user_forbidden(self):
         """Test that partial update of another user's assigned solicitor is forbidden"""

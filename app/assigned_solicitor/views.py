@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
-from core.models import AssignedSolicitor
+from core.models import Solicitor
 from .serializers import AssignedSolicitorSerializer
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
@@ -53,9 +53,9 @@ class AssignedSolicitorViewSet(viewsets.ModelViewSet):
         If the user is not a staff member, return only the solicitors associated with the user.
         """
         if self.request.user.is_staff:
-            return AssignedSolicitor.objects.all().order_by('-id')
+            return Solicitor.objects.all().order_by('-id')
         else:
-            return AssignedSolicitor.objects.filter(user=self.request.user).order_by('-id')
+            return Solicitor.objects.filter(user=self.request.user).order_by('-id')
 
     def get_object(self):
         """

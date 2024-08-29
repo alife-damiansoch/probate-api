@@ -13,7 +13,7 @@ from rangefilter.filters import DateRangeFilter
 from django.utils.translation import gettext_lazy as _
 
 from core import models
-from core.models import LoanExtension, Transaction, Document, AssignedSolicitor
+from core.models import LoanExtension, Transaction, Document, Solicitor
 
 from rest_framework.authtoken.models import Token
 
@@ -23,7 +23,7 @@ from auditlog.models import LogEntry
 class AssignedSolicitorInline(admin.TabularInline):
     """Inline admin class for AssignedSolicitor"""
 
-    model = AssignedSolicitor
+    model = Solicitor
     extra = 1  # Number of empty forms to display; can be adjusted
     readonly_fields = ['user']  # Prevents user field from being editable in the inline form
 
@@ -143,7 +143,8 @@ class ApplicationAdmin(admin.ModelAdmin):
     inlines = [ApplicantInline, EstateInline, ExpenseInline, DocumentInline]
 
     fieldsets = (
-        (None, {"fields": ("amount", "term", "user", "deceased", "dispute", "assigned_to", "last_updated_by",)}),
+        (None,
+         {"fields": ("amount", "term", "user", "solicitor", "deceased", "dispute", "assigned_to", "last_updated_by",)}),
         (_("Details"), {"fields": (
             "approved", "is_rejected", "rejected_reason", "rejected_date", "undertaking_ready", "loan_agreement_ready",
             "value_of_the_estate_after_expenses")}),
@@ -154,7 +155,7 @@ class ApplicationAdmin(admin.ModelAdmin):
         'user', "rejected_date", "undertaking_ready", "loan_agreement_ready", "value_of_the_estate_after_expenses")
 
     search_fields = ["id", ]
-    list_display = ("id", "user", "assigned_to", "deceased_full_name", "dispute_details",
+    list_display = ("id", "user", "solicitor", "assigned_to", "deceased_full_name", "dispute_details",
                     "value_of_the_estate_after_expenses", "undertaking_ready", "loan_agreement_ready")
 
     def deceased_full_name(self, obj):
@@ -268,4 +269,4 @@ admin.site.register(models.Loan, LoanAdmin)
 admin.site.register(models.Applicant)
 
 admin.site.register(models.Notification)
-admin.site.register(models.AssignedSolicitor)
+admin.site.register(models.Solicitor)

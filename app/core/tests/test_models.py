@@ -17,7 +17,7 @@ from uuid import uuid4
 
 from os.path import join
 
-from core.models import AssignedSolicitor
+from core.models import Solicitor
 
 
 class TestModels(TestCase):
@@ -336,7 +336,7 @@ class AssignedSolicitorModelTest(TestCase):
 
     def test_create_assigned_solicitor(self):
         # Create an AssignedSolicitor instance
-        solicitor = AssignedSolicitor.objects.create(
+        solicitor = Solicitor.objects.create(
             user=self.user,
             title='Mr.',
             first_name='John',
@@ -346,10 +346,10 @@ class AssignedSolicitorModelTest(TestCase):
         )
 
         # Verify that an AssignedSolicitor instance was created
-        self.assertEqual(AssignedSolicitor.objects.count(), 1)
+        self.assertEqual(Solicitor.objects.count(), 1)
 
         # Retrieve the created instance
-        created_solicitor = AssignedSolicitor.objects.get()
+        created_solicitor = Solicitor.objects.get()
 
         # Verify that the created solicitor's fields match the input
         self.assertEqual(created_solicitor.user, self.user)
@@ -361,7 +361,7 @@ class AssignedSolicitorModelTest(TestCase):
 
     def test_create_assigned_solicitor_with_optional_fields(self):
         # Create an AssignedSolicitor instance with optional fields set to None
-        solicitor = AssignedSolicitor.objects.create(
+        solicitor = Solicitor.objects.create(
             user=self.user,
             title='Ms.',
             first_name='Jane',
@@ -371,10 +371,10 @@ class AssignedSolicitorModelTest(TestCase):
         )
 
         # Verify that an AssignedSolicitor instance was created
-        self.assertEqual(AssignedSolicitor.objects.count(), 1)
+        self.assertEqual(Solicitor.objects.count(), 1)
 
         # Retrieve the created instance
-        created_solicitor = AssignedSolicitor.objects.get()
+        created_solicitor = Solicitor.objects.get()
 
         # Verify that the created solicitor's fields match the input
         self.assertEqual(created_solicitor.user, self.user)

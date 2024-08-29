@@ -118,7 +118,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 from django.db import models
 
 
-class AssignedSolicitor(models.Model):
+class Solicitor(models.Model):
     """Assigned Solicitor for a particular task or application"""
 
     # ForeignKey to the User model
@@ -190,6 +190,9 @@ class Application(models.Model):
     is_rejected = models.BooleanField(default=False)
     rejected_reason = models.TextField(null=True, blank=True, default=None)
     rejected_date = models.DateField(null=True, blank=True, default=None)
+    solicitor = models.ForeignKey(
+        Solicitor, on_delete=models.PROTECT, null=True, blank=True, related_name='applications'
+    )
 
     def value_of_the_estate_after_expenses(self):
         estates_sum = self.estates.aggregate(total_estate_value=Sum('value'))['total_estate_value'] or 0
