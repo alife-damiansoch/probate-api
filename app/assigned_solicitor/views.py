@@ -1,7 +1,9 @@
-from rest_framework import viewsets
+from django.db.models import ProtectedError
+from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from core.models import Solicitor
 from .serializers import AssignedSolicitorSerializer
@@ -79,3 +81,12 @@ class AssignedSolicitorViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Staff users are not allowed to create new solicitors.")
         """Ensure the user is set to the currently authenticated user when creating a new solicitor"""
         serializer.save(user=self.request.user)
+
+    def perform_destroy(self, instance):
+        """Override perform_destroy to handle ProtectedError."""
+        try:
+            instance.delete()
+        except ProtectedError:
+            raise ValidationError(
+                {"detail": "Cannot delete this solicitor because it is referenced in existing applications."}
+            )
