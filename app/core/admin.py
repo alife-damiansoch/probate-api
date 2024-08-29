@@ -13,11 +13,24 @@ from rangefilter.filters import DateRangeFilter
 from django.utils.translation import gettext_lazy as _
 
 from core import models
-from core.models import LoanExtension, Transaction, Document
+from core.models import LoanExtension, Transaction, Document, AssignedSolicitor
 
 from rest_framework.authtoken.models import Token
 
 from auditlog.models import LogEntry
+
+
+class AssignedSolicitorInline(admin.TabularInline):
+    """Inline admin class for AssignedSolicitor"""
+
+    model = AssignedSolicitor
+    extra = 1  # Number of empty forms to display; can be adjusted
+    readonly_fields = ['user']  # Prevents user field from being editable in the inline form
+
+    def get_queryset(self, request):
+        """Customize the queryset to display only solicitors belonging to the user"""
+        qs = super().get_queryset(request)
+        return qs.select_related('user')
 
 
 class UserAdmin(BaseUserAdmin):
@@ -73,6 +86,16 @@ class UserAdmin(BaseUserAdmin):
             )
         }),
     )
+
+    def get_inline_instances(self, request, obj=None):
+        """Show the AssignedSolicitor inline only for non-staff users."""
+        inline_instances = []
+
+        # Check if the user is non-staff before adding the inline
+        if obj and not obj.is_staff:
+            inline_instances = [AssignedSolicitorInline(self.model, self.admin_site)]
+
+        return inline_instances
 
 
 class EstateInline(admin.TabularInline):
