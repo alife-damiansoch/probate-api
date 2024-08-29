@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/', include('expense.urls', namespace='expense')),
     path('api/', include('loan.urls', namespace='loan')),
     path('api/', include('notifications.urls', namespace='notification')),
+    path('api/', include('assigned_solicitor.urls', namespace='assigned_solicitor')),
 
     path('test/500/', test_500_view),
 ]

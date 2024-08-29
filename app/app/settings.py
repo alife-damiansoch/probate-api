@@ -57,7 +57,8 @@ INSTALLED_APPS = [
     'comment',
     'expense',
     'loan',
-    'notifications'
+    'notifications',
+    'assigned_solicitor'
 ]
 
 MIDDLEWARE = [

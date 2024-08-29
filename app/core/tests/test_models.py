@@ -17,6 +17,8 @@ from uuid import uuid4
 
 from os.path import join
 
+from core.models import AssignedSolicitor
+
 
 class TestModels(TestCase):
     """Tests for models"""
@@ -321,3 +323,63 @@ class LoanModelTests(TestCase):
         )
         self.application.refresh_from_db()
         self.assertTrue(self.application.approved)
+
+
+class AssignedSolicitorModelTest(TestCase):
+
+    def setUp(self):
+        # Create a test user
+        self.user = get_user_model().objects.create_user(
+            email='solicitor_user@test.com',
+            password='testpass123'
+        )
+
+    def test_create_assigned_solicitor(self):
+        # Create an AssignedSolicitor instance
+        solicitor = AssignedSolicitor.objects.create(
+            user=self.user,
+            title='Mr.',
+            first_name='John',
+            last_name='Doe',
+            own_email='john.doe@example.com',
+            own_phone_number='1234567890'
+        )
+
+        # Verify that an AssignedSolicitor instance was created
+        self.assertEqual(AssignedSolicitor.objects.count(), 1)
+
+        # Retrieve the created instance
+        created_solicitor = AssignedSolicitor.objects.get()
+
+        # Verify that the created solicitor's fields match the input
+        self.assertEqual(created_solicitor.user, self.user)
+        self.assertEqual(created_solicitor.title, 'Mr.')
+        self.assertEqual(created_solicitor.first_name, 'John')
+        self.assertEqual(created_solicitor.last_name, 'Doe')
+        self.assertEqual(created_solicitor.own_email, 'john.doe@example.com')
+        self.assertEqual(created_solicitor.own_phone_number, '1234567890')
+
+    def test_create_assigned_solicitor_with_optional_fields(self):
+        # Create an AssignedSolicitor instance with optional fields set to None
+        solicitor = AssignedSolicitor.objects.create(
+            user=self.user,
+            title='Ms.',
+            first_name='Jane',
+            last_name='Doe',
+            own_email=None,  # Optional field set to None
+            own_phone_number=None  # Optional field set to None
+        )
+
+        # Verify that an AssignedSolicitor instance was created
+        self.assertEqual(AssignedSolicitor.objects.count(), 1)
+
+        # Retrieve the created instance
+        created_solicitor = AssignedSolicitor.objects.get()
+
+        # Verify that the created solicitor's fields match the input
+        self.assertEqual(created_solicitor.user, self.user)
+        self.assertEqual(created_solicitor.title, 'Ms.')
+        self.assertEqual(created_solicitor.first_name, 'Jane')
+        self.assertEqual(created_solicitor.last_name, 'Doe')
+        self.assertIsNone(created_solicitor.own_email)  # Ensure optional field is None
+        self.assertIsNone(created_solicitor.own_phone_number)  # Ensure optional field is None

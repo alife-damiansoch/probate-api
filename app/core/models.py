@@ -115,6 +115,26 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{self.name}  -  {self.email}"
 
 
+from django.db import models
+
+
+class AssignedSolicitor(models.Model):
+    """Assigned Solicitor for a particular task or application"""
+
+    # ForeignKey to the User model
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='solicitors')
+
+    # Additional fields
+    title = models.CharField(max_length=50)
+    first_name = models.CharField(max_length=255)
+    last_name = models.CharField(max_length=255)
+    own_email = models.EmailField(max_length=255, null=True, blank=True)  # Optional email field
+    own_phone_number = models.CharField(max_length=20, null=True, blank=True)  # Optional phone number field
+
+    def __str__(self):
+        return f"{self.title} {self.first_name} {self.last_name} ({self.own_email})"
+
+
 # endregion
 class Deceased(models.Model):
     first_name = models.CharField(max_length=255)
