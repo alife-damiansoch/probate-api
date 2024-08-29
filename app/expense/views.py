@@ -106,7 +106,9 @@ class ExpenseViewSet(mixins.ListModelMixin,
             notification = Notification.objects.create(
                 recipient=assigned_to_user,
                 text=message,
-                seen=False
+                seen=False,
+                created_by=self.request.user,
+                application=application,
             )
 
             channel_layer = get_channel_layer()

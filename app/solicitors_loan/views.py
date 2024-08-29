@@ -446,7 +446,8 @@ class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
                 recipient=assigned_to_user,
                 text='New document uploaded',
                 seen=False,
-                created_by=request.user
+                created_by=request.user,
+                application=application,
             )
 
             channel_layer = get_channel_layer()

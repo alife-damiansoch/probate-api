@@ -17,6 +17,8 @@ from core.models import LoanExtension, Transaction, Document
 
 from rest_framework.authtoken.models import Token
 
+from auditlog.models import LogEntry
+
 
 class UserAdmin(BaseUserAdmin):
     """Define admin pages for users"""
@@ -221,6 +223,14 @@ class EventsAdmin(admin.ModelAdmin):
     )
     readonly_fields = [f.name for f in models.Event._meta.get_fields()]
 
+
+class CustomLogEntryAdmin(admin.ModelAdmin):
+    # Adjust search_fields as per your model relations
+    search_fields = ['object_pk', 'actor__email']
+
+
+admin.site.unregister(LogEntry)
+admin.site.register(LogEntry, CustomLogEntryAdmin)
 
 admin.site.register(models.User, UserAdmin)
 admin.site.register(models.Team)
