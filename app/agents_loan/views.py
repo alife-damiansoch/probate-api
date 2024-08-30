@@ -6,6 +6,7 @@ import re
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.db import transaction
 from django.http import JsonResponse, Http404
+from django.shortcuts import get_object_or_404
 
 from rest_framework import (viewsets, status)
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -143,8 +144,13 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
 
             # Check if the only key in the request data is 'assigned_to'
             if len(request_body) == 1 and 'assigned_to' in request_body:
-                # Allow the update even if the application is approved or rejected
-                serializer.save(last_updated_by=self.request.user)
+
+                assigned_user_id = request_body['assigned_to']
+                assigned_user = get_object_or_404(models.User, pk=assigned_user_id)
+
+                instance.assigned_to = assigned_user
+                instance.last_updated_by = self.request.user
+                instance.save(update_fields=['assigned_to', 'last_updated_by'])
                 log_event(self.request, request_body, serializer.instance, response_status=201)
             else:
                 if instance.approved:

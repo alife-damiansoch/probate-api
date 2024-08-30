@@ -620,3 +620,26 @@ class ApplicationUpdateTests(APITestCase):
         self.assertEqual(self.application.dispute.id, self.dispute.id)
         dis = Dispute.objects.all()
         self.assertEqual(dis.count(), 1)
+
+    def test_update_assigned_to(self):
+        # Let's create a new User to assign the application to
+        new_user = get_user_model().objects.create_user(
+            email='newuser@example.com', password='newpassword', is_staff=True)
+
+        # Prepare the data for the patch request
+        data = {'assigned_to': new_user.id}
+        old_instance = deepcopy(self.application)
+
+        # Send the patch request
+        response = self.client.patch(self.url, data, format='json')
+
+        # Check that the request was successful.
+        self.assertEqual(response.status_code, status.HTTP_200_OK,
+                         msg=f"Error: {response.data}")
+
+        # Check the user.id is updated.
+        self.refresh_application()
+        self.assertEqual(self.application.assigned_to.id, new_user.id)
+
+        # Check that only the 'assigned_to' and 'last_updated_by' fields have changed.
+        self.assertOtherFieldsUnchanged(old_instance, ['assigned_to', 'last_updated_by'])
