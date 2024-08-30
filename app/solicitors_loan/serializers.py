@@ -52,7 +52,7 @@ class SolicitorApplicationSerializer(serializers.ModelSerializer):
         fields = ['id', 'amount', 'term', 'approved', 'is_rejected', 'rejected_date', 'rejected_reason',
                   'date_submitted', 'undertaking_ready', 'applicants',
                   'loan_agreement_ready', 'solicitor']
-        read_only_fields = ('id', 'approved', 'last_updated_by', 'date_submitted', 'assigned_to', 'undertaking_ready',
+        read_only_fields = ('id', 'approved', 'last_updated_by', 'date_submitted', 'undertaking_ready',
                             'loan_agreement_ready', 'is_rejected', 'rejected_date', 'rejected_reason', 'applicants')
 
 

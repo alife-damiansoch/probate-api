@@ -8,6 +8,7 @@ from django.http import JsonResponse, Http404, HttpResponse, HttpResponseNotFoun
 
 import os
 
+from django.shortcuts import get_object_or_404
 from rest_framework import (viewsets, status)
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, NotFound, ValidationError
@@ -18,7 +19,7 @@ from rest_framework.views import APIView
 from app import settings
 from app.pagination import CustomPageNumberPagination
 from app.utils import log_event
-from core.models import Document, Notification
+from core.models import Document, Notification, Solicitor
 from solicitors_loan import serializers
 from core import models
 from solicitors_loan.permissions import IsNonStaff
@@ -169,79 +170,122 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                 log_event(self.request, request_body, serializer.instance)
                 raise ValidationError("This operation is not allowed on rejected applications")
             else:
-                # Save the updated instance
-                serializer.save(last_updated_by=self.request.user)
-                log_event(self.request, request_body, serializer.instance)
+                # Check if request data only contains `solicitor`
+                if len(request_body.keys()) == 1 and 'solicitor' in request_body:
+                    try:
 
-                # Get updated instance data
-                updated_instance = serializer.instance
-                updated_data = updated_instance.__dict__.copy()  # Get a copy of the updated data as a dictionary
+                        solicitor_id = request_body.get('solicitor', None)
+                        # Get the Solicitor instance
+                        solicitor_instance = get_object_or_404(Solicitor, id=solicitor_id)
+                        # Save the updated instance
+                        serializer.save(last_updated_by=self.request.user,
+                                        solicitor=solicitor_instance,
+                                        estates=original_estates,
+                                        applicants=original_applicants,
+                                        )
 
-                # Get updated applicants and estates data, ensuring they're lists
-                updated_applicants = list(
-                    updated_instance.applicants.all().values()) if updated_instance.applicants.exists() else []
-                updated_estates = list(
-                    updated_instance.estates.all().values()) if updated_instance.estates.exists() else []
+                        log_event(self.request, request_body, serializer.instance)
 
-                # Get the updated deceased and dispute objects
-                updated_deceased = updated_instance.deceased
-                updated_dispute = updated_instance.dispute
+                        # Broadcast the notification
+                        assigned_to_user = serializer.instance.assigned_to
 
-                # Compare original and updated data to find changes in main fields
-                changes = []
-                for field, original_value in original_data.items():
-                    if field in updated_data and field not in ['_state',
-                                                               'id']:  # Ignore non-field attributes and primary key
-                        updated_value = updated_data[field]
-                        if original_value != updated_value:
-                            changes.append(f"{field} changed from {original_value} to {updated_value}")
+                        notification = Notification.objects.create(
+                            recipient=assigned_to_user,
+                            text=f'Application updated: Solicitor changed',
+                            seen=False,
+                            created_by=self.request.user,
+                            application=serializer.instance
+                        )
 
-                # Compare original and updated applicants data
-                applicants_changes = self.compare_applicants(original_applicants, updated_applicants)
-                changes.extend(applicants_changes)
+                        channel_layer = get_channel_layer()
+                        async_to_sync(channel_layer.group_send)(
+                            'broadcast',
+                            {
+                                'type': 'notification',
+                                'message': notification.text,
+                                'recipient': notification.recipient.email if notification.recipient else None,
+                                'notification_id': notification.id,
+                                'application_id': serializer.instance.id,
+                                'seen': notification.seen,
+                            }
+                        )
+                    except Exception as e:
+                        log_event(self.request, request_body, application=serializer.instance)
+                        raise e
+                else:
+                    # Save the updated instance
+                    serializer.save(last_updated_by=self.request.user)
+                    log_event(self.request, request_body, serializer.instance)
 
-                # Compare original and updated estates data
-                estates_changes = self.compare_estates(original_estates, updated_estates)
-                changes.extend(estates_changes)
+                    # Get updated instance data
+                    updated_instance = serializer.instance
+                    updated_data = updated_instance.__dict__.copy()  # Get a copy of the updated data as a dictionary
 
-                # Check for changes in deceased fields
-                if original_deceased and updated_deceased:
-                    deceased_changes = self.compare_deceased(original_deceased, updated_deceased)
-                    changes.extend(deceased_changes)
+                    # Get updated applicants and estates data, ensuring they're lists
+                    updated_applicants = list(
+                        updated_instance.applicants.all().values()) if updated_instance.applicants.exists() else []
+                    updated_estates = list(
+                        updated_instance.estates.all().values()) if updated_instance.estates.exists() else []
 
-                # Check for changes in dispute fields
-                if original_dispute and updated_dispute:
-                    dispute_changes = self.compare_dispute(original_dispute, updated_dispute)
-                    changes.extend(dispute_changes)
+                    # Get the updated deceased and dispute objects
+                    updated_deceased = updated_instance.deceased
+                    updated_dispute = updated_instance.dispute
 
-                # Create a change message only if there are actual changes
-                if changes:
-                    change_message = "; ".join(changes)
+                    # Compare original and updated data to find changes in main fields
+                    changes = []
+                    for field, original_value in original_data.items():
+                        if field in updated_data and field not in ['_state',
+                                                                   'id']:  # Ignore non-field attributes and primary key
+                            updated_value = updated_data[field]
+                            if original_value != updated_value:
+                                changes.append(f"{field} changed from {original_value} to {updated_value}")
 
-                    # Broadcast the notification
-                    assigned_to_user = serializer.instance.assigned_to
+                    # Compare original and updated applicants data
+                    applicants_changes = self.compare_applicants(original_applicants, updated_applicants)
+                    changes.extend(applicants_changes)
 
-                    notification = Notification.objects.create(
-                        recipient=assigned_to_user,
-                        text=f'Application updated: {change_message}',
-                        seen=False,
-                        created_by=self.request.user,
-                        application=serializer.instance
-                    )
+                    # Compare original and updated estates data
+                    estates_changes = self.compare_estates(original_estates, updated_estates)
+                    changes.extend(estates_changes)
 
-                    channel_layer = get_channel_layer()
-                    async_to_sync(channel_layer.group_send)(
-                        'broadcast',
-                        {
-                            'type': 'notification',
-                            'message': notification.text,
-                            'recipient': notification.recipient.email if notification.recipient else None,
-                            'notification_id': notification.id,
-                            'application_id': serializer.instance.id,
-                            'seen': notification.seen,
-                            'changes': changes
-                        }
-                    )
+                    # Check for changes in deceased fields
+                    if original_deceased and updated_deceased:
+                        deceased_changes = self.compare_deceased(original_deceased, updated_deceased)
+                        changes.extend(deceased_changes)
+
+                    # Check for changes in dispute fields
+                    if original_dispute and updated_dispute:
+                        dispute_changes = self.compare_dispute(original_dispute, updated_dispute)
+                        changes.extend(dispute_changes)
+
+                    # Create a change message only if there are actual changes
+                    if changes:
+                        change_message = "; ".join(changes)
+
+                        # Broadcast the notification
+                        assigned_to_user = serializer.instance.assigned_to
+
+                        notification = Notification.objects.create(
+                            recipient=assigned_to_user,
+                            text=f'Application updated: {change_message}',
+                            seen=False,
+                            created_by=self.request.user,
+                            application=serializer.instance
+                        )
+
+                        channel_layer = get_channel_layer()
+                        async_to_sync(channel_layer.group_send)(
+                            'broadcast',
+                            {
+                                'type': 'notification',
+                                'message': notification.text,
+                                'recipient': notification.recipient.email if notification.recipient else None,
+                                'notification_id': notification.id,
+                                'application_id': serializer.instance.id,
+                                'seen': notification.seen,
+                                'changes': changes
+                            }
+                        )
         except Exception as e:
             log_event(self.request, request_body, application=serializer.instance)
             raise e

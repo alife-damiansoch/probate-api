@@ -11,13 +11,15 @@ from rest_framework import status
 
 from rest_framework.test import APIClient, APITestCase
 
-from core.models import (Application, Deceased, Dispute, Event, )
+from core.models import (Application, Deceased, Dispute, Event, Solicitor, )
 
 from solicitors_loan import serializers
 
 from decimal import Decimal
 
 from copy import deepcopy
+
+from solicitors_loan.serializers import SolicitorApplicationSerializer, SolicitorApplicationDetailSerializer
 
 
 def get_detail_url(application_id):
@@ -551,6 +553,9 @@ class ApplicationUpdateTests(APITestCase):
         )
 
         self.url = get_detail_url(application_id=self.application.id)
+        # URL for creating applications
+        self.APPLICATIONS_URL = reverse(
+            'solicitors_loan:solicitor_application-list')
 
     def refresh_application(self):
         """Refresh the application instance to get updated values from DB"""
@@ -725,10 +730,77 @@ class ApplicationUpdateTests(APITestCase):
         # Check that no other fields have changed.
         self.assertOtherFieldsUnchanged(old_instance, ['dispute', 'last_updated_by'])
 
-        # Check that no other fields have changed.
-        self.assertOtherFieldsUnchanged(old_instance, ['deceased', 'last_updated_by'])
-
         # Checking if dispute is updated not created new one and assigned
         self.assertEqual(self.application.dispute.id, self.dispute.id)
         dis = Dispute.objects.all()
         self.assertEqual(dis.count(), 1)
+
+    def test_update_assigned_to(self):
+        """Test updating the assigned to wil change only fields that it suppose to change"""
+
+        # Create a valid application first
+        valid_data = {
+            'amount': '2000.00',
+            'term': 24,
+            'deceased': {
+                'first_name': 'John',
+                'last_name': 'Doe'
+            },
+            'dispute': {
+                'details': 'Some details'
+            },
+            'applicants': [
+                {
+                    'title': 'Mr',
+                    'first_name': 'John',
+                    'last_name': 'Doe',
+                    'pps_number': '1234567A'
+                }
+            ],
+            'estates': [
+                {
+                    'description': 'Some estate',
+                    'value': '20000.00'
+                }
+            ],
+        }
+
+        response = self.client.post(self.APPLICATIONS_URL, valid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        application_id = response.data['id']
+
+        solicitor = Solicitor.objects.create(title="Mr", first_name="John", last_name="Doe", user=self.user)
+
+        # Prepare the data for the patch request
+        data = {
+            "solicitor": solicitor.id  # Put the id of the new_user in the 'assigned_to' field
+        }
+
+        old_instance = deepcopy(response.data)
+
+        url = get_detail_url(application_id)
+        # Send the patch request
+        response = self.client.patch(url, data, format='json')
+
+        # Check that the request was successful.
+        self.assertEqual(response.status_code, status.HTTP_200_OK,
+                         msg=f"Error: {response.data}")
+
+        updated_application = Application.objects.get(id=application_id)
+
+        updated_application_data = SolicitorApplicationDetailSerializer(updated_application).data
+
+        # Now you can check if only the 'solicitor' field was updated
+        for field, value in old_instance.items():
+            if field != 'solicitor':
+                if updated_application_data[field] != value:
+                    # This prints the fields that aren't equal
+                    print(
+                        f"The field '{field}' has changed. Original value: {value}, new value: {updated_application_data[field]}")
+                    assert updated_application_data[field] == value
+                    # This checks that all the other fields are unchanged
+
+        # Now that you have ensured that all the other fields are unchanged,
+        # Check that the 'solicitor' field was successfully updated
+        assert updated_application_data['solicitor'] == data['solicitor']
