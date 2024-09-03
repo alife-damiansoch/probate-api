@@ -80,8 +80,12 @@ def generate_undertaking_pdf(request):
         else:
             solicitor_firm_address = "N/A"
 
-        # Assuming `application` has a related `Applicant` model or field that links to the applicant
-        applicant_name = application.applicant.name if hasattr(application, 'applicant') else "N/A"
+        # Get all applicants associated with the application
+        applicants = application.applicants.all()
+        if applicants.exists():
+            applicant_names = ', '.join([f"{applicant.first_name} {applicant.last_name}" for applicant in applicants])
+        else:
+            applicant_names = "N/A"
 
         # Prepare context data for the PDF generation
         context = {
@@ -95,7 +99,7 @@ def generate_undertaking_pdf(request):
             'solicitor_name': solicitor_name,
             'solicitor_firm_name': solicitor_firm_name,
             'solicitor_firm_address': solicitor_firm_address,
-            'applicant_name': applicant_name,
+            'applicant_name': applicant_names,
             'current_date': date.today().strftime("%B %d, %Y"),  # Format the current date
             'company_name': company_name,
             'company_address': company_address,
