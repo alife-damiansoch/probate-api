@@ -132,7 +132,7 @@ class Solicitor(models.Model):
     own_phone_number = models.CharField(max_length=20, null=True, blank=True)  # Optional phone number field
 
     def __str__(self):
-        return f"{self.title} {self.first_name} {self.last_name} ({self.own_email})"
+        return f"{self.title} {self.first_name} {self.last_name} "
 
 
 # endregion

@@ -1,0 +1,146 @@
+<!-- templates/undertaking/undertaking_template.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Undertaking to Repay Probate Advancement</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm; /* Default margin for A4 size */
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .date {
+            text-align: right;
+            margin-bottom: 60px; /* Increased space below date */
+            font-size: 14px;
+            position: absolute;
+            top: 20mm; /* Place date below top margin */
+            right: 20mm; /* Align with right margin */
+        }
+
+        .header {
+            text-align: center;
+            font-weight: bold;
+            padding-top: 40px; /* Add padding to the top of the header */
+            padding-bottom: 40px; /* Add padding to the bottom of the header */
+        }
+
+        .address-section {
+            margin-bottom: 80px; /* Increased space for better visual separation */
+        }
+
+        .subject {
+            margin-bottom: 80px; /* Increased space below subject */
+            font-weight: bold;
+            text-decoration: underline;
+            font-size: 16px;
+        }
+
+        .content {
+            margin-top: 30px;
+            margin-bottom: 50px; /* Increased space for better visual separation */
+        }
+
+        .content p {
+            margin-bottom: 40px; /* Increased space between paragraphs */
+            text-align: justify;
+        }
+
+        .signature {
+            margin-top: 120px; /* Increased space to move signature area further down */
+            margin-bottom: 120px; /* Increased space to move signature area further down */
+            text-align: left;
+        }
+
+        .signature p {
+            margin: 0;
+        }
+
+        .footer {
+            text-align: center;
+            font-weight: bold;
+            padding-top: 50px; /* Add padding to the top of the footer */
+            font-size: 14px;
+        }
+
+        .footer p {
+            margin-top: 30px; /* Additional margin for thank you note */
+        }
+
+        .indent {
+            text-indent: 40px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="date">
+    <p>{{ current_date }}</p>
+</div>
+
+<div class="header">
+    <h2>UNDERTAKING TO REPAY PROBATE ADVANCEMENT</h2>
+</div>
+
+<div class="address-section">
+    <p>To:<br>
+        {{ company_name }}<br>
+        {{ company_address }}</p>
+
+    <p>From:<br>
+        {{ solicitor_name }}<br>
+        {{ solicitor_firm_name }}<br>
+        {{ solicitor_firm_address }}</p>
+</div>
+
+<div class="subject">
+    <p>Subject: Undertaking to Repay Probate Advancement</p>
+</div>
+
+<div class="content">
+    <p><strong>I, {{ solicitor_name }}</strong>, acting as the solicitor for the estate
+        of {{ deceased_first_name }} {{ deceased_last_name }} ("the Estate"), hereby undertake and agree to the
+        following:</p>
+
+    <p class="indent"><strong>1. Repayment of Advancement:</strong> Upon receipt of the estate funds, I shall ensure
+        that the sum of €{{ amount }}, which represents the probate advancement provided by {{ company_name }}
+        to {{ applicant_name }} ("the Applicant"), together with any applicable fees totaling
+        €{{ fee_agreed_for_undertaking }}, is repaid to {{ company_name }} before any remaining funds from the estate
+        are disbursed to the Applicant or any other beneficiaries.</p>
+
+    <p class="indent"><strong>2. Priority of Payment:</strong> The repayment to {{ company_name }} shall take precedence
+        over any distributions to the Applicant or any other beneficiaries from the estate funds.</p>
+
+    <p class="indent"><strong>3. Notification:</strong> I shall notify {{ company_name }} immediately upon receipt of
+        estate funds sufficient to cover the repayment of the advancement and any applicable fees.</p>
+
+    <p>I confirm that this undertaking is binding upon me and shall remain in effect until the repayment
+        to {{ company_name }} has been made in full.</p>
+</div>
+
+<div class="signature">
+    <p><strong>Electronic Signature:</strong></p>
+    <p>{{ solicitor_name }}</p>
+    <p>{{ solicitor_firm_name }}</p>
+    <p>Date: {{ current_date }}</p>
+</div>
+
+<div class="footer">
+    <p>Thank you for your cooperation.</p>
+</div>
+
+</body>
+</html>

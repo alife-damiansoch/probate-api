@@ -25,6 +25,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY', 'changeme')
+COMPANY_NAME = os.getenv('COMPANY_NAME', 'Default Company Name')
+COMPANY_ADDRESS = os.getenv('COMPANY_ADDRESS', 'Default Company Address')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.getenv('DEBUG', 0)))
@@ -58,7 +60,8 @@ INSTALLED_APPS = [
     'expense',
     'loan',
     'notifications',
-    'assigned_solicitor'
+    'assigned_solicitor',
+    'undertaking'
 ]
 
 MIDDLEWARE = [

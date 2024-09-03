@@ -10,3 +10,4 @@ django-cors-headers==4.4.0
 djangorestframework_simplejwt==5.3.1
 django-storages[azure]==1.14.4
 channels==3.0.4
+xhtml2pdf==0.2.16

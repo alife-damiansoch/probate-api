@@ -1,5 +1,6 @@
 from rest_framework import viewsets, mixins
 from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from agents_loan.permissions import IsStaff
 from app.pagination import CustomPageNumberPagination
@@ -37,6 +38,7 @@ class NotificationViewSet(mixins.UpdateModelMixin,
                           viewsets.GenericViewSet):
     """ViewSet for updating the 'seen' field of Notification objects."""
     queryset = Notification.objects.all()
+    authentication_classes = (JWTAuthentication,)
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated, IsStaff]
     pagination_class = CustomPageNumberPagination
