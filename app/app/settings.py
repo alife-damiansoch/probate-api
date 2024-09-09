@@ -61,7 +61,8 @@ INSTALLED_APPS = [
     'loan',
     'notifications',
     'assigned_solicitor',
-    'undertaking'
+    'undertaking',
+    'downloadableFiles'
 ]
 
 MIDDLEWARE = [
@@ -163,6 +164,7 @@ else:  # in development
     STATICFILES_DIRS = [BASE_DIR / "static"]
     STATIC_ROOT = "staticfiles"
     MEDIA_ROOT = BASE_DIR / "media"
+    DOC_DOWNLOAD_DIR = os.path.join(MEDIA_ROOT, 'DocDownload')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
