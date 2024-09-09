@@ -48,7 +48,7 @@ def list_files(request):
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated,
-                     # IsStaff
+                     IsStaff
                      ])
 def add_file(request):
     serializer = FileUploadSerializer(data=request.data)
@@ -78,7 +78,7 @@ def add_file(request):
 @api_view(['DELETE'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated,
-                     # IsStaff
+                     IsStaff
                      ])
 def delete_file(request, filename):
     file_path = os.path.join(settings.DOC_DOWNLOAD_DIR, filename)
