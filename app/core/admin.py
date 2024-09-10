@@ -248,6 +248,10 @@ class EventsAdmin(admin.ModelAdmin):
     readonly_fields = [f.name for f in models.Event._meta.get_fields()]
 
 
+class DocumentAdmin(admin.ModelAdmin):
+    search_fields = ['original_name', 'application__id']
+
+
 class CustomLogEntryAdmin(admin.ModelAdmin):
     # Adjust search_fields as per your model relations
     search_fields = ['object_pk', 'actor__email']
@@ -270,3 +274,5 @@ admin.site.register(models.Applicant)
 
 admin.site.register(models.Notification)
 admin.site.register(models.Solicitor)
+
+admin.site.register(Document, DocumentAdmin)

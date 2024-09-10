@@ -7,6 +7,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from agents_loan import views
+from agents_loan.views import DownloadFileView
 
 router = DefaultRouter()
 
@@ -24,4 +25,6 @@ urlpatterns = [
          name='agent_application-upload-document'),
     path('applications/agent_applications/document_patch/<int:document_id>/', views.AgentDocumentPatchView.as_view(),
          name='agents-document-patch-view'),
+    path('applications/agent_applications/document_file/download/<str:filename>/', DownloadFileView.as_view(),
+         name='download-file'),
 ]

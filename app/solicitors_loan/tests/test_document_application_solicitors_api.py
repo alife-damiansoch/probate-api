@@ -69,12 +69,26 @@ class DocumentUploadTest(TestCase):
         )
 
     def tearDown(self):
-        self.application.documents.all().delete()
+        # Get all documents related to the application
+        for document in self.application.documents.all():
+            # Get the file path of the document
+            file_path = document.document.path
 
-    @classmethod
-    def tearDownClass(cls):
-        super().tearDownClass()  # Call the super class method first
-        shutil.rmtree('media/uploads/application')
+            # Print the file path for debugging
+            # print(f"Attempting to delete: {file_path}")
+
+            # Check if the file exists and delete it
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)  # Attempt to delete the file
+                    # print(f"Successfully deleted: {file_path}")
+                except Exception as e:
+                    print(f"Failed to delete {file_path}: {e}")
+            else:
+                print(f"File not found: {file_path}")
+
+        # Delete the documents from the database
+        self.application.documents.all().delete()
 
     def test_upload_document_file(self):
         """Test uploading a new document"""
@@ -187,6 +201,14 @@ class DocumentUploadTest(TestCase):
         self.assertFalse(event.is_staff)
         self.assertEqual(json.loads(event.body), {'message': 'A document was deleted.'})
 
+        # Manually delete the txt file if it's still present after the test
+        if os.path.exists(file_path):
+            # print(f"Manual cleanup: Deleting {file_path}")
+            os.remove(file_path)
+
+        # Verify that the file has been deleted
+        self.assertFalse(os.path.exists(file_path))
+
     def test_delete_document_approved_application_returns_error(self):
         """
         Test deleting a document associated with an approved application returns a ValidationError.
@@ -203,6 +225,7 @@ class DocumentUploadTest(TestCase):
         document1 = Document.objects.create(application=application1)
         document1.document.save('myfile.txt', ContentFile('hello world'))
         document1.refresh_from_db()
+        file_path = document1.document.path
 
         delete_url = reverse('solicitors_loan:solicitor-document-delete-view', args=[document1.id])
 
@@ -219,3 +242,11 @@ class DocumentUploadTest(TestCase):
         # Confirm that the document still exists in the database and the file still exists
         self.assertTrue(Document.objects.filter(id=document1.id).exists())
         self.assertTrue(os.path.exists(document1.document.path))
+
+        # Manually delete the txt file if it's still present after the test
+        if os.path.exists(file_path):
+            # print(f"Manual cleanup: Deleting {file_path}")
+            os.remove(file_path)
+
+        # Verify that the file has been deleted
+        self.assertFalse(os.path.exists(file_path))

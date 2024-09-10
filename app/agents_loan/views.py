@@ -1,11 +1,12 @@
 """
 Views for agents_application API
 """
+import os
 import re
 
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.db import transaction
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse, Http404, HttpResponseForbidden, HttpResponse, HttpResponseNotFound
 from django.shortcuts import get_object_or_404
 
 from rest_framework import (viewsets, status)
@@ -16,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from agents_loan import serializers
+from app import settings
 from app.utils import log_event
 from core import models
 from agents_loan.permissions import IsStaff
@@ -24,6 +26,8 @@ from app.pagination import CustomPageNumberPagination
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 
 from rest_framework.exceptions import ValidationError as DRFValidationError
+
+from core.models import Document
 
 
 @extend_schema_view(
@@ -293,3 +297,43 @@ class AgentDocumentPatchView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DownloadFileView(APIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = [IsAuthenticated, IsStaff]
+
+    @extend_schema(
+        summary="Download a document with the given filename",
+        description="Allows authenticated users to download a file if they have access permissions.",
+        tags=["document_agent"],
+        responses={
+            200: {
+                "content": {"application/pdf": {}},
+                "description": "A PDF file."
+            },
+            403: {"description": "Forbidden - You do not have permission to access this file."},
+            404: {"description": "File not found."}
+        },
+    )
+    def get(self, request, filename):
+        try:
+            document = Document.objects.get(document__endswith=filename)
+            application = document.application
+
+            # Check if the user is not staff and does not own the application
+            if not request.user.is_staff and application.user != request.user:
+                return HttpResponseForbidden("You do not have permission to access this file.")
+
+            file_path = os.path.join(settings.MEDIA_ROOT, 'uploads', 'application', filename)
+
+            if os.path.exists(file_path):
+                with open(file_path, 'rb') as file:
+                    response = HttpResponse(file.read(), content_type='application/pdf')
+                    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                    return response
+            else:
+                return HttpResponseNotFound("File not found.")
+
+        except Document.DoesNotExist:
+            return HttpResponseNotFound("File not found.")

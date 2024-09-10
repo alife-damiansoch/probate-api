@@ -24,6 +24,7 @@ urlpatterns = [
     path('applications/solicitor_applications/document_file/<int:application_id>/',
          views.SolicitorDocumentUploadAndViewListForApplicationIdView.as_view(),
          name='solicitor_application-upload-document'),
-    path('download/<str:filename>/', DownloadFileView.as_view(), name='download-file'),
+    path('applications/solicitor_applications/document_file/download/<str:filename>/', DownloadFileView.as_view(),
+         name='download-file'),
 
 ]

@@ -544,17 +544,20 @@ class SolicitorDocumentDeleteView(APIView):
 
 class DownloadFileView(APIView):
     authentication_classes = (JWTAuthentication,)
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsNonStaff]
 
     @extend_schema(
+        summary="Download a document with the given filename",
+        description="Allows authenticated users to download a file if they have access permissions.",
+        tags=["document_solicitor"],
         responses={
             200: {
                 "content": {"application/pdf": {}},
                 "description": "A PDF file."
             },
             403: {"description": "Forbidden - You do not have permission to access this file."},
-            404: {"description": "Not Found - File not found."}
-        }
+            404: {"description": "File not found."}
+        },
     )
     def get(self, request, filename):
         try:
