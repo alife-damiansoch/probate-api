@@ -6,6 +6,9 @@ from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiPara
 from rest_framework import (viewsets, )
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status
 
 from app.pagination import CustomPageNumberPagination
 from .permissions import IsStaff
@@ -194,3 +197,38 @@ class LoanViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         serializer.save(last_updated_by=self.request.user)
+
+
+@extend_schema_view(
+    retrieve=extend_schema(
+        summary='Retrieve a loan by application ID {-Accessible to non-staff users-}',
+        description='Returns the loan associated with a specific application ID. All fields are read-only.',
+        tags=['loans']
+    )
+)
+class ReadOnlyLoanViewSet(viewsets.ReadOnlyModelViewSet):
+    """View for read-only access to Loan by application ID"""
+    queryset = Loan.objects.all()
+    serializer_class = serializers.LoanSerializer
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary='Retrieve a loan by application ID',
+        description='Returns loan details based on the application ID. This endpoint is accessible to non-staff users.',
+        tags=['loans']
+    )
+    def loan_by_application(self, request, application_id=None):
+        try:
+            loan = Loan.objects.get(application__id=application_id)
+
+            # If the user is not a staff member, check if the application belongs to them
+            if not request.user.is_staff:
+                if loan.application.user != request.user:
+                    return Response({'detail': 'You do not have permission to access this loan.'},
+                                    status=status.HTTP_403_FORBIDDEN)
+
+            serializer = self.get_serializer(loan)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Loan.DoesNotExist:
+            return Response({'detail': 'Loan not found.'}, status=status.HTTP_404_NOT_FOUND)
