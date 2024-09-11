@@ -96,7 +96,7 @@ class AssignedSolicitorModelTest(APITestCase):
             'first_name': 'Emily',
             'last_name': 'Doe',
             'own_email': 'emily.doe@example.com',
-            'own_phone_number': '9876543210'
+            'own_phone_number': '+353868406699'
         }
         response = self.client.post(self.ASSIGNED_SOLICITORS_URL, payload)
 
@@ -110,7 +110,7 @@ class AssignedSolicitorModelTest(APITestCase):
             'first_name': 'Emily',
             'last_name': 'Doe',
             'own_email': 'emily.doe@example.com',
-            'own_phone_number': '9876543210'
+            'own_phone_number': '+353868406699'
         }
         response = self.client.post(self.ASSIGNED_SOLICITORS_URL, payload)
 
