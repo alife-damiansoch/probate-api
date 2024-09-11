@@ -55,6 +55,15 @@ def validate_eircode(value):
         )
 
 
+def validate_irish_phone_number(value):
+    """ Check if the value is a valid Irish phone number """
+    pattern = r'^(?:\+353|0)[124679]?\d{7,9}$'
+    if not re.match(pattern, value):
+        raise ValidationError(
+            f"{value} is not a valid Irish phone number. Please enter phone number in the format: '+353999999999' or '0999999999'",
+        )
+
+
 # region <Creating custom user model in django with extra fields name and team>
 class UserManager(BaseUserManager):
     """Manager for users"""
@@ -104,7 +113,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     name = models.CharField(max_length=255)
-    phone_number = models.CharField(max_length=255, default=None, null=True, blank=True, )
+    phone_number = models.CharField(validators=[validate_irish_phone_number], max_length=255, default=None, null=True,
+                                    blank=True, )
     address = models.ForeignKey(Address, on_delete=models.PROTECT, null=True, blank=True, default=None)
 
     objects = UserManager()
@@ -129,7 +139,8 @@ class Solicitor(models.Model):
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
     own_email = models.EmailField(max_length=255, null=True, blank=True)  # Optional email field
-    own_phone_number = models.CharField(max_length=20, null=True, blank=True)  # Optional phone number field
+    own_phone_number = models.CharField(validators=[validate_irish_phone_number], max_length=20, null=True,
+                                        blank=True)  # Optional phone number field
 
     def __str__(self):
         return f"{self.title} {self.first_name} {self.last_name} "

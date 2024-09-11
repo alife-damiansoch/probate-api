@@ -1,4 +1,5 @@
 from django.db.models import ProtectedError
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -7,7 +8,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from core.models import Solicitor
 from .serializers import AssignedSolicitorSerializer
-from drf_spectacular.utils import extend_schema_view, extend_schema
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter
 
 
 @extend_schema_view(
@@ -42,6 +43,9 @@ from drf_spectacular.utils import extend_schema_view, extend_schema
         tags=['solicitors'],
     )
 )
+@extend_schema(parameters=[
+    OpenApiParameter(name="id", description="ID of the Solicitor", required=True, type=OpenApiTypes.INT)
+])
 class AssignedSolicitorViewSet(viewsets.ModelViewSet):
     """ViewSet for managing assigned solicitors"""
     serializer_class = AssignedSolicitorSerializer
@@ -54,6 +58,9 @@ class AssignedSolicitorViewSet(viewsets.ModelViewSet):
         If the user is a staff member, return all assigned solicitors.
         If the user is not a staff member, return only the solicitors associated with the user.
         """
+        if not self.request.user.is_authenticated:
+            return Solicitor.objects.none()
+
         if self.request.user.is_staff:
             return Solicitor.objects.all().order_by('-id')
         else:

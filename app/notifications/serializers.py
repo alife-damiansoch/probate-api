@@ -1,6 +1,8 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
 from core.models import Notification
+
+from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.types import OpenApiTypes
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -12,12 +14,14 @@ class NotificationSerializer(serializers.ModelSerializer):
         fields = ['id', 'recipient_email', 'text', 'seen', 'timestamp', 'created_by_email', 'application']
         read_only_fields = ['id', 'recipient_email', 'text', 'timestamp', 'created_by_email', 'application']
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_created_by_email(self, obj):
         """Return the email of the user who created the notification."""
         if obj.created_by:
             return obj.created_by.email  # Fetch the email from the User model
         return None  # Return None if created_by is None
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_recipient_email(self, obj):
         if obj.recipient:
             return obj.recipient.email  # Fetch the email from the User model
