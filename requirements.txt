@@ -11,3 +11,7 @@ djangorestframework_simplejwt==5.3.1
 django-storages[azure]==1.14.4
 channels==3.0.4
 xhtml2pdf==0.2.16
+pillow==10.4.0
+python-dateutil==2.9.0.post0
+PyPDF2==3.0.1
+requests==2.32.3

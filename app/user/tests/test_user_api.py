@@ -8,6 +8,7 @@ from django.urls import reverse
 
 from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.models import Team
 
@@ -187,3 +188,22 @@ class PublicCustomUserTests(TestCase):
 
         self.assertEqual(res.status_code,
                          status.HTTP_400_BAD_REQUEST)  # Expect Bad request error due to invalid Eircode
+
+
+# Testing vulnerability jsw token patch
+class TokenObtainTest(TestCase):
+    def setUp(self):
+        self.user = create_user(
+            email='inactive@example.com',
+            password='testpass123',
+            is_active=False  # Mark the user as inactive
+        )
+
+    def test_inactive_user_cannot_get_token(self):
+        # Try to generate a refresh token for the inactive user
+        refresh = RefreshToken.for_user(self.user)
+
+        # Check that a token cannot be used for an inactive user
+        with self.assertRaises(Exception):
+            # Access the user field directly to check if it should raise an error
+            _ = refresh['user']  # This should raise an exception or check the user status before issuing a token

@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/', include('assigned_solicitor.urls', namespace='assigned_solicitor')),
     path('api/', include('undertaking.urls', namespace='undertaking')),
     path('api/downloadableFiles/', include('downloadableFiles.urls', namespace='downloadableFiles')),
+    path('api/signed_documents/', include('signed_documents.urls', namespace='signed_documents')),
 
     path('test/500/', test_500_view),
 ]

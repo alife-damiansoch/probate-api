@@ -291,6 +291,7 @@ class Document(models.Model):
     is_signed = models.BooleanField(default=False)
     is_undertaking = models.BooleanField(default=False)
     is_loan_agreement = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     def save(self, *args, **kwargs):
         if self.document and not self.id:  # Only set original_name when creating the instance
@@ -404,6 +405,28 @@ class Notification(models.Model):
     def __str__(self):
         recipient_email = self.recipient.email if self.recipient else 'Application not assigned'
         return f'{recipient_email}: {self.text}'
+
+
+class SignedDocumentLog(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        null=True, blank=True, related_name='signed_documents'
+    )
+    application = models.ForeignKey(
+        Application, on_delete=models.CASCADE,
+        related_name='signed_documents'
+    )
+    timestamp = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    signature_hash = models.CharField(max_length=64)  # SHA-256 hash length
+    file_path = models.FileField(upload_to='signed_documents/')
+    signing_user_email = models.EmailField(null=True, blank=True)  # Store the signing user email
+    confirmation_message = models.TextField(null=True, blank=True)  # Store the confirmation message
+    solicitor_full_name = models.CharField(max_length=255, null=True, blank=True)  # Store solicitor's full name
+    confirmation_checked_by_user = models.BooleanField(default=False, null=True)
+
+    def __str__(self):
+        return f'Signed Document for Application ID {self.application.id} by {self.user}'
 
 
 auditlog.register(User)

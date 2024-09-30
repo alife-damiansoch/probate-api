@@ -156,6 +156,16 @@ class UpdatePasswordSerializer(serializers.Serializer):
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
+        # Standard validation to get the token data
         data = super().validate(attrs)
+
+        # Check if the user is active
+        if not self.user.is_active:
+            raise serializers.ValidationError(
+                _("User account is disabled or inactive."),
+                code='authorization'
+            )
+
+        # Include additional user data in the response
         data.update({'user': self.user.email})
         return data

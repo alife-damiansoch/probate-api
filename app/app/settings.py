@@ -62,7 +62,8 @@ INSTALLED_APPS = [
     'notifications',
     'assigned_solicitor',
     'undertaking',
-    'downloadableFiles'
+    'downloadableFiles',
+    'signed_documents'
 ]
 
 MIDDLEWARE = [
