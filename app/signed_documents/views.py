@@ -111,7 +111,12 @@ class SignedDocumentUploadView(APIView):
 
         # Calculate the signature hash (SHA-256 hash of file content)
         file_content = pdf_file.read()
-        signature_hash = sha256(file_content).hexdigest()
+        # Retrieve the current timestamp
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+
+        # Combine file content and timestamp, then calculate the hash
+        combined_content = file_content + timestamp.encode()
+        signature_hash = sha256(combined_content).hexdigest()
         pdf_file.seek(0)  # Reset file pointer after reading
 
         # Validate the PDF file by attempting to read it

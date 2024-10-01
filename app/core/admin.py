@@ -13,7 +13,7 @@ from rangefilter.filters import DateRangeFilter
 from django.utils.translation import gettext_lazy as _
 
 from core import models
-from core.models import LoanExtension, Transaction, Document, Solicitor
+from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog
 
 from rest_framework.authtoken.models import Token
 
@@ -257,6 +257,50 @@ class CustomLogEntryAdmin(admin.ModelAdmin):
     search_fields = ['object_pk', 'actor__email']
 
 
+class SignedDocumentLogAdmin(admin.ModelAdmin):
+    """Admin configuration for the SignedDocumentLog model."""
+
+    # Specify the fields to display in the list view
+    list_display = (
+        'id',
+        'user',
+        'application',
+        'timestamp',
+        'ip_address',
+        'signature_hash',
+        'file_path',
+        'signing_user_email',
+        'solicitor_full_name',
+        'confirmation_message',
+        'confirmation_checked_by_user',
+    )
+
+    # Make all fields read-only
+    readonly_fields = (
+        'user',
+        'application',
+        'timestamp',
+        'ip_address',
+        'signature_hash',
+        'file_path',
+        'signing_user_email',
+        'solicitor_full_name',
+        'confirmation_message',
+        'confirmation_checked_by_user',
+    )
+
+    # Add search fields for easier lookup by specific attributes
+    search_fields = (
+        'solicitor_full_name',
+        'signing_user_email',
+        'signature_hash',
+        'application__id',
+    )
+
+    # Set default ordering
+    ordering = ('-timestamp',)
+
+
 admin.site.unregister(LogEntry)
 admin.site.register(LogEntry, CustomLogEntryAdmin)
 
@@ -276,3 +320,5 @@ admin.site.register(models.Notification)
 admin.site.register(models.Solicitor)
 
 admin.site.register(Document, DocumentAdmin)
+
+admin.site.register(SignedDocumentLog, SignedDocumentLogAdmin)

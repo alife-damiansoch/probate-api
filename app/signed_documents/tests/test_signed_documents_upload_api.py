@@ -16,6 +16,8 @@ from reportlab.pdfgen import canvas
 import base64
 from PIL import Image, ImageDraw, ImageFont
 
+from datetime import datetime
+
 
 # Helper function to create test data
 def create_application(user, **params):
@@ -96,7 +98,11 @@ class SignedDocumentUploadTest(TestCase):
         # Create a fake signature hash for the test
         with open(temp_file.name, 'rb') as f:
             file_content = f.read()
-        signature_hash = sha256(file_content).hexdigest()
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+
+            # Combine file content and timestamp, then calculate the hash
+            combined_content = file_content + timestamp.encode()
+        signature_hash = sha256(combined_content).hexdigest()
 
         # Generate a sample base64-encoded signature image
         sample_signature = generate_sample_signature()
@@ -187,7 +193,11 @@ class SignedDocumentUploadTest(TestCase):
         # Create a fake signature hash for the test
         with open(temp_file.name, 'rb') as f:
             file_content = f.read()
-        signature_hash = sha256(file_content).hexdigest()
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+
+            # Combine file content and timestamp, then calculate the hash
+            combined_content = file_content + timestamp.encode()
+        signature_hash = sha256(combined_content).hexdigest()
 
         # Generate a sample base64-encoded signature image
         sample_signature = generate_sample_signature()
