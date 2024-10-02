@@ -425,6 +425,20 @@ class SignedDocumentLog(models.Model):
     solicitor_full_name = models.CharField(max_length=255, null=True, blank=True)  # Store solicitor's full name
     confirmation_checked_by_user = models.BooleanField(default=False, null=True)
 
+    # Geolocation fields
+    country = models.CharField(max_length=100, null=True, blank=True)
+    country_code = models.CharField(max_length=10, null=True, blank=True)
+    region = models.CharField(max_length=100, null=True, blank=True)
+    region_name = models.CharField(max_length=100, null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    zip = models.CharField(max_length=20, null=True, blank=True)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    timezone = models.CharField(max_length=50, null=True, blank=True)
+    isp = models.CharField(max_length=200, null=True, blank=True)
+    org = models.CharField(max_length=200, null=True, blank=True)
+    as_number = models.CharField(max_length=100, null=True, blank=True)  # Store the AS number
+
     def __str__(self):
         return f'Signed Document for Application ID {self.application.id} by {self.user}'
 

@@ -68,8 +68,8 @@ class SignedDocumentUploadTest(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.application = create_application(user=self.user)
-        self.mock_client_ip = "192.168.1.1"  # Define a mock IP for the client
-        self.server_ip = "127.0.0.1"  # Fallback IP if no `HTTP_X_FORWARDED_FOR` is provided
+        self.mock_client_ip = "89.106.137.1"  # Define a mock IP for the client ( associated with Premier Data Networks Ltd)
+        self.server_ip = "5.137.25.54"  # Fallback IP if no `HTTP_X_FORWARDED_FOR` is provided ( associated with PJSC Rostelecom)
 
     def tearDown(self):
         """Clean up any created files."""

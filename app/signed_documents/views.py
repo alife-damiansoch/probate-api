@@ -11,6 +11,7 @@ from django.http import Http404
 
 from agents_loan.permissions import IsStaff
 from core.models import Application, Document, SignedDocumentLog
+from .helpers import get_geolocation
 from .serializers import SignedDocumentSerializer, SignedDocumentLogSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -191,18 +192,31 @@ class SignedDocumentUploadView(APIView):
         # Capture metadata for logging
         user = request.user
         ip_address = get_client_ip(request)
+        geolocation_data = get_geolocation(ip_address)
 
-        # Create a log entry for the signed document
+        # Create a log entry for the signed document with geolocation data
         signed_document_log = SignedDocumentLog.objects.create(
-            user=user,
+            user=request.user,
             application=application,
             ip_address=ip_address,
             signature_hash=signature_hash,
             file_path=signed_document.document.name,
-            signing_user_email=user.email,
-            confirmation_message=confirmation_message,  # Add the confirmation message to the log
-            solicitor_full_name=solicitor_full_name,  # Store the solicitor's full name
-            confirmation_checked_by_user=confirmation,  # Include the confirmation status in the log
+            signing_user_email=request.user.email,
+            confirmation_message=confirmation_message,
+            solicitor_full_name=solicitor_full_name,
+            confirmation_checked_by_user=confirmation,
+            country=geolocation_data.get("country") if geolocation_data else None,
+            country_code=geolocation_data.get("country_code") if geolocation_data else None,  # Correct reference
+            region=geolocation_data.get("region") if geolocation_data else None,
+            region_name=geolocation_data.get("region_name") if geolocation_data else None,  # Correct reference
+            city=geolocation_data.get("city") if geolocation_data else None,
+            zip=geolocation_data.get("zip") if geolocation_data else None,  # Correct reference
+            latitude=geolocation_data.get("latitude") if geolocation_data else None,  # Correct reference
+            longitude=geolocation_data.get("longitude") if geolocation_data else None,  # Correct reference
+            timezone=geolocation_data.get("timezone") if geolocation_data else None,
+            isp=geolocation_data.get("isp") if geolocation_data else None,
+            org=geolocation_data.get("org") if geolocation_data else None,
+            as_number=geolocation_data.get("as_number") if geolocation_data else None,  # Correct reference
         )
 
         print(f"Created SignedDocumentLog: {model_to_dict(signed_document_log)}")  # Debug: Full log details
