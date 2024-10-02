@@ -11,7 +11,7 @@ from django.http import Http404
 
 from agents_loan.permissions import IsStaff
 from core.models import Application, Document, SignedDocumentLog
-from .helpers import get_geolocation
+from .helpers import get_geolocation, get_proxy_info
 from .serializers import SignedDocumentSerializer, SignedDocumentLogSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -193,6 +193,7 @@ class SignedDocumentUploadView(APIView):
         user = request.user
         ip_address = get_client_ip(request)
         geolocation_data = get_geolocation(ip_address)
+        proxy_data = get_proxy_info(ip_address)
 
         # Create a log entry for the signed document with geolocation data
         signed_document_log = SignedDocumentLog.objects.create(
@@ -205,6 +206,7 @@ class SignedDocumentUploadView(APIView):
             confirmation_message=confirmation_message,
             solicitor_full_name=solicitor_full_name,
             confirmation_checked_by_user=confirmation,
+            # geo_data_info
             country=geolocation_data.get("country") if geolocation_data else None,
             country_code=geolocation_data.get("country_code") if geolocation_data else None,  # Correct reference
             region=geolocation_data.get("region") if geolocation_data else None,
@@ -217,6 +219,10 @@ class SignedDocumentUploadView(APIView):
             isp=geolocation_data.get("isp") if geolocation_data else None,
             org=geolocation_data.get("org") if geolocation_data else None,
             as_number=geolocation_data.get("as_number") if geolocation_data else None,  # Correct reference
+            # Proxy/VPN details
+            is_proxy=proxy_data.get("is_proxy") if proxy_data else False,
+            type=proxy_data.get("proxy_type") if proxy_data else None,
+            proxy_provider=proxy_data.get("proxy_provider") if proxy_data else None,
         )
 
         print(f"Created SignedDocumentLog: {model_to_dict(signed_document_log)}")  # Debug: Full log details

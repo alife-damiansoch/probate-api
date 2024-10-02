@@ -299,3 +299,47 @@ class SignedDocumentUploadTest(TestCase):
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
             combined_content = file_content + timestamp.encode()
         return sha256(combined_content).hexdigest()
+
+    def test_upload_signed_document_with_vpn(self):
+        """Test uploading a signed document where the IP address is a known VPN."""
+        url = get_signed_document_upload_url(application_id=self.application.id)
+
+        # Use an IP address that is known to belong to a VPN
+        vpn_ip_address = "205.185.193.4"
+
+        # Create a temporary PDF file for the test using reportlab
+        temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+        c = canvas.Canvas(temp_file.name)
+        c.drawString(100, 750, "This is a test PDF for signed document upload.")
+        c.showPage()
+        c.save()
+
+        # Generate a sample base64-encoded signature image
+        sample_signature = generate_sample_signature()
+
+        # Prepare extra data
+        confirmation_message = "Test confirmation message."
+        solicitor_full_name = "John Doe"
+
+        # Make a POST request to upload the document with VPN IP
+        temp_file.seek(0)  # Reset the file pointer for uploading
+        response = self.client.post(
+            url,
+            {
+                'document': temp_file,
+                'signature_image': sample_signature,
+                'solicitor_full_name': solicitor_full_name,
+                'confirmation': 'true',
+                'confirmation_message': confirmation_message,
+            },
+            format='multipart',
+            REMOTE_ADDR=vpn_ip_address  # Simulate VPN IP address
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Check that a log entry has been created with VPN details
+        log_entry = SignedDocumentLog.objects.filter(application=self.application, ip_address=vpn_ip_address).first()
+        self.assertTrue(log_entry.is_proxy)
+        self.assertEqual(log_entry.type, "VPN")
+        self.assertEqual(log_entry.proxy_provider, "Strong Technology, LLC.")

@@ -258,7 +258,52 @@ class CustomLogEntryAdmin(admin.ModelAdmin):
 
 
 class SignedDocumentLogAdmin(admin.ModelAdmin):
-    """Admin configuration for the SignedDocumentLog model."""
+    """Admin configuration for the SignedDocumentLog model with field grouping."""
+
+    # Define fieldsets for grouping fields into sections
+    fieldsets = (
+        ("User and Application Details", {
+            'fields': (
+                'user',
+                'application',
+                'timestamp',
+                'ip_address'
+            )
+        }),
+        ("Document Data", {
+            'fields': (
+                'signature_hash',
+                'file_path',
+                'signing_user_email',
+                'solicitor_full_name',
+                'confirmation_message',
+                'confirmation_checked_by_user'
+            )
+        }),
+        ("Geolocation Data", {
+            'fields': (
+                'country',
+                'country_code',
+                'region',
+                'region_name',
+                'city',
+                'zip',
+                'latitude',
+                'longitude',
+                'timezone',
+                'isp',
+                'org',
+                'as_number'
+            )
+        }),
+        ("Proxy Data", {
+            'fields': (
+                'is_proxy',
+                'type',
+                'proxy_provider'
+            )
+        }),
+    )
 
     # Specify the fields to display in the list view
     list_display = (
@@ -267,12 +312,33 @@ class SignedDocumentLogAdmin(admin.ModelAdmin):
         'application',
         'timestamp',
         'ip_address',
+
+        # Document Data
         'signature_hash',
         'file_path',
         'signing_user_email',
         'solicitor_full_name',
         'confirmation_message',
         'confirmation_checked_by_user',
+
+        # Geolocation Data
+        'country',
+        'country_code',
+        'region',
+        'region_name',
+        'city',
+        'zip',
+        'latitude',
+        'longitude',
+        'timezone',
+        'isp',
+        'org',
+        'as_number',
+
+        # Proxy Data
+        'is_proxy',
+        'type',
+        'proxy_provider'
     )
 
     # Make all fields read-only
@@ -287,6 +353,21 @@ class SignedDocumentLogAdmin(admin.ModelAdmin):
         'solicitor_full_name',
         'confirmation_message',
         'confirmation_checked_by_user',
+        'country',
+        'country_code',
+        'region',
+        'region_name',
+        'city',
+        'zip',
+        'latitude',
+        'longitude',
+        'timezone',
+        'isp',
+        'org',
+        'as_number',
+        'is_proxy',
+        'type',
+        'proxy_provider'
     )
 
     # Add search fields for easier lookup by specific attributes

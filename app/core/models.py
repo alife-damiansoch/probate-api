@@ -439,6 +439,11 @@ class SignedDocumentLog(models.Model):
     org = models.CharField(max_length=200, null=True, blank=True)
     as_number = models.CharField(max_length=100, null=True, blank=True)  # Store the AS number
 
+    # New fields for proxy/VPN detection
+    is_proxy = models.BooleanField(default=False, null=True)
+    type = models.CharField(max_length=50, null=True, blank=True)  # Could be 'VPN', 'Proxy', etc.
+    proxy_provider = models.CharField(max_length=255, null=True, blank=True)
+
     def __str__(self):
         return f'Signed Document for Application ID {self.application.id} by {self.user}'
 
