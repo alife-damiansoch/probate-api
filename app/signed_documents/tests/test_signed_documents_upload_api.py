@@ -38,27 +38,20 @@ def get_signed_document_upload_url(application_id):
 
 def generate_sample_signature():
     """Generate a more realistic signature-like image with some text."""
-    # Create a blank image with white background
     image = Image.new('RGB', (300, 100), color='white')
     draw = ImageDraw.Draw(image)
 
-    # Set up the font (system-dependent, check the available fonts or use a generic one)
     try:
-        # If you have a specific TTF font file, you can use it like this:
         font = ImageFont.truetype("arial.ttf", 36)
     except IOError:
-        # Fallback if the TTF file is not found
         font = ImageFont.load_default()
 
-    # Draw a sample signature text
     draw.text((50, 30), "John Doe", fill='black', font=font)
 
-    # Save the image to a BytesIO stream
     image_stream = BytesIO()
     image.save(image_stream, format='PNG')
     image_stream.seek(0)
 
-    # Encode the image in base64
     image_base64 = base64.b64encode(image_stream.read()).decode('utf-8')
     return f"data:image/png;base64,{image_base64}"
 
@@ -75,10 +68,11 @@ class SignedDocumentUploadTest(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.application = create_application(user=self.user)
+        self.mock_client_ip = "192.168.1.1"  # Define a mock IP for the client
+        self.server_ip = "127.0.0.1"  # Fallback IP if no `HTTP_X_FORWARDED_FOR` is provided
 
     def tearDown(self):
         """Clean up any created files."""
-        # print("Skipping document cleanup for debugging.")
         for document in self.application.documents.all():
             if os.path.exists(document.document.path):
                 os.remove(document.document.path)
@@ -88,30 +82,22 @@ class SignedDocumentUploadTest(TestCase):
         """Test uploading a signed document successfully."""
         url = get_signed_document_upload_url(application_id=self.application.id)
 
-        # Create a valid PDF file using the reportlab library
         temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
         c = canvas.Canvas(temp_file.name)
         c.drawString(100, 750, "This is a test PDF for signed document upload.")
         c.showPage()
         c.save()
 
-        # Create a fake signature hash for the test
         with open(temp_file.name, 'rb') as f:
             file_content = f.read()
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-
-            # Combine file content and timestamp, then calculate the hash
             combined_content = file_content + timestamp.encode()
         signature_hash = sha256(combined_content).hexdigest()
 
-        # Generate a sample base64-encoded signature image
         sample_signature = generate_sample_signature()
-
-        # Prepare extra data
         confirmation_message = "Test confirmation message."
         solicitor_full_name = "John Doe"
 
-        # Make a POST request to upload the document
         temp_file.seek(0)  # Reset the file pointer for uploading
         response = self.client.post(
             url,
@@ -123,7 +109,8 @@ class SignedDocumentUploadTest(TestCase):
                 'confirmation': 'true',
                 'confirmation_message': confirmation_message,
             },
-            format='multipart'
+            format='multipart',
+            HTTP_X_FORWARDED_FOR=self.mock_client_ip  # Mock the client IP header
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED,
@@ -131,7 +118,6 @@ class SignedDocumentUploadTest(TestCase):
 
         self.assertTrue(Document.objects.filter(application=self.application, is_signed=True).exists())
 
-        # Validate document metadata
         document = Document.objects.filter(application=self.application, is_signed=True).first()
         self.assertEqual(document.original_name, os.path.basename(temp_file.name))
         self.assertTrue(document.is_signed)
@@ -145,10 +131,10 @@ class SignedDocumentUploadTest(TestCase):
         self.assertEqual(log_entry.signature_hash, signature_hash)
         self.assertEqual(log_entry.solicitor_full_name, solicitor_full_name)
         self.assertEqual(log_entry.confirmation_checked_by_user, True)
-        self.assertTrue(log_entry.confirmation_message)  # Check that confirmation message exists and is non-empty
+        self.assertTrue(log_entry.confirmation_message)
+        self.assertEqual(log_entry.ip_address, self.mock_client_ip)  # Check the logged IP address
         self.assertTrue(os.path.exists(document.document.path))
 
-        # Clean up temporary file
         temp_file.close()
         os.remove(temp_file.name)
 
@@ -183,31 +169,23 @@ class SignedDocumentUploadTest(TestCase):
         """Test that a SignedDocumentLog entry is created when a signed document is uploaded."""
         url = get_signed_document_upload_url(application_id=self.application.id)
 
-        # Create a temporary PDF file for the test using reportlab
         temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
         c = canvas.Canvas(temp_file.name)
         c.drawString(100, 750, "This is a test PDF for signed document upload.")
         c.showPage()
         c.save()
 
-        # Create a fake signature hash for the test
         with open(temp_file.name, 'rb') as f:
             file_content = f.read()
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-
-            # Combine file content and timestamp, then calculate the hash
             combined_content = file_content + timestamp.encode()
         signature_hash = sha256(combined_content).hexdigest()
 
-        # Generate a sample base64-encoded signature image
         sample_signature = generate_sample_signature()
-
-        # Prepare extra data
         confirmation_message = "Test confirmation message."
         solicitor_full_name = "John Doe"
 
-        # Make a POST request to upload the document
-        temp_file.seek(0)  # Reset the file pointer for uploading
+        temp_file.seek(0)
         response = self.client.post(
             url,
             {
@@ -218,13 +196,12 @@ class SignedDocumentUploadTest(TestCase):
                 'confirmation': 'true',
                 'confirmation_message': confirmation_message,
             },
-            format='multipart'
+            format='multipart',
+            HTTP_X_FORWARDED_FOR=self.mock_client_ip
         )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED,
-                         f"Unexpected status code: {response.status_code}, Response content: {response.content}")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        # Check that a log entry has been created
         log_entry = SignedDocumentLog.objects.filter(application=self.application,
                                                      signature_hash=signature_hash).first()
         self.assertIsNotNone(log_entry)
@@ -233,8 +210,92 @@ class SignedDocumentUploadTest(TestCase):
         self.assertEqual(log_entry.signature_hash, signature_hash)
         self.assertEqual(log_entry.solicitor_full_name, solicitor_full_name)
         self.assertEqual(log_entry.confirmation_checked_by_user, True)
-        self.assertTrue(log_entry.confirmation_message)  # Check that confirmation message exists and is non-empty
+        self.assertEqual(log_entry.ip_address, self.mock_client_ip)  # Check the correct IP address
 
-        # Clean up temporary file
         temp_file.close()
         os.remove(temp_file.name)
+
+    def test_upload_signed_document_with_forwarded_for_header(self):
+        """Test uploading a signed document with `HTTP_X_FORWARDED_FOR` header set."""
+        url = get_signed_document_upload_url(application_id=self.application.id)
+
+        temp_file = self._create_test_pdf()
+        signature_hash = self._generate_signature_hash(temp_file)
+        sample_signature = generate_sample_signature()
+        confirmation_message = "Test confirmation message."
+        solicitor_full_name = "John Doe"
+
+        temp_file.seek(0)
+        response = self.client.post(
+            url,
+            {
+                'document': temp_file,
+                'signature': signature_hash,
+                'signature_image': sample_signature,
+                'solicitor_full_name': solicitor_full_name,
+                'confirmation': 'true',
+                'confirmation_message': confirmation_message,
+            },
+            format='multipart',
+            HTTP_X_FORWARDED_FOR=self.mock_client_ip  # Mock the client IP header
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        log_entry = SignedDocumentLog.objects.filter(application=self.application,
+                                                     signature_hash=signature_hash).first()
+        self.assertIsNotNone(log_entry)
+        self.assertEqual(log_entry.ip_address, self.mock_client_ip)
+
+        temp_file.close()
+        os.remove(temp_file.name)
+
+    def test_upload_signed_document_without_forwarded_for_header(self):
+        """Test uploading a signed document without `HTTP_X_FORWARDED_FOR` header."""
+        url = get_signed_document_upload_url(application_id=self.application.id)
+
+        temp_file = self._create_test_pdf()
+        signature_hash = self._generate_signature_hash(temp_file)
+        sample_signature = generate_sample_signature()
+        confirmation_message = "Test confirmation message."
+        solicitor_full_name = "John Doe"
+
+        temp_file.seek(0)
+        response = self.client.post(
+            url,
+            {
+                'document': temp_file,
+                'signature': signature_hash,
+                'signature_image': sample_signature,
+                'solicitor_full_name': solicitor_full_name,
+                'confirmation': 'true',
+                'confirmation_message': confirmation_message,
+            },
+            format='multipart',
+            REMOTE_ADDR=self.server_ip  # Set the fallback server IP address
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        log_entry = SignedDocumentLog.objects.filter(application=self.application,
+                                                     signature_hash=signature_hash).first()
+        self.assertIsNotNone(log_entry)
+        self.assertEqual(log_entry.ip_address, self.server_ip)
+
+        temp_file.close()
+        os.remove(temp_file.name)
+
+    def _create_test_pdf(self):
+        """Helper method to create a temporary test PDF."""
+        temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+        c = canvas.Canvas(temp_file.name)
+        c.drawString(100, 750, "This is a test PDF for signed document upload.")
+        c.showPage()
+        c.save()
+        return temp_file
+
+    def _generate_signature_hash(self, temp_file):
+        """Helper method to generate a signature hash for a given file."""
+        with open(temp_file.name, 'rb') as f:
+            file_content = f.read()
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            combined_content = file_content + timestamp.encode()
+        return sha256(combined_content).hexdigest()

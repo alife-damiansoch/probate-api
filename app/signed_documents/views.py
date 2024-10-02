@@ -15,6 +15,7 @@ from .serializers import SignedDocumentSerializer, SignedDocumentLogSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.forms.models import model_to_dict
+from django.db import transaction
 
 import requests
 import os
@@ -29,31 +30,18 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 
 
-# def get_client_ip(request):
-#     """Retrieve the client's IP address from the request."""
-#     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-#     if x_forwarded_for:
-#         ip = x_forwarded_for.split(',')[0]
-#     else:
-#         ip = request.META.get('REMOTE_ADDR')
-#     return ip
 def get_client_ip(request):
-    """Retrieve the public IP address of the client using an external API."""
-    try:
-        # Use a service like ipify to get the public IP address
-        response = requests.get('https://api.ipify.org?format=json', timeout=5)
-        response.raise_for_status()  # Raise an HTTPError for bad responses (4xx, 5xx)
-        public_ip = response.json().get('ip')
-        return public_ip
-    except (requests.RequestException, ValueError) as e:
-        # Fallback to the default REMOTE_ADDR if the public IP lookup fails
-        print(f"Public IP lookup failed: {e}")
+    """Retrieve the client's public IP address."""
+    # If the frontend passes the IP directly, use that
+    client_ip = request.data.get('ip_address')  # Check if IP is sent by the frontend
+
+    if not client_ip:  # Fallback to server-side detection
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            client_ip = x_forwarded_for.split(',')[0].strip()
         else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
+            client_ip = request.META.get('REMOTE_ADDR')
+    return client_ip
 
 
 @extend_schema_view(
@@ -85,6 +73,7 @@ class SignedDocumentUploadView(APIView):
         image_data = base64.b64decode(imgstr)
         return Image.open(BytesIO(image_data))
 
+    @transaction.atomic
     def post(self, request, application_id):
         try:
             application = Application.objects.get(id=application_id)
