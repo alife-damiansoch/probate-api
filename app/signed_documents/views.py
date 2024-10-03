@@ -1,16 +1,18 @@
 from hashlib import sha256
 
 from PyPDF2.errors import PdfReadError
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter, OpenApiExample
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import Http404
 
 from agents_loan.permissions import IsStaff
-from core.models import Application, Document, SignedDocumentLog
+from core.models import Application, Document, SignedDocumentLog, Notification
 from .helpers import get_geolocation, get_proxy_info
 from .serializers import SignedDocumentSerializer, SignedDocumentLogSerializer
 from rest_framework.permissions import IsAuthenticated
@@ -227,6 +229,28 @@ class SignedDocumentUploadView(APIView):
 
         print(f"Created SignedDocumentLog: {model_to_dict(signed_document_log)}")  # Debug: Full log details
 
+        # send notification to users
+        notification = Notification.objects.create(
+            recipient=application.assigned_to,
+            text='Signed document uploaded',
+            seen=False,
+            created_by=self.request.user,
+            application=application
+        )
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            'broadcast',
+            {
+                'type': 'notification',
+                'message': notification.text,
+                'recipient': notification.recipient.email if notification.recipient else None,
+                'notification_id': notification.id,
+                'application_id': application.id,
+                'seen': notification.seen,
+            }
+        )
+
         # Return serialized document data
         serializer = self.serializer_class(signed_document)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -245,7 +269,7 @@ class SignedDocumentUploadView(APIView):
 )
 class SignedDocumentLogListView(ListAPIView):
     """List all signed document logs."""
-    queryset = SignedDocumentLog.objects.all()
+    queryset = SignedDocumentLog.objects.all().order_by('-timestamp')
     serializer_class = SignedDocumentLogSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsStaff]
@@ -272,4 +296,28 @@ class SignedDocumentLogByApplicationView(ListAPIView):
     def get_queryset(self):
         """Filter logs based on the provided application ID."""
         application_id = self.kwargs['application_id']
-        return SignedDocumentLog.objects.filter(application_id=application_id)
+        return SignedDocumentLog.objects.filter(application_id=application_id).order_by("-timestamp")
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary='Retrieve Signed Document Log by File Path',
+        description='Retrieve a single signed document log based on the last part of the file path (guid.pdf).',
+        tags=['signed_documents'],
+
+        responses={200: SignedDocumentLogSerializer, 404: OpenApiTypes.OBJECT},
+    )
+)
+class SignedDocumentLogByFilePathView(RetrieveAPIView):
+    """Retrieve a SignedDocumentLog entry by file name."""
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsStaff]
+    queryset = SignedDocumentLog.objects.all()
+    serializer_class = SignedDocumentLogSerializer
+    lookup_field = 'file_path'  # Set the field to match with the file_name from the URL
+
+    def get_object(self):
+        """Override to fetch the object based on the file name in the URL."""
+        file_name = self.kwargs['file_name']  # Capture the file_name from the URL
+        # Filter to find the SignedDocumentLog by file path using just the file name
+        return SignedDocumentLog.objects.get(file_path__endswith=file_name)

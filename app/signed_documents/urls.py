@@ -3,7 +3,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import SignedDocumentUploadView, SignedDocumentLogListView, \
-    SignedDocumentLogByApplicationView  # Import the necessary views
+    SignedDocumentLogByApplicationView, SignedDocumentLogByFilePathView  # Import the necessary views
 
 # Create a router (for viewsets if any in the future)
 router = DefaultRouter()
@@ -21,4 +21,5 @@ urlpatterns = [
     path('logs/', SignedDocumentLogListView.as_view(), name='signed_document_log_list'),
     path('logs/<int:application_id>/', SignedDocumentLogByApplicationView.as_view(),
          name='signed_document_log_by_application'),
+    path('logs/file/<str:file_name>/', SignedDocumentLogByFilePathView.as_view(), name='signed_document_log_by_file')
 ]
