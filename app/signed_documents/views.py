@@ -24,6 +24,7 @@ import requests
 import os
 
 from PyPDF2 import PdfReader, PdfWriter
+from PyPDF2.constants import UserAccessPermissions
 from io import BytesIO
 from datetime import datetime
 from django.core.files.base import File
@@ -162,8 +163,8 @@ class SignedDocumentUploadView(APIView):
             '/Author': request.user.email,
             '/Subject': f"Application id: {application.id}",
             '/Keywords': f"User: {request.user.email}, "
-            # f"IP: {get_client_ip(request)}, "
-            # f"Hash: {signature_hash}, "
+                         f"IP: {get_client_ip(request)}, "
+                         f"Hash: {signature_hash}, "
                          f"Solicitor Full Name: {solicitor_full_name}, "
                          f"Confirmation_checked_by_user: {confirmation}, "
                          f"Confirmation Message: {confirmation_message}",
@@ -171,6 +172,8 @@ class SignedDocumentUploadView(APIView):
             '/ModDate': datetime.now().strftime("D:%Y%m%d%H%M%S"),
         }
         pdf_writer.add_metadata(metadata)
+
+        pdf_writer.encrypt(user_pwd="", owner_pwd=None, permissions_flag=UserAccessPermissions.PRINT, use_128bit=True)
 
         # Save the modified PDF to an in-memory file
         signed_pdf_buffer = BytesIO()
