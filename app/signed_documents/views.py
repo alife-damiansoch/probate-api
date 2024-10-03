@@ -158,13 +158,12 @@ class SignedDocumentUploadView(APIView):
 
         # Define metadata to be embedded into the PDF
         metadata = {
-            '/Title': f'Signed Document for Application {application.id}',
+            '/Title': f'Signed Document for Application ',
             '/Author': request.user.email,
-            '/Subject': f"Signed by {request.user.email}",
-            '/Keywords': f"Application ID: {application.id}, "
-                         f"User: {request.user.email}, "
-                         f"IP: {get_client_ip(request)}, "
-                         f"Hash: {signature_hash}, "
+            '/Subject': f"Application id: {application.id}",
+            '/Keywords': f"User: {request.user.email}, "
+            # f"IP: {get_client_ip(request)}, "
+            # f"Hash: {signature_hash}, "
                          f"Solicitor Full Name: {solicitor_full_name}, "
                          f"Confirmation_checked_by_user: {confirmation}, "
                          f"Confirmation Message: {confirmation_message}",
