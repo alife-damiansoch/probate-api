@@ -242,9 +242,9 @@ def create_pdf_for_applicant(application, applicant, company_name, company_addre
     advancement_amount = application.amount  # Assuming 'amount' field in Application model
     advancement_term = application.term  # Assuming 'term' field in Application model
     interest_rate = 15  # Assuming 'interest_rate' field in Application model
-    total_amount_payable = advancement_amount + fee_agreed_for_undertaking
+    total_amount_payable = float(advancement_amount) + float(fee_agreed_for_undertaking)
     total_interest = fee_agreed_for_undertaking
-    cost_per_100 = round((total_interest / advancement_amount) * 100, 2) if advancement_amount else 0
+    cost_per_100 = round((float(total_interest) / float(advancement_amount)) * 100, 2) if advancement_amount else 0
     apr = 15  # Using interest rate as APR if both are equal
 
     # Prepare context data for the PDF generation
