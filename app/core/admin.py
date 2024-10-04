@@ -11,6 +11,7 @@ from django.utils import timezone
 from rangefilter.filters import DateRangeFilter
 
 from django.utils.translation import gettext_lazy as _
+from django.utils.html import format_html
 
 from core import models
 from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog
@@ -267,7 +268,7 @@ class SignedDocumentLogAdmin(admin.ModelAdmin):
                 'user',
                 'application',
                 'timestamp',
-                'ip_address'
+                'ip_address',
             )
         }),
         ("Document Data", {
@@ -277,7 +278,7 @@ class SignedDocumentLogAdmin(admin.ModelAdmin):
                 'signing_user_email',
                 'solicitor_full_name',
                 'confirmation_message',
-                'confirmation_checked_by_user'
+                'confirmation_checked_by_user',
             )
         }),
         ("Geolocation Data", {
@@ -293,15 +294,32 @@ class SignedDocumentLogAdmin(admin.ModelAdmin):
                 'timezone',
                 'isp',
                 'org',
-                'as_number'
+                'as_number',
             )
         }),
         ("Proxy Data", {
             'fields': (
                 'is_proxy',
                 'type',
-                'proxy_provider'
+                'proxy_provider',
             )
+        }),
+        ("Device Information", {  # New section for device information
+            'fields': (
+                'device_user_agent',
+                'device_browser_name',
+                'device_browser_version',
+                'device_os_name',
+                'device_os_version',
+                'device_cpu_architecture',
+                'device_type',
+                'device_model',
+                'device_vendor',
+                'device_screen_resolution',
+            )
+        }),
+        ("Signature Image Data", {  # Section for displaying Base64 value
+            'fields': ('display_signature_image_base64',)  # Use the custom display method
         }),
     )
 
@@ -338,8 +356,29 @@ class SignedDocumentLogAdmin(admin.ModelAdmin):
         # Proxy Data
         'is_proxy',
         'type',
-        'proxy_provider'
+        'proxy_provider',
+
+        # Device Information
+        'device_browser_name',
+        'device_browser_version',
+        'device_os_name',
+        'device_os_version',
+        'device_type',
+        'device_model',
+        'device_vendor',
     )
+
+    # Custom method to display the full `signature_image_base64` in the detail view
+    def display_signature_image_base64(self, obj):
+        if obj.signature_image_base64:
+            # Display the Base64 string in a scrollable text area
+            return format_html(
+                f'<textarea rows="20" cols="80" readonly style="white-space: pre-wrap;">{obj.signature_image_base64}</textarea>'
+            )
+        else:
+            return format_html('<span style="color: gray;">No Signature Image Available</span>')
+
+    display_signature_image_base64.short_description = 'Signature Image Base64 (Full)'
 
     # Make all fields read-only
     readonly_fields = (
@@ -367,7 +406,18 @@ class SignedDocumentLogAdmin(admin.ModelAdmin):
         'as_number',
         'is_proxy',
         'type',
-        'proxy_provider'
+        'proxy_provider',
+        'device_user_agent',
+        'device_browser_name',
+        'device_browser_version',
+        'device_os_name',
+        'device_os_version',
+        'device_cpu_architecture',
+        'device_type',
+        'device_model',
+        'device_vendor',
+        'device_screen_resolution',
+        'display_signature_image_base64',  # Use the custom method in read-only fields
     )
 
     # Add search fields for easier lookup by specific attributes

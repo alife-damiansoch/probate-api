@@ -424,6 +424,7 @@ class SignedDocumentLog(models.Model):
     confirmation_message = models.TextField(null=True, blank=True)  # Store the confirmation message
     solicitor_full_name = models.CharField(max_length=255, null=True, blank=True)  # Store solicitor's full name
     confirmation_checked_by_user = models.BooleanField(default=False, null=True)
+    signature_image_base64 = models.TextField(null=True, blank=True)  # New field for storing signature image
 
     # Geolocation fields
     country = models.CharField(max_length=100, null=True, blank=True)
@@ -443,6 +444,18 @@ class SignedDocumentLog(models.Model):
     is_proxy = models.BooleanField(default=False, null=True)
     type = models.CharField(max_length=50, null=True, blank=True)  # Could be 'VPN', 'Proxy', etc.
     proxy_provider = models.CharField(max_length=255, null=True, blank=True)
+
+    # New device information fields
+    device_user_agent = models.TextField(null=True, blank=True)  # Complete User-Agent string
+    device_browser_name = models.CharField(max_length=100, null=True, blank=True)  # e.g., 'Chrome'
+    device_browser_version = models.CharField(max_length=100, null=True, blank=True)  # e.g., '89.0.4389.82'
+    device_os_name = models.CharField(max_length=100, null=True, blank=True)  # e.g., 'Windows'
+    device_os_version = models.CharField(max_length=100, null=True, blank=True)  # e.g., '10'
+    device_cpu_architecture = models.CharField(max_length=50, null=True, blank=True)  # e.g., 'x64'
+    device_type = models.CharField(max_length=50, null=True, blank=True)  # e.g., 'mobile', 'desktop'
+    device_model = models.CharField(max_length=100, null=True, blank=True)  # e.g., 'iPhone'
+    device_vendor = models.CharField(max_length=100, null=True, blank=True)  # e.g., 'Apple'
+    device_screen_resolution = models.CharField(max_length=50, null=True, blank=True)  # e.g., '1920x1080'
 
     def __str__(self):
         return f'Signed Document for Application ID {self.application.id} by {self.user}'

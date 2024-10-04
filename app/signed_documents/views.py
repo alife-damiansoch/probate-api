@@ -1,3 +1,4 @@
+import json
 from hashlib import sha256
 
 from PyPDF2.errors import PdfReadError
@@ -92,6 +93,23 @@ class SignedDocumentUploadView(APIView):
         confirmation_str = request.data.get('confirmation')
         confirmation = confirmation_str.lower() == 'true' if confirmation_str else False
         confirmation_message = request.data.get('confirmation_message')  # Extract the confirmation message
+        # Retrieve the device information (sent from frontend)
+        device_info_str = request.data.get('device_info', '{}')  # Get the device info JSON string
+        # Parse the device information JSON string into a dictionary
+        try:
+            device_info = json.loads(device_info_str)
+        except json.JSONDecodeError:
+            return Response({"error": "Invalid device info format."}, status=status.HTTP_400_BAD_REQUEST)
+        user_agent = device_info.get('user_agent', 'Unknown')
+        browser_name = device_info.get('browser_name', 'Unknown')
+        browser_version = device_info.get('browser_version', 'Unknown')
+        os_name = device_info.get('os_name', 'Unknown')
+        os_version = device_info.get('os_version', 'Unknown')
+        cpu_architecture = device_info.get('cpu_architecture', 'Unknown')
+        device_type = device_info.get('device_type', 'Unknown')
+        device_model = device_info.get('device_model', 'Unknown')
+        device_vendor = device_info.get('device_vendor', 'Unknown')
+        screen_resolution = device_info.get('screen_resolution', 'Unknown')
 
         if not pdf_file:
             return Response({"error": "PDF file is required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -123,7 +141,10 @@ class SignedDocumentUploadView(APIView):
 
         # Create a PdfWriter to modify the PDF and add metadata
         pdf_writer = PdfWriter()  # Initialize the PdfWriter
+        total_pages = len(pdf_reader.pages)
+
         for page_num, page in enumerate(pdf_reader.pages):
+
             packet = BytesIO()
             can = canvas.Canvas(packet, pagesize=A4)
 
@@ -143,12 +164,22 @@ class SignedDocumentUploadView(APIView):
                 # Draw the signature image on the PDF (adjust size and position as needed)
                 can.drawImage(signature_filename, x=x_position, y=y_position, width=image_width / 4,
                               height=image_height / 4)
+
+                # Define the position for the text below the signature image
+                text_x = x_position  # Same X position as the image
+                text_y = y_position - 15  # Position text 15 points below the image
+
+                # Add "Signed on" text below the image
+                can.setFont("Helvetica", 10)  # Set font and size
+                can.drawString(text_x, text_y, f"Signed on: {datetime.now().strftime('%d/%m/%Y')}")  # Display date
+
                 can.save()
                 packet.seek(0)
 
-                # Overlay the signature on each page
-                overlay_pdf = PdfReader(packet)
-                page.merge_page(overlay_pdf.pages[0])
+                # Overlay the signature on last page
+                if page_num == total_pages - 1:  # Check if it's the last page
+                    overlay_pdf = PdfReader(packet)
+                    page.merge_page(overlay_pdf.pages[0])
 
                 # Add the modified page to the writer
                 pdf_writer.add_page(page)
@@ -210,6 +241,7 @@ class SignedDocumentUploadView(APIView):
             confirmation_message=confirmation_message,
             solicitor_full_name=solicitor_full_name,
             confirmation_checked_by_user=confirmation,
+            signature_image_base64=signature_base64,
             # geo_data_info
             country=geolocation_data.get("country") if geolocation_data else None,
             country_code=geolocation_data.get("country_code") if geolocation_data else None,  # Correct reference
@@ -227,6 +259,17 @@ class SignedDocumentUploadView(APIView):
             is_proxy=proxy_data.get("is_proxy") if proxy_data else False,
             type=proxy_data.get("proxy_type") if proxy_data else None,
             proxy_provider=proxy_data.get("proxy_provider") if proxy_data else None,
+            # Device Info
+            device_user_agent=user_agent,
+            device_browser_name=browser_name,
+            device_browser_version=browser_version,
+            device_os_name=os_name,
+            device_os_version=os_version,
+            device_cpu_architecture=cpu_architecture,
+            device_type=device_type,
+            device_model=device_model,
+            device_vendor=device_vendor,
+            device_screen_resolution=screen_resolution,
         )
 
         print(f"Created SignedDocumentLog: {model_to_dict(signed_document_log)}")  # Debug: Full log details
