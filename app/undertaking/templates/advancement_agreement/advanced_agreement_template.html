@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moneylending Agreement</title>
+    <style>
+        body {
+            font-family: 'Helvetica', serif;
+            margin-top: 25mm; /* Top margin */
+            margin-bottom: 25mm; /* Bottom margin */
+            margin-left: auto; /* Left margin */
+            margin-right: auto; /* Right margin */
+            line-height: 1.6;
+            overflow: hidden;
+        }
+
+        h1, h2, h3 {
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .table-container {
+            margin-left: 0; /* Reset container margin */
+            margin-right: 0; /* Reset container margin */
+            padding-left: 20mm; /* Set padding to match body margins */
+            padding-right: 20mm; /* Set padding to match body margins */
+        }
+
+        .table {
+            width: 100%; /* Table width set to 100% to respect container */
+            border-collapse: collapse;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            background-color: lightgray;
+        }
+
+        .table th, .table td {
+            border-top: 1px solid black; /* Keep borders for all cells */
+            padding: 4px 8px; /* Adjust padding for tighter spacing */
+            text-align: left;
+            white-space: normal; /* Allow text wrapping */
+        }
+
+
+        .signature-section {
+            margin-top: 50px;
+        }
+
+        .signature-box {
+            margin-top: 20px;
+            border-top: 1px solid black;
+            padding-top: 5px;
+            width: 50%;
+        }
+
+        .agreement-warning {
+            background-color: lightskyblue;
+            padding: 15px;
+            margin: 20px 0;
+            font-weight: bold;
+            text-align: center;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Moneylending Agreement</h1>
+<h2>Agreement Number: {{ agreement_number }}</h2>
+
+<div class="section">
+    <p>These are your advancement terms. It sets out the details of your advancement and should be read with the Terms
+        and
+        Conditions.
+        Keep it safe, as you may need to refer to it in the future.</p>
+</div>
+
+<div class="section table-container">
+    <h3>Parties to the Agreement</h3>
+    <table class="table">
+        <tr>
+            <th>We ({{ company_name }})</th>
+            <td>{{ company_name }}, company registration number {{ company_registration_number }}
+                of {{ company_address }}</td>
+        </tr>
+        <tr>
+            <th>You (Borrower)</th>
+            <td>{{ applicant_name }}, PPS: {{ applicant_pps }}</td>
+        </tr>
+    </table>
+</div>
+
+<div class="section table-container">
+    <h3>Advancement Details</h3>
+    <table class="table">
+        <tr>
+            <th>This Agreement includes</th>
+            <td>the terms, statement of rights, and information below along with the Borrower Terms and Conditions.</td>
+        </tr>
+        <tr>
+            <th>Amount you're borrowing</th>
+            <td>€{{ advancement_amount }}</td>
+        </tr>
+        <tr>
+            <th>Advancement term</th>
+            <td>{{ advancement_term }} Months</td>
+        </tr>
+        <tr>
+            <th>Repaying</th>
+            <td>1 payment of €{{ total_amount_payable }}</td>
+        </tr>
+        <tr>
+            <th>Total Amount Payable: €{{ total_amount_payable }} made up of:</th>
+            <td>
+                (a) advancement amount: €{{ advancement_amount }} <br>
+                (b) total interest of: €{{ total_interest }}
+            </td>
+        </tr>
+        <tr>
+            <th>APR (fixed)</th>
+            <td>{{ apr }}%</td>
+        </tr>
+        <tr>
+            <th>Rate of interest</th>
+            <td>{{ interest_rate }}% per annum (fixed)</td>
+        </tr>
+        <tr>
+            <th>Cost per €100 borrowed</th>
+            <td>€{{ cost_per_100 }}</td>
+        </tr>
+    </table>
+</div>
+<div class="section">
+
+    <p>To calculate the APR, the total interest, and the total amount you will pay, we've assumed that you and we keep
+        to this Agreement, and you make a full first payment one month after the advancement is paid out, and monthly on
+        the
+        same date of each month after that.</p>
+</div>
+
+<div class="section">
+    <h3>How and When Credit Will Be Provided:</h3>
+    <p>When we've signed this Agreement, we'll open a advancement account in your name and will pay the money into your
+        Guarantor's bank account in line with the Borrower Terms & Conditions. The aim of this is to prevent fraud and
+        identity theft.</p>
+</div>
+
+<div class="section">
+    <h3>Right to Terminate Agreement:</h3>
+    <p>You can terminate this Agreement at any time by repaying everything you owe us in connection with this
+        advancement,
+        including any interest.</p>
+</div>
+
+<div class="section">
+    <h3>Your Right to Withdraw:</h3>
+    <p>You can withdraw from the Agreement, without giving any reason, if you notify us within the withdrawal period.
+        The period begins when the Agreement is made, and ends 14 days after the day you receive from us an executed
+        copy of this Agreement. You can notify us by calling us or writing, telling us you want to withdraw by
+        contacting our Accounts Manager at {{ company_name }}, {{ company_name }}, or by phone
+        on {{ company_phone_number }},
+        giving details of this Agreement. If you withdraw, you must repay us the outstanding advancement amount
+        including
+        accrued interest in full by sending a cheque to the address above. You must pay us no later than 30 days after
+        giving notice of withdrawal. The amount of interest payable per day is €2.82 if you borrow €2,500.00.</p>
+</div>
+
+<div class="section">
+    <h3>When Do You Pay:</h3>
+    <p>You will choose what date of the month on which you make your advancement payments, which must be no more than 59
+        days
+        after we pay out your advancement. If you miss any payments, it could have serious consequences and could make
+        borrowing more money in the future difficult. We may take action to recover the money owed, which may include
+        obtaining payment from your Guarantor; telling credit reference agencies, who supply information to other credit
+        providers; taking court action against both you and your Guarantor. This is covered in more detail in the
+        Borrower Terms and Conditions.</p>
+</div>
+
+<div class="section">
+    <h3>Statement of Account:</h3>
+    <p>You've the right to receive a statement of account. You can ask for this at any time during the term of the
+        advancement
+        and it is free of charge. It will include details of each repayment you owe under the agreement, the date each
+        repayment is due, the amount, and any conditions which relate to the repayment. It will also break down each
+        repayment, showing how much covers the amount you borrowed (capital) and how much is interest. This statement
+        shall indicate that the information contained in it is valid only for so long as the rate of interest is not
+        varied.</p>
+</div>
+
+<div class="section">
+    <h3>Right to Pay Off Early:</h3>
+    <p>You have the right to pay off some or all of the debt that you owe us at any time. You must give us notice that
+        you want to do this. If you want to pay off your debt in full, you must tell us the date on which you plan to do
+        this. You can contact us at {{ company_name }}, {{ company_address }}, or by phone on {{ company_phone_number }}.
+        If you want to pay off the advancement in full, we will send you a statement setting out what you owe. When you
+        make a
+        partial
+        payment, we will first use it to pay any arrears or overdue interest and will then apply the payment to reduce
+        the term of the agreement. You may ask us to send you a statement.</p>
+</div>
+
+<div class="section">
+    <h3>What You Should Do If You Have a Complaint:</h3>
+    <p>We're committed to dealing with all complaints fully and fairly, and in a reasonable time. If you have a
+        complaint about the agreement or anything we've done, please let us know. You can make a complaint over the
+        phone, on our website at {{ company_website }}, or by writing to {{ company_name }}, {{ company_address }}.</p>
+    <p>You may have a right to refer your complaint to the Financial Services and Pensions Ombudsman, Lincoln House,
+        Lincoln Place, Dublin 2, D02 VH29, by email to info@fspo.ie or by phone on +353 1 567 7000. The European Union
+        has set up an online service to resolve disputes about online transactions. Please visit the Online Dispute
+        Resolution website at ec.europa.eu/odr.</p>
+</div>
+
+<div class="section">
+    <h3>Central Credit Register Notice:</h3>
+    <p>Under the Credit Reporting Act 2013, lenders are required to provide personal and credit information for credit
+        applications and credit agreements of €500 and above to the Central Credit Register. This information will be
+        held on the Central Credit Register and may be used by other lenders when making decisions on your credit
+        applications and credit agreements.</p>
+    <p>{{ company_name }} (trading as "{{ company_name }}") is regulated by The Central Bank of Ireland, New Wapping
+        Street, North Wall
+        Quay, Dublin 1.</p>
+</div>
+
+<div class="section">
+    <h3>Important Warning:</h3>
+    <p>This Moneylending Agreement may not be suitable for you if you intend to use it to pay off any existing
+        advancements,
+        for example, if the interest rates on those advancements are lower than on this agreement. You should check the
+        consequences of settling other advancements early, and if you are in any doubt about entering the Moneylending
+        Agreement, contact your local Money Advice and Budgeting Service (MABS). The MABS helpline number is 07610 72000
+        (and is available Monday to Friday from 9 am to 5 pm and is contactable at helpline@mabs.ie). Consolidating
+        debts may involve increasing the period required to repay.</p>
+</div>
+
+<div class="section">
+    <p>By signing this Agreement, you are confirming that you've received and read the Pre-Contract Information and
+        Borrower Terms and Conditions and had an opportunity to ask us about anything you do not understand. You
+        understand that before we pay out the advancement, you will need to give us a Direct Debit and debit or credit
+        card
+        details. You authorize us to use them to take payment from these as soon as they are due.</p>
+</div>
+
+<!-- Highlighted Section Above Footer -->
+<div class="agreement-warning">
+    <p>This is a Credit Agreement. Sign it only if you want to be legally bound by its terms. By signing this Agreement,
+        you are confirming that you have read the Pre-contract information, adequate explanation, privacy notice, and
+        Terms & Conditions and had the opportunity to ask for further information.</p>
+</div>
+
+<table class="table">
+    <tr>
+        <td>Electronic Signature:<br><br>
+            {{ applicant_name }}</td>
+        <td><br>Signed on behalf of {{ company_name }}:<br>
+            <br>
+            {{ company_ceo }}<br><br>
+            {{ today_date }}</td>
+    </tr>
+</table>
+
+{#<div style="display: flex; align-items: center; justify-content: space-evenly">#}
+{##}
+{##}
+{#    <div class="signature-section signature-box">#}
+{#        <p><span class="bold">Electronic Signature:</span></p>#}
+{#        <p>{{ applicant_name }}</p>#}
+{#    </div>#}
+{##}
+{#    <div class="signature-section signature-box ">#}
+{#        <p><span class="bold">Signed on behalf of {{ company_name }}:</span></p>#}
+{#        <p>{{ company_ceo }}</p>#}
+{#        <p>{{ today_date }}</p>#}
+{#    </div>#}
+{#</div>#}
+{##}
+{#<div class="footer" style="text-align: center">#}
+{#    <hr>#}
+{#    <p>© {{ current_year }} - {{ company_name }}</p>#}
+{#</div>#}
+
+
+</body>
+</html>

@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import generate_undertaking_pdf  # Import the function-based view
+from .views import generate_undertaking_pdf, generate_advancement_agreement_pdf  # Import the function-based view
 
 router = DefaultRouter()
 app_name = 'undertaking'
@@ -10,6 +10,8 @@ app_name = 'undertaking'
 
 urlpatterns = [
     path('', include(router.urls)),  # Include router URLs (empty in this case)
-    path('generate-pdf/', generate_undertaking_pdf, name='generate_undertaking_pdf'),
+    path('generate_undertaking_pdf/', generate_undertaking_pdf, name='generate_undertaking_pdf'),
     # Direct path for the function-based view
+    path('generate_advancement_agreement_pdf/', generate_advancement_agreement_pdf,
+         name='generate_advancement_agreement_pdf'),  # Path for the advancement agreement PDF
 ]

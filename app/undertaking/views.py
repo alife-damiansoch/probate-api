@@ -1,4 +1,7 @@
+import datetime
 import os
+import zipfile
+
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -10,7 +13,7 @@ from django.template.loader import render_to_string
 from xhtml2pdf import pisa
 from io import BytesIO
 import json
-from datetime import date
+import datetime
 
 from core.models import Application, Solicitor, User  # Assuming these models are in the 'core' app
 
@@ -100,7 +103,7 @@ def generate_undertaking_pdf(request):
             'solicitor_firm_name': solicitor_firm_name,
             'solicitor_firm_address': solicitor_firm_address,
             'applicant_name': applicant_names,
-            'current_date': date.today().strftime("%B %d, %Y"),  # Format the current date
+            'current_date': datetime.date.today().strftime("%B %d, %Y"),  # Format the current date
             'company_name': company_name,
             'company_address': company_address,
         }
@@ -128,3 +131,158 @@ def generate_undertaking_pdf(request):
         return JsonResponse({'error': 'Invalid JSON format'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@extend_schema(
+    summary="Generate an Advancement Agreement PDF",
+    description="Generates a PDF document for a single applicant or multiple PDF documents bundled in a ZIP for multiple applicants based on the application ID and agreed fee provided in the request.",
+    tags=["advancement"],
+    request=OpenApiTypes.OBJECT,
+    examples=[
+        OpenApiExample(
+            name="Example request",
+            value={
+                "application_id": 180,
+                "fee_agreed_for_undertaking": 37500
+            },
+            request_only=True,  # This example is only for the request body
+        )
+    ],
+    responses={
+        200: OpenApiResponse(
+            description='Generated PDF or ZIP file',
+            response=OpenApiTypes.BINARY,  # Use OpenApiTypes.BINARY for binary file response
+        ),
+        400: OpenApiResponse(
+            description='Bad Request',
+            response=OpenApiTypes.OBJECT
+        ),
+        404: OpenApiResponse(
+            description='Not Found',
+            response=OpenApiTypes.OBJECT
+        ),
+        500: OpenApiResponse(
+            description='Internal Server Error',
+            response=OpenApiTypes.OBJECT
+        ),
+    }
+)
+@csrf_exempt
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def generate_advancement_agreement_pdf(request):
+    try:
+        data = json.loads(request.body)
+        application_id = data.get('application_id')
+        fee_agreed_for_undertaking = data.get('fee_agreed_for_undertaking')
+
+        # Fetch the application by its ID
+        application = get_object_or_404(Application, id=application_id)
+
+        # Get company details from environment variables using os.getenv
+        company_name = os.getenv('COMPANY_NAME', 'Default Company Name')
+        company_address = os.getenv('COMPANY_ADDRESS', 'Default Company Address')
+        company_registration_number = os.getenv('COMPANY_REGISTRATION_NUMBER', 'Default Registration Number')
+        company_website = os.getenv('COMPANY_WEBSITE', 'https://example.com')
+        company_phone_number = os.getenv('COMPANY_PHONE_NUMBER', '012345678')
+        company_ceo = os.getenv('COMPANY_CEO', 'default CEO')
+
+        # Get all applicants associated with the application
+        applicants = application.applicants.all()
+
+        # Check if there's only one applicant, then return a single PDF
+        if len(applicants) == 1:
+            # Single applicant case
+            applicant = applicants[0]
+            # Create PDF for the single applicant
+            pdf_response = create_pdf_for_applicant(application, applicant, company_name, company_address,
+                                                    company_registration_number, company_website, company_phone_number,
+                                                    fee_agreed_for_undertaking, company_ceo)
+            response = HttpResponse(pdf_response.getvalue(), content_type='application/pdf')
+            response[
+                'Content-Disposition'] = f'attachment; filename="Advancement_Agreement_{application_id}_{applicant.first_name}_{applicant.last_name}.pdf"'
+            return response
+
+        # If there are multiple applicants, create a ZIP archive
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+            for applicant in applicants:
+                pdf_response = create_pdf_for_applicant(application, applicant, company_name, company_address,
+                                                        company_registration_number, company_website,
+                                                        company_phone_number,
+                                                        fee_agreed_for_undertaking, company_ceo)
+                pdf_filename = f"Advancement_Agreement_{application_id}_{applicant.first_name}_{applicant.last_name}.pdf"
+                zip_file.writestr(pdf_filename, pdf_response.getvalue())
+
+        # Return the ZIP file as a response
+        zip_buffer.seek(0)
+        response = HttpResponse(zip_buffer, content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename="Advancement_Agreements_{application_id}.zip"'
+        return response
+
+    except Application.DoesNotExist:
+        return JsonResponse({'error': 'Application not found.'}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON format'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def create_pdf_for_applicant(application, applicant, company_name, company_address, company_registration_number,
+                             company_website, company_phone_number, fee_agreed_for_undertaking, company_ceo):
+    """
+    Helper function to create a PDF for a single applicant.
+    """
+    # Get individual applicant details
+    applicant_name = f"{applicant.first_name} {applicant.last_name}"
+    applicant_pps = applicant.pps_number if hasattr(applicant, 'pps_number') else "N/A"
+
+    # Calculate the advancement details based on application data and fee
+    advancement_amount = application.amount  # Assuming 'amount' field in Application model
+    advancement_term = application.term  # Assuming 'term' field in Application model
+    interest_rate = 15  # Assuming 'interest_rate' field in Application model
+    total_amount_payable = advancement_amount + fee_agreed_for_undertaking
+    total_interest = fee_agreed_for_undertaking
+    cost_per_100 = round((total_interest / advancement_amount) * 100, 2) if advancement_amount else 0
+    apr = 15  # Using interest rate as APR if both are equal
+
+    # Prepare context data for the PDF generation
+    context = {
+        # company details
+        'company_name': company_name,
+        'company_registration_number': company_registration_number,
+        'company_address': company_address,
+        'company_website': company_website,
+        'company_phone_number': company_phone_number,
+        'company_ceo': company_ceo,
+        # applicant details
+        'applicant_name': applicant_name,
+        'applicant_pps': applicant_pps.upper(),
+        # application details
+        'agreement_number': application.id,
+        'advancement_amount': advancement_amount,
+        'advancement_term': advancement_term,
+        'total_amount_payable': total_amount_payable,
+        'total_interest': total_interest,
+        'apr': apr,
+        'interest_rate': interest_rate,
+        'cost_per_100': cost_per_100,
+        'current_year': datetime.date.today().year,
+        # date
+        'today_date': datetime.datetime.now().strftime("%d/%m/%Y"),
+        'current_year ': datetime.datetime.now().strftime("%Y")
+    }
+
+    # Render the HTML template for the applicant
+    html_string = render_to_string('advancement_agreement/advanced_agreement_template.html', context)
+
+    # Create a byte stream buffer for the PDF
+    pdf_buffer = BytesIO()
+    # Generate PDF from the HTML string using xhtml2pdf
+    pdf = pisa.CreatePDF(BytesIO(html_string.encode("UTF-8")), dest=pdf_buffer)
+
+    if pdf.err:
+        raise Exception('Error generating PDF')
+
+    return pdf_buffer
