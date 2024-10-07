@@ -19,7 +19,7 @@ from rest_framework.views import APIView
 from app import settings
 from app.pagination import CustomPageNumberPagination
 from app.utils import log_event
-from core.models import Document, Notification, Solicitor
+from core.models import Document, Notification, Solicitor, Assignment
 from solicitors_loan import serializers
 from core import models
 from solicitors_loan.permissions import IsNonStaff
@@ -108,6 +108,16 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
         try:
             serializer.save(user=self.request.user)
             log_event(self.request, request_body, serializer.instance)
+
+            # Check for the Assignment and set the assigned_to field
+            agency_user = self.request.user
+            assignment = Assignment.objects.filter(agency_user=agency_user).first()
+
+            if assignment:
+                # If the user is found in the Assignment table as an agency user, set the staff_user
+                serializer.instance.assigned_to = assignment.staff_user
+                serializer.instance.save()
+
         except Exception as e:  # Catch any type of exception
             log_event(self.request, request_body, application=serializer.instance)
             raise e  # Re-raise the caught exception
