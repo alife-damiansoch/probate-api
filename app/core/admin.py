@@ -14,7 +14,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 
 from core import models
-from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog
+from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment
 
 from rest_framework.authtoken.models import Token
 
@@ -432,6 +432,28 @@ class SignedDocumentLogAdmin(admin.ModelAdmin):
     ordering = ('-timestamp',)
 
 
+class AssignmentAdmin(admin.ModelAdmin):
+    """Admin configuration for the Assignment model."""
+
+    list_display = (
+        'staff_user',  # Corrected to reference the actual field name
+        'agency_user',  # Corrected to reference the actual field name
+        'assigned_at',  # Assuming you have an assigned_at field in the model
+    )
+
+    list_filter = (
+        'staff_user',  # Corrected to reference the actual field name
+        'agency_user',  # Corrected to reference the actual field name
+    )
+
+    search_fields = (
+        'staff_user__name',  # Adding staff_user and agency_user fields for better search
+        'agency_user__name',
+    )
+
+    ordering = ('-assigned_at',)  # Assuming you have an 'assigned_at' field to order by
+
+
 admin.site.unregister(LogEntry)
 admin.site.register(LogEntry, CustomLogEntryAdmin)
 
@@ -453,3 +475,4 @@ admin.site.register(models.Solicitor)
 admin.site.register(Document, DocumentAdmin)
 
 admin.site.register(SignedDocumentLog, SignedDocumentLogAdmin)
+admin.site.register(Assignment, AssignmentAdmin)

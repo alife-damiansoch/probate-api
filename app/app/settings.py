@@ -63,7 +63,8 @@ INSTALLED_APPS = [
     'assigned_solicitor',
     'undertaking',
     'downloadableFiles',
-    'signed_documents'
+    'signed_documents',
+    'agents_default_assignments'
 ]
 
 MIDDLEWARE = [

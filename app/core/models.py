@@ -461,6 +461,32 @@ class SignedDocumentLog(models.Model):
         return f'Signed Document for Application ID {self.application.id} by {self.user}'
 
 
+class Assignment(models.Model):
+    """Model to assign agencies to staff users."""
+    staff_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        limit_choices_to={'is_staff': True},
+        related_name='assigned_agencies',
+
+    )
+    agency_user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        limit_choices_to={'is_staff': False},
+        related_name='assigned_staff_user',
+
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Assignment'
+        verbose_name_plural = 'Assignments'
+
+    def __str__(self):
+        return f"{self.agency_user.name if self.agency_user else 'Unassigned'} assigned to {self.staff_user.name}"
+
+
 auditlog.register(User)
 auditlog.register(Application)
 auditlog.register(Document)
