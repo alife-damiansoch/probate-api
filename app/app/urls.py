@@ -27,6 +27,7 @@ urlpatterns = [
     path('api/', include('undertaking.urls', namespace='undertaking')),
     path('api/downloadableFiles/', include('downloadableFiles.urls', namespace='downloadableFiles')),
     path('api/signed_documents/', include('signed_documents.urls', namespace='signed_documents')),
+    path('api/assignments/', include('agents_default_assignments.urls', namespace='assignments')),
 
     path('test/500/', test_500_view),
 ]
