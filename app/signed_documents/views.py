@@ -93,6 +93,9 @@ class SignedDocumentUploadView(APIView):
         confirmation_str = request.data.get('confirmation')
         confirmation = confirmation_str.lower() == 'true' if confirmation_str else False
         confirmation_message = request.data.get('confirmation_message')  # Extract the confirmation message
+        # Retrieve document type info
+        is_undertaking = request.data.get('is_undertaking', False)
+        is_loan_agreement = request.data.get('is_loan_agreement', False)
         # Retrieve the device information (sent from frontend)
         device_info_str = request.data.get('device_info', '{}')  # Get the device info JSON string
         # Parse the device information JSON string into a dictionary
@@ -220,6 +223,8 @@ class SignedDocumentUploadView(APIView):
             document=pdf_file_to_save,  # Use the File object with a name attribute
             is_signed=True,
             original_name=pdf_file.name,
+            is_undertaking=True if is_undertaking == "true" else False,
+            is_loan_agreement=True if is_loan_agreement == "true" else False,
         )
 
         print(f"Created Document: {model_to_dict(signed_document)}")  # Debug: Full object details

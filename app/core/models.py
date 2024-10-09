@@ -216,7 +216,10 @@ class Application(models.Model):
 
     @property
     def loan_agreement_ready(self) -> bool:
-        return Document.objects.filter(application=self, is_loan_agreement=True).exists()
+        applicants = Applicant.objects.filter(application=self)
+        applicants_count = len(applicants)
+        return len(Document.objects.filter(application=self,
+                                           is_loan_agreement=True)) >= applicants_count > 0
 
     def delete(self, *args, **kwargs):
         if self.deceased is not None:
