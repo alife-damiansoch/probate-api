@@ -30,7 +30,7 @@ def generate_unique_filename(original_filename):
 # communications/utils.py
 
 
-def send_email_f(sender, recipient, subject, message, attachments=None):
+def send_email_f(sender, recipient, subject, message, application, attachments=None):
     """
     Function to send an email using the SMTP settings.
     """
@@ -43,7 +43,7 @@ def send_email_f(sender, recipient, subject, message, attachments=None):
         email_message = EmailMessage(
             subject=subject,
             body=message,
-            from_email="info@alife.ie",
+            from_email=settings.DEFAULT_FROM_EMAIL,
             to=[recipient],
         )
 
@@ -85,6 +85,7 @@ def send_email_f(sender, recipient, subject, message, attachments=None):
             message=message,
             is_sent=True,
             attachments=attachments,
+            application=application,
         )
         print(f"Email sent successfully to {recipient}")
     except Exception as e:

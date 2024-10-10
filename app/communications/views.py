@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from django.http import FileResponse, Http404
 
 from agents_loan.permissions import IsStaff
-from core.models import EmailLog
+from core.models import EmailLog, Application
 from .serializers import SendEmailSerializer, EmailLogSerializer
 from .utils import send_email_f
 
@@ -57,26 +57,55 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     serializer_class = EmailLogSerializer  # Default serializer for the viewset
     queryset = EmailLog.objects.all()  # Queryset for listing email logs
 
-    @action(detail=False, methods=['post'], serializer_class=SendEmailSerializer)
+    @action(detail=False, methods=['post'])
     def send_email(self, request):
         """
         Custom action to send an email.
         """
-        serializer = self.get_serializer(data=request.data)
+
+        serializer = SendEmailSerializer(data=request.data)
+
         if not serializer.is_valid():
+            print("Error here")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Extract data from the serializer
         sender = serializer.validated_data['sender']
-        recipient = serializer.validated_data['recipient']
         subject = serializer.validated_data['subject']
         message = serializer.validated_data['message']
+        application_id = serializer.validated_data['application_id']
         attachments = serializer.validated_data.get('attachments', [])
 
-        # Call the send_email function with HTML support and attachments
-        send_email_f(sender, recipient, subject, message, attachments=attachments)
+        try:
+            # Retrieve the application based on the ID
+            application = Application.objects.get(id=application_id)
 
-        return Response({"message": "Email sent successfully."}, status=status.HTTP_200_OK)
+            # Determine recipient email
+            recipient = application.solicitor.own_email if application.solicitor and application.solicitor.own_email else application.user.email
+
+            if not recipient:
+                return Response({"error": "No recipient email found for this application."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            # Call the send_email function with HTML support and attachments
+            send_email_f(sender, recipient, subject, message, application, attachments=attachments)
+
+            # Log the email with the associated application
+            # EmailLog.objects.create(
+            #     sender=sender,
+            #     recipient=recipient,
+            #     subject=subject,
+            #     message=message,
+            #     is_sent=True,
+            #     application=application,  # Associate the log with the application
+            # )
+
+            return Response({"message": "Email sent successfully."}, status=status.HTTP_200_OK)
+
+        except Application.DoesNotExist:
+            return Response({"error": "Application not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AttachmentDownloadView(APIView):
