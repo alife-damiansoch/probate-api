@@ -3,6 +3,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
+from django.db.models import JSONField
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
@@ -490,7 +491,23 @@ class Assignment(models.Model):
         return f"{self.agency_user.name if self.agency_user else 'Unassigned'} assigned to {self.staff_user.name}"
 
 
+class EmailLog(models.Model):
+    sender = models.EmailField()
+    recipient = models.EmailField()
+    subject = models.CharField(max_length=255)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_sent = models.BooleanField(default=False)
+    attachments = JSONField(null=True, blank=True)  # Store file paths as a JSON object
+    original_filenames = JSONField(null=True, blank=True)  # New field to store original file names
+
+    def __str__(self):
+        return f"Email from {self.sender} to {self.recipient} - {self.subject}"
+
+
 auditlog.register(User)
 auditlog.register(Application)
 auditlog.register(Document)
 auditlog.register(Loan)
+auditlog.register(SignedDocumentLog)
+auditlog.register(EmailLog)

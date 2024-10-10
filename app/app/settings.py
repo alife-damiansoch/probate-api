@@ -33,6 +33,12 @@ DEBUG = bool(int(os.getenv('DEBUG', 0)))
 
 ALLOWED_HOSTS = list(filter(None, os.getenv('ALLOWED_HOSTS', '').split(',')))
 
+# Incoming Email Settings (IMAP)
+IMAP_SERVER = os.getenv('IMAP_SERVER')
+IMAP_PORT = int(os.getenv('IMAP_PORT', 993))  # Convert to int
+IMAP_USER = os.getenv('IMAP_USER')
+IMAP_PASSWORD = os.getenv('IMAP_PASSWORD')
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -64,7 +70,8 @@ INSTALLED_APPS = [
     'undertaking',
     'downloadableFiles',
     'signed_documents',
-    'agents_default_assignments'
+    'agents_default_assignments',
+    'communications'
 ]
 
 MIDDLEWARE = [
@@ -159,6 +166,18 @@ if not DEBUG:  # in production
 
     MEDIA_URL = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/"
     STATIC_URL = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/"
+    # Set ATTACHMENTS_DIR to point to Azure Blob Storage container path
+    ATTACHMENTS_DIR = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/attachments/"
+
+    # Outgoing Email Settings (SMTP)
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.getenv('EMAIL_HOST')
+    EMAIL_PORT = 465
+    EMAIL_USE_TLS = False
+    EMAIL_USE_SSL = True
+    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+    DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
 
 else:  # in development
     MEDIA_URL = '/media/'
@@ -167,6 +186,21 @@ else:  # in development
     STATIC_ROOT = "staticfiles"
     MEDIA_ROOT = BASE_DIR / "media"
     DOC_DOWNLOAD_DIR = os.path.join(MEDIA_ROOT, 'DocDownload')
+    # Set default attachment directory to a subfolder within media
+    ATTACHMENTS_DIR = os.path.join(MEDIA_ROOT, 'email_attachments')
+    # Your Non-SSL settings
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_USE_TLS = False
+    EMAIL_USE_SSL = False
+    EMAIL_HOST = 'mail.alife.ie'
+    EMAIL_PORT = 25
+    EMAIL_HOST_USER = os.getenv('DEFAULT_FROM_EMAIL')
+    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# Ensure the local attachments directory exists if in development
+if DEBUG:
+    os.makedirs(ATTACHMENTS_DIR, exist_ok=True)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
