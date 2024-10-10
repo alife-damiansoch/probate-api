@@ -30,7 +30,7 @@ def generate_unique_filename(original_filename):
 # communications/utils.py
 
 
-def send_email_f(sender, recipient, subject, message, application, attachments=None):
+def send_email_f(sender, recipient, subject, message, application=None, attachments=None):
     """
     Function to send an email using the SMTP settings.
     """

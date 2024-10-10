@@ -10,7 +10,7 @@ class EmailLogSerializer(serializers.ModelSerializer):
 
 
 # The SendEmailSerializer is also defined here
-class SendEmailSerializer(serializers.Serializer):
+class SendEmailSerializerByApplicationId(serializers.Serializer):
     sender = serializers.EmailField()
     application_id = serializers.IntegerField()
     subject = serializers.CharField(max_length=255)
@@ -27,6 +27,18 @@ class SendEmailSerializer(serializers.Serializer):
         except Application.DoesNotExist:
             raise serializers.ValidationError("Invalid application ID.")
         return value
+
+
+class SendEmailToRecipientsSerializer(serializers.Serializer):
+    sender = serializers.EmailField()
+    subject = serializers.CharField(max_length=255)
+    message = serializers.CharField()
+    recipients = serializers.ListField(
+        child=serializers.EmailField(), allow_empty=False
+    )  # List of recipient email addresses
+    attachments = serializers.ListField(
+        child=serializers.FileField(), required=False, allow_empty=True
+    )
 
 
 class DownloadAttachmentSerializer(serializers.Serializer):

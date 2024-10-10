@@ -14,8 +14,8 @@ from django.http import FileResponse, Http404
 
 from agents_loan.permissions import IsStaff
 from core.models import EmailLog, Application
-from .serializers import SendEmailSerializer, EmailLogSerializer
-from .utils import send_email_f
+from .serializers import SendEmailSerializerByApplicationId, EmailLogSerializer, SendEmailToRecipientsSerializer
+from .utils import send_email_f, fetch_emails
 
 
 # Custom ViewSet with only the 'list' and 'send_email' actions
@@ -25,11 +25,33 @@ from .utils import send_email_f
         description='Returns a list of all sent and received emails, including metadata like sender, recipient, subject, and message content.',
         tags=['communications'],
     ),
-    send_email=extend_schema(
+    send_email_with_application=extend_schema(
         summary='Send an Email',
-        description='Sends an email using the provided sender, recipient, subject, and message. Returns a confirmation message on success.',
+        description='Sends an email using the provided sender, applicationId, subject, and message. Returns a confirmation message on success.',
         tags=['communications'],
-        request=SendEmailSerializer,
+        request=SendEmailSerializerByApplicationId,
+        responses={
+            200: {
+                'description': 'Email sent successfully',
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string', 'example': 'Email sent successfully.'}
+                }
+            },
+            400: {
+                'description': 'Validation Error',
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string', 'example': 'All fields are required.'}
+                }
+            }
+        }
+    ),
+    send_email_to_recipients=extend_schema(
+        summary='Send an Email',
+        description='Sends an email using the provided sender, list of recipients, subject, and message. Returns a confirmation message on success.',
+        tags=['communications'],
+        request=SendEmailToRecipientsSerializer,
         responses={
             200: {
                 'description': 'Email sent successfully',
@@ -57,13 +79,26 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     serializer_class = EmailLogSerializer  # Default serializer for the viewset
     queryset = EmailLog.objects.all()  # Queryset for listing email logs
 
+    def list(self, request, *args, **kwargs):
+        """
+        Override the list method to fetch emails before returning the list of logs.
+        """
+        # Call the email fetching function
+        fetch_emails()
+
+        # After fetching, update the queryset to include new emails
+        self.queryset = EmailLog.objects.all().order_by('-created_at')
+
+        # Return the list of email logs as usual
+        return super().list(request, *args, **kwargs)
+
     @action(detail=False, methods=['post'])
-    def send_email(self, request):
+    def send_email_with_application(self, request):
         """
         Custom action to send an email.
         """
 
-        serializer = SendEmailSerializer(data=request.data)
+        serializer = SendEmailSerializerByApplicationId(data=request.data)
 
         if not serializer.is_valid():
             print("Error here")
@@ -90,22 +125,34 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             # Call the send_email function with HTML support and attachments
             send_email_f(sender, recipient, subject, message, application, attachments=attachments)
 
-            # Log the email with the associated application
-            # EmailLog.objects.create(
-            #     sender=sender,
-            #     recipient=recipient,
-            #     subject=subject,
-            #     message=message,
-            #     is_sent=True,
-            #     application=application,  # Associate the log with the application
-            # )
-
             return Response({"message": "Email sent successfully."}, status=status.HTTP_200_OK)
 
         except Application.DoesNotExist:
             return Response({"error": "Application not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], serializer_class=SendEmailToRecipientsSerializer)
+    def send_email_to_recipients(self, request):
+        """
+        Custom action to send an email to a list of recipients.
+        """
+        serializer = SendEmailToRecipientsSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Extract data from the serializer
+        sender = serializer.validated_data['sender']
+        subject = serializer.validated_data['subject']
+        message = serializer.validated_data['message']
+        recipients = serializer.validated_data['recipients']
+        attachments = serializer.validated_data.get('attachments', [])
+
+        # Send email to each recipient
+        for recipient in recipients:
+            send_email_f(sender, recipient, subject, message, attachments=attachments)
+
+        return Response({"message": "Emails sent successfully."}, status=status.HTTP_200_OK)
 
 
 class AttachmentDownloadView(APIView):
