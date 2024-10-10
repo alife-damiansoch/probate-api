@@ -139,7 +139,7 @@ class Solicitor(models.Model):
     title = models.CharField(max_length=50)
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
-    own_email = models.EmailField(max_length=255, null=True, blank=True)  # Optional email field
+    own_email = models.EmailField(max_length=255, null=True, blank=True, unique=True)  # Optional email field
     own_phone_number = models.CharField(validators=[validate_irish_phone_number], max_length=20, null=True,
                                         blank=True)  # Optional phone number field
 
