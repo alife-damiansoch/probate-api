@@ -1,6 +1,6 @@
 # communications/urls.py
 from django.urls import path
-from .views import SendEmailViewSet, AttachmentDownloadView, DeleteAttachmentView
+from .views import SendEmailViewSet, AttachmentDownloadView, DeleteAttachmentView, ReplyToEmailViewSet
 
 app_name = 'communications'
 
@@ -11,6 +11,7 @@ urlpatterns = [
          name='send_email_with_application'),
     path('communications/send_to_recipients/', SendEmailViewSet.as_view({'post': 'send_email_to_recipients'}),
          name='send_email_to_recipients'),
+    path('communications/reply/', ReplyToEmailViewSet.as_view({'post': 'reply_to_email'}), name='reply_to_email'),
     path('communications/download_attachment/<int:email_id>/<str:filename>/', AttachmentDownloadView.as_view(),
          name='download_attachment'),
     path('communications/delete_attachment/<int:email_id>/<str:filename>/', DeleteAttachmentView.as_view(),

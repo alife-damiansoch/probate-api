@@ -44,3 +44,21 @@ class SendEmailToRecipientsSerializer(serializers.Serializer):
 class DownloadAttachmentSerializer(serializers.Serializer):
     email_id = serializers.IntegerField(required=True)
     filename = serializers.CharField(required=True)
+
+
+class ReplyEmailSerializer(serializers.Serializer):
+    sender = serializers.EmailField()
+    email_log_id = serializers.IntegerField()  # The ID of the original email log to reply to
+    message = serializers.CharField()
+    attachments = serializers.ListField(
+        child=serializers.FileField(allow_empty_file=True, use_url=False),
+        required=False,
+        allow_null=True,
+    )
+
+    def validate_email_log_id(self, value):
+        try:
+            EmailLog.objects.get(id=value)
+        except EmailLog.DoesNotExist:
+            raise serializers.ValidationError("Invalid email log ID.")
+        return value

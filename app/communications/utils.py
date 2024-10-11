@@ -3,10 +3,12 @@ import os
 import uuid
 import imaplib
 import email
+import re
+
 from django.core.mail import EmailMessage
 from email.header import decode_header
 from django.conf import settings
-from core.models import EmailLog
+from core.models import EmailLog, Application
 from django.core.mail.backends.smtp import EmailBackend
 from django.core.mail import EmailMultiAlternatives
 
@@ -30,7 +32,7 @@ def generate_unique_filename(original_filename):
 # communications/utils.py
 
 
-def send_email_f(sender, recipient, subject, message, application=None, attachments=None):
+def send_email_f(sender, recipient, subject, message, attachments=None, ):
     """
     Function to send an email using the SMTP settings.
     """
@@ -47,10 +49,11 @@ def send_email_f(sender, recipient, subject, message, application=None, attachme
             to=[recipient],
         )
 
-        # Set Content-Type to 'text/html' if HTML content is provided
+        message_id = {uuid.uuid4()}
 
         email_message.content_subtype = 'html'
         email_message.extra_headers = {'Content-Type': 'text/html'}
+        email_message.extra_headers = {'Message-ID': message_id}
 
         print(email_message.__dict__)
 
@@ -68,6 +71,10 @@ def send_email_f(sender, recipient, subject, message, application=None, attachme
             print("Successfully connected!")
             try:
                 email_backend.send_messages([email_message])
+                # Retrieve the Message-ID header
+                message_id = email_message.extra_headers.get('Message-ID')
+                print(f"Email sent successfully! Message ID: {message_id}")
+
                 print("Email sent successfully!")
             except Exception as e:
                 print("Error sending mail: ", e)
@@ -85,7 +92,8 @@ def send_email_f(sender, recipient, subject, message, application=None, attachme
             message=message,
             is_sent=True,
             attachments=attachments,
-            application=application,
+            message_id=message_id,
+
         )
         print(f"Email sent successfully to {recipient}")
     except Exception as e:
@@ -147,6 +155,10 @@ def fetch_emails():
         message = ""
         html_content = ""  # To capture HTML content if present
 
+        # Check the headers for a custom Message_ID
+        message_id = msg.get("Message-ID", "")
+        print(f"Message-ID: {message_id}")
+
         # Check for and extract attachments and message body
         if msg.is_multipart():
             print("Email is multipart, extracting message body and attachments...")
@@ -169,7 +181,8 @@ def fetch_emails():
             recipient=recipient,
             subject=subject,
             message=html_content if html_content else message,  # Save HTML content if present
-            is_sent=False  # Mark as a received email
+            is_sent=False,  # Mark as a received email
+            message_id=message_id,
         )
 
     print("All new emails have been processed.")

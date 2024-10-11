@@ -1,5 +1,7 @@
 # communications/views.py
 import os
+import uuid
+
 from django.conf import settings
 from rest_framework import viewsets
 from rest_framework import viewsets, mixins
@@ -14,7 +16,8 @@ from django.http import FileResponse, Http404
 
 from agents_loan.permissions import IsStaff
 from core.models import EmailLog, Application
-from .serializers import SendEmailSerializerByApplicationId, EmailLogSerializer, SendEmailToRecipientsSerializer
+from .serializers import SendEmailSerializerByApplicationId, EmailLogSerializer, SendEmailToRecipientsSerializer, \
+    ReplyEmailSerializer
 from .utils import send_email_f, fetch_emails
 
 
@@ -123,7 +126,7 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
                                 status=status.HTTP_400_BAD_REQUEST)
 
             # Call the send_email function with HTML support and attachments
-            send_email_f(sender, recipient, subject, message, application, attachments=attachments)
+            send_email_f(sender, recipient, subject, message, attachments=attachments)
 
             return Response({"message": "Email sent successfully."}, status=status.HTTP_200_OK)
 
@@ -267,3 +270,58 @@ class DeleteAttachmentView(APIView):
             return Response({"error": "Email log entry not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ReplyToEmailViewSet(viewsets.GenericViewSet):
+    """
+    A ViewSet for replying to emails.
+    """
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = [IsAuthenticated, IsStaff]
+    serializer_class = ReplyEmailSerializer
+
+    @extend_schema(
+        summary="Reply to an email",
+        description="Reply to an existing email using its log ID. The recipient is set to the original sender, and headers are adjusted for tracking.",
+        request=ReplyEmailSerializer,
+        responses={200: "Reply sent successfully.", 400: "Bad request.", 404: "Original email log not found."},
+        tags=['communications'],
+    )
+    @action(detail=False, methods=['post'])
+    def reply_to_email(self, request):
+        """
+        Custom action to reply to an existing email.
+        """
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Extract data from the serializer
+        sender = serializer.validated_data['sender']
+        message = serializer.validated_data['message']
+        email_log_id = serializer.validated_data['email_log_id']
+        attachments = serializer.validated_data.get('attachments', [])
+
+        try:
+            # Retrieve the original email log
+            original_email = EmailLog.objects.get(id=email_log_id)
+
+            # Use the original email's recipient as the sender for the reply
+            recipient = original_email.sender
+            subject = f"Re: {original_email.subject}"
+
+            # Call the send_email function and pass the additional headers
+            send_email_f(
+                sender,
+                recipient,
+                subject,
+                message,
+                attachments=attachments,
+            )
+
+            return Response({"message": "Reply sent successfully."}, status=status.HTTP_200_OK)
+
+        except EmailLog.DoesNotExist:
+            return Response({"error": "Original email log not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

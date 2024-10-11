@@ -1,3 +1,6 @@
+import random
+import uuid
+
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
@@ -12,7 +15,7 @@ def create_assigned_solicitor(user, **params):
         'title': 'Mr.',
         'first_name': 'John',
         'last_name': 'Doe',
-        'own_email': 'john.doe@example.com',
+        'own_email': f'john.doe_{random.randint(0, 1000)}@example.com',
         'own_phone_number': '1234567890',
     }
     defaults.update(params)
