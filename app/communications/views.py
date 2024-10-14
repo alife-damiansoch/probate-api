@@ -17,7 +17,7 @@ from django.http import FileResponse, Http404
 from agents_loan.permissions import IsStaff
 from core.models import EmailLog, Application, Solicitor
 from .serializers import SendEmailSerializerByApplicationId, EmailLogSerializer, SendEmailToRecipientsSerializer, \
-    ReplyEmailSerializer
+    ReplyEmailSerializer, UpdateEmailLogApplicationSerializer
 from .utils import send_email_f, fetch_emails
 
 
@@ -105,6 +105,28 @@ from .utils import send_email_f, fetch_emails
                 'type': 'object',
                 'properties': {
                     'error': {'type': 'string', 'example': 'All fields are required.'}
+                }
+            }
+        }
+    ),
+    update_application=extend_schema(
+        summary='Update Email Log Application',
+        description='Allows updating the application field for a specific email log.',
+        tags=['communications'],
+        request=UpdateEmailLogApplicationSerializer,
+        responses={
+            200: {
+                'description': 'Application updated successfully',
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string', 'example': 'Application updated successfully.'}
+                }
+            },
+            400: {
+                'description': 'Validation Error',
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string', 'example': 'Invalid application or email log.'}
                 }
             }
         }
@@ -214,6 +236,23 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             send_email_f(sender, recipient, subject, message, attachments=attachments)
 
         return Response({"message": "Emails sent successfully."}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['patch'], url_path='update_application')
+    def update_application(self, request, pk=None):
+        """
+        Custom action to update the application field in the email log.
+        """
+        try:
+            email_log = EmailLog.objects.get(pk=pk)
+        except EmailLog.DoesNotExist:
+            return Response({"error": "Email log not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UpdateEmailLogApplicationSerializer(email_log, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Application updated successfully."}, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class AttachmentDownloadView(APIView):

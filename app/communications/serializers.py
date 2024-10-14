@@ -62,3 +62,15 @@ class ReplyEmailSerializer(serializers.Serializer):
         except EmailLog.DoesNotExist:
             raise serializers.ValidationError("Invalid email log ID.")
         return value
+
+
+class UpdateEmailLogApplicationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailLog
+        fields = ['application']  # Only allow updating the application field
+
+    def validate_application(self, value):
+        # Ensure the application exists
+        if not Application.objects.filter(id=value.id).exists():
+            raise serializers.ValidationError("Application not found.")
+        return value
