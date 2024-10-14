@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 from django.http import FileResponse, Http404
 
 from agents_loan.permissions import IsStaff
-from core.models import EmailLog, Application
+from core.models import EmailLog, Application, Solicitor
 from .serializers import SendEmailSerializerByApplicationId, EmailLogSerializer, SendEmailToRecipientsSerializer, \
     ReplyEmailSerializer
 from .utils import send_email_f, fetch_emails
@@ -27,6 +27,43 @@ from .utils import send_email_f, fetch_emails
         summary='List all Emails',
         description='Returns a list of all sent and received emails, including metadata like sender, recipient, subject, and message content.',
         tags=['communications'],
+    ),
+    list_by_solicitor_firm=extend_schema(
+        summary='List Emails by Solicitor Firm',
+        description='Returns a list of emails associated with a specific solicitor firm, filtered by the firm ID.',
+        tags=['communications'],
+        parameters=[
+            OpenApiParameter(
+                name='firm_id',
+                description='ID of the solicitor firm to filter by',
+                required=True,
+                type=int,  # Correct type specification
+                location=OpenApiParameter.QUERY,  # Specify it as a query parameter
+            )
+        ],
+        responses={
+            200: {
+                'description': 'Filtered email list',
+                'type': 'array',
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'sender': {'type': 'string'},
+                        'recipient': {'type': 'string'},
+                        'subject': {'type': 'string'},
+                        'message': {'type': 'string'},
+                        'created_at': {'type': 'string', 'format': 'date-time'},
+                    }
+                }
+            },
+            400: {
+                'description': 'Invalid firm ID',
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string', 'example': 'Firm ID not found.'}
+                }
+            }
+        }
     ),
     send_email_with_application=extend_schema(
         summary='Send an Email',
@@ -95,6 +132,25 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         # Return the list of email logs as usual
         return super().list(request, *args, **kwargs)
 
+    @action(detail=False, methods=['get'], url_path='list_by_solicitor_firm')
+    def list_by_solicitor_firm(self, request):
+        """
+        Custom action to list emails filtered by solicitor firm.
+        """
+        firm_id = request.query_params.get('firm_id')
+
+        if not firm_id:
+            return Response({"error": "Firm ID is required."}, status=400)
+
+        # Assuming Solicitor model is related to EmailLog via a ForeignKey
+        try:
+            emails = self.queryset.filter(application__user_id=firm_id).order_by('-created_at')
+        except Solicitor.DoesNotExist:
+            return Response({"error": "Firm ID not found."}, status=400)
+
+        serializer = self.get_serializer(emails, many=True)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['post'])
     def send_email_with_application(self, request):
         """
@@ -120,13 +176,15 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
             # Determine recipient email
             recipient = application.solicitor.own_email if application.solicitor and application.solicitor.own_email else application.user.email
+            solicitor_firm = application.user
 
             if not recipient:
                 return Response({"error": "No recipient email found for this application."},
                                 status=status.HTTP_400_BAD_REQUEST)
 
             # Call the send_email function with HTML support and attachments
-            send_email_f(sender, recipient, subject, message, attachments=attachments)
+            send_email_f(sender, recipient, subject, message, attachments=attachments, application=application,
+                         solicitor_firm=solicitor_firm)
 
             return Response({"message": "Email sent successfully."}, status=status.HTTP_200_OK)
 
@@ -309,6 +367,8 @@ class ReplyToEmailViewSet(viewsets.GenericViewSet):
             # Use the original email's recipient as the sender for the reply
             recipient = original_email.sender
             subject = f"Re: {original_email.subject}"
+            application = original_email.application
+            solicitor_firm = original_email.solicitor_firm
 
             # Call the send_email function and pass the additional headers
             send_email_f(
@@ -317,6 +377,8 @@ class ReplyToEmailViewSet(viewsets.GenericViewSet):
                 subject,
                 message,
                 attachments=attachments,
+                application=application,
+                solicitor_firm=solicitor_firm
             )
 
             return Response({"message": "Reply sent successfully."}, status=status.HTTP_200_OK)

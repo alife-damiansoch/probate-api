@@ -501,6 +501,8 @@ class EmailLog(models.Model):
     attachments = models.JSONField(null=True, blank=True)  # Store file paths as a JSON object
     original_filenames = models.JSONField(null=True, blank=True)  # Store original file names
     message_id = models.CharField(max_length=255, null=True, blank=True)
+    application = ForeignKey(Application, on_delete=models.CASCADE, null=True, blank=True)
+    solicitor_firm = ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return f"Email from {self.sender} to {self.recipient} - {self.subject}"

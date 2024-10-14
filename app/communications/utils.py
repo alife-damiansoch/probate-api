@@ -4,11 +4,12 @@ import uuid
 import imaplib
 import email
 import re
+from email.utils import parseaddr
 
 from django.core.mail import EmailMessage
 from email.header import decode_header
 from django.conf import settings
-from core.models import EmailLog, Application
+from core.models import EmailLog, Application, Solicitor, User
 from django.core.mail.backends.smtp import EmailBackend
 from django.core.mail import EmailMultiAlternatives
 
@@ -28,11 +29,28 @@ def generate_unique_filename(original_filename):
     return unique_filename
 
 
+def find_user_by_email(email):
+    try:
+        # Check if the email exists in Solicitor.own_email
+        solicitor = Solicitor.objects.get(own_email=email)
+        if solicitor and solicitor.user:
+            return solicitor.user  # Return the user associated with the solicitor
+    except Solicitor.DoesNotExist:
+        # If not found in Solicitor, check in User.email
+        try:
+            user = User.objects.get(email=email)
+            return user  # Return the User object
+        except User.DoesNotExist:
+            return None  # Email not found in either model
+
+    return None
+
+
 # Function to send an email with or without attachments
 # communications/utils.py
 
 
-def send_email_f(sender, recipient, subject, message, attachments=None, ):
+def send_email_f(sender, recipient, subject, message, attachments=None, application=None, solicitor_firm=None):
     """
     Function to send an email using the SMTP settings.
     """
@@ -49,7 +67,7 @@ def send_email_f(sender, recipient, subject, message, attachments=None, ):
             to=[recipient],
         )
 
-        message_id = {uuid.uuid4()}
+        message_id = uuid.uuid4()
 
         email_message.content_subtype = 'html'
         email_message.extra_headers = {'Content-Type': 'text/html'}
@@ -93,6 +111,8 @@ def send_email_f(sender, recipient, subject, message, attachments=None, ):
             is_sent=True,
             attachments=attachments,
             message_id=message_id,
+            application=application,
+            solicitor_firm=solicitor_firm,
 
         )
         print(f"Email sent successfully to {recipient}")
@@ -150,10 +170,14 @@ def fetch_emails():
             subject = subject.decode()
         print(f"Email subject: {subject}")
 
-        sender = msg.get("From")
+        sender = parseaddr(msg.get("From"))[1]
         recipient = imap_user
         message = ""
         html_content = ""  # To capture HTML content if present
+
+        # trying to get solicitors firm from the email
+
+        solicitor_firm = find_user_by_email(sender)
 
         # Check the headers for a custom Message_ID
         message_id = msg.get("Message-ID", "")
@@ -183,6 +207,7 @@ def fetch_emails():
             message=html_content if html_content else message,  # Save HTML content if present
             is_sent=False,  # Mark as a received email
             message_id=message_id,
+            solicitor_firm=solicitor_firm,
         )
 
     print("All new emails have been processed.")
