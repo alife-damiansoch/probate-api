@@ -163,6 +163,9 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
         if not firm_id:
             return Response({"error": "Firm ID is required."}, status=400)
+        
+        # Call the email fetching function
+        fetch_emails()
 
         # Assuming Solicitor model is related to EmailLog via a ForeignKey
         try:
