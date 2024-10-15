@@ -11,7 +11,6 @@ class EmailLogSerializer(serializers.ModelSerializer):
 
 # The SendEmailSerializer is also defined here
 class SendEmailSerializerByApplicationId(serializers.Serializer):
-    sender = serializers.EmailField()
     application_id = serializers.IntegerField()
     subject = serializers.CharField(max_length=255)
     message = serializers.CharField()
@@ -30,7 +29,6 @@ class SendEmailSerializerByApplicationId(serializers.Serializer):
 
 
 class SendEmailToRecipientsSerializer(serializers.Serializer):
-    sender = serializers.EmailField()
     subject = serializers.CharField(max_length=255)
     message = serializers.CharField()
     recipients = serializers.ListField(
@@ -47,7 +45,6 @@ class DownloadAttachmentSerializer(serializers.Serializer):
 
 
 class ReplyEmailSerializer(serializers.Serializer):
-    sender = serializers.EmailField()
     email_log_id = serializers.IntegerField()  # The ID of the original email log to reply to
     message = serializers.CharField()
     attachments = serializers.ListField(

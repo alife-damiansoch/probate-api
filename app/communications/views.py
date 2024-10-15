@@ -178,7 +178,6 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         """
         Custom action to send an email.
         """
-
         serializer = SendEmailSerializerByApplicationId(data=request.data)
 
         if not serializer.is_valid():
@@ -186,7 +185,6 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Extract data from the serializer
-        sender = serializer.validated_data['sender']
         subject = serializer.validated_data['subject']
         message = serializer.validated_data['message']
         application_id = serializer.validated_data['application_id']
@@ -203,6 +201,9 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             if not recipient:
                 return Response({"error": "No recipient email found for this application."},
                                 status=status.HTTP_400_BAD_REQUEST)
+
+            # Use request.user.email as the sender
+            sender = request.user.email
 
             # Call the send_email function with HTML support and attachments
             send_email_f(sender, recipient, subject, message, attachments=attachments, application=application,
@@ -225,11 +226,13 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Extract data from the serializer
-        sender = serializer.validated_data['sender']
         subject = serializer.validated_data['subject']
         message = serializer.validated_data['message']
         recipients = serializer.validated_data['recipients']
         attachments = serializer.validated_data.get('attachments', [])
+
+        # Use request.user.email as the sender
+        sender = request.user.email
 
         # Send email to each recipient
         for recipient in recipients:
@@ -394,10 +397,13 @@ class ReplyToEmailViewSet(viewsets.GenericViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Extract data from the serializer
-        sender = serializer.validated_data['sender']
+
         message = serializer.validated_data['message']
         email_log_id = serializer.validated_data['email_log_id']
         attachments = serializer.validated_data.get('attachments', [])
+
+        # Use request.user.email as the sender
+        sender = request.user.email
 
         try:
             # Retrieve the original email log
