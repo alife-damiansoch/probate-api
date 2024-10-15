@@ -14,7 +14,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 
 from core import models
-from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment
+from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog
 
 from rest_framework.authtoken.models import Token
 
@@ -454,6 +454,21 @@ class AssignmentAdmin(admin.ModelAdmin):
     ordering = ('-assigned_at',)  # Assuming you have an 'assigned_at' field to order by
 
 
+class EmailLogAdmin(admin.ModelAdmin):
+    # Displaying the fields in the list view
+    list_display = ('subject', 'sender', 'recipient', 'application', 'solicitor_firm', 'created_at', 'is_sent')
+
+    # Adding search functionality for specific fields
+    search_fields = (
+        'subject', 'sender', 'recipient', 'message', 'created_at', 'application__id', 'solicitor_firm__email')
+
+    # Enabling filtering by fields
+    list_filter = ('is_sent', 'created_at', 'solicitor_firm', 'application')
+
+    # Enabling ordering
+    ordering = ('-created_at',)
+
+
 admin.site.unregister(LogEntry)
 admin.site.register(LogEntry, CustomLogEntryAdmin)
 
@@ -476,3 +491,4 @@ admin.site.register(Document, DocumentAdmin)
 
 admin.site.register(SignedDocumentLog, SignedDocumentLogAdmin)
 admin.site.register(Assignment, AssignmentAdmin)
+admin.site.register(EmailLog, EmailLogAdmin)

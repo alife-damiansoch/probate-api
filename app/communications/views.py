@@ -149,7 +149,7 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         fetch_emails()
 
         # After fetching, update the queryset to include new emails
-        self.queryset = EmailLog.objects.all().order_by('-created_at')
+        self.queryset = EmailLog.objects.all().order_by('created_at')
 
         # Return the list of email logs as usual
         return super().list(request, *args, **kwargs)
@@ -166,7 +166,7 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
         # Assuming Solicitor model is related to EmailLog via a ForeignKey
         try:
-            emails = self.queryset.filter(application__user_id=firm_id).order_by('-created_at')
+            emails = self.queryset.filter(solicitor_firm_id=firm_id).order_by('created_at')
         except Solicitor.DoesNotExist:
             return Response({"error": "Firm ID not found."}, status=400)
 
