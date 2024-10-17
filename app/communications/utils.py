@@ -6,10 +6,12 @@ import email
 import re
 from email.utils import parseaddr
 
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.core.mail import EmailMessage
 from email.header import decode_header
 from django.conf import settings
-from core.models import EmailLog, Application, Solicitor, User
+from core.models import EmailLog, Application, Solicitor, User, AssociatedEmail
 from django.core.mail.backends.smtp import EmailBackend
 from django.core.mail import EmailMultiAlternatives
 
@@ -29,21 +31,12 @@ def generate_unique_filename(original_filename):
     return unique_filename
 
 
-def find_user_by_email(email):
-    try:
-        # Check if the email exists in Solicitor.own_email
-        solicitor = Solicitor.objects.get(own_email=email)
-        if solicitor and solicitor.user:
-            return solicitor.user  # Return the user associated with the solicitor
-    except Solicitor.DoesNotExist:
-        # If not found in Solicitor, check in User.email
-        try:
-            user = User.objects.get(email=email)
-            return user  # Return the User object
-        except User.DoesNotExist:
-            return None  # Email not found in either model
-
-    return None
+def find_user_by_email(sender):
+    associated_email = AssociatedEmail.objects.filter(email=sender)
+    if associated_email:
+        return associated_email.first().user
+    else:
+        return None
 
 
 # Function to send an email with or without attachments
@@ -54,12 +47,31 @@ def send_email_f(sender, recipient, subject, message, attachments=None, applicat
     """
     Function to send an email using the SMTP settings.
     """
-    if attachments is None:
-        attachments = []
-    print(f"Sending email from {sender} to {recipient} with subject '{subject}'...")
+    processed_attachments = []
+    original_filenames = []
+    attachment_paths = []
+
+    if attachments:
+        for attachment in attachments:
+            original_filenames.append(attachment.name)  # Log original filename
+            # Generate a unique filename with the same extension for logging purposes only
+            unique_filename = f"{uuid.uuid4()}{os.path.splitext(attachment.name)[1]}"
+            file_path = os.path.join('email_attachments', unique_filename)  # Path within the media directory
+
+            # Save the file to the media/email_attachments directory
+            saved_path = default_storage.save(file_path, ContentFile(attachment.read()))  # Save the file content
+
+            # Add the full path to the log
+            full_file_path = os.path.join(settings.MEDIA_ROOT, saved_path)
+            attachment_paths.append(full_file_path)
+
+            # Reopen the file for reading as binary for email attachment
+            with open(full_file_path, 'rb') as f:
+                file_data = f.read()  # Read file in binary format
+                processed_attachments.append((attachment.name, file_data, attachment.content_type))
 
     try:
-        # Use EmailMessage and manually set Content-Type header for HTML
+        # Create the email message
         email_message = EmailMessage(
             subject=subject,
             body=message,
@@ -67,57 +79,51 @@ def send_email_f(sender, recipient, subject, message, attachments=None, applicat
             to=[recipient],
         )
 
-        message_id = uuid.uuid4()
+        # Attach files to the email with their original filenames
+        for file_tuple in processed_attachments:
+            email_message.attach(*file_tuple)  # Attach with original name and binary content
 
+        # Set HTML content
         email_message.content_subtype = 'html'
-        email_message.extra_headers = {'Content-Type': 'text/html'}
-        email_message.extra_headers = {'Message-ID': message_id}
 
-        print(email_message.__dict__)
+        # Generate a unique Message-ID
+        message_id = str(uuid.uuid4())
+        email_message.extra_headers = {
+            'Message-ID': message_id,
+            'Content-Type': 'text/html',
+        }
 
-        # Attach any files if provided
-        for file_path in attachments:
-            try:
-                email_message.attach_file(file_path)
-            except Exception as e:
-                print(f"Failed to attach file {file_path}: {e}")
-
+        # Send the email
         email_backend = EmailBackend()
         connection = email_backend.open()
 
         if connection:
-            print("Successfully connected!")
             try:
                 email_backend.send_messages([email_message])
-                # Retrieve the Message-ID header
-                message_id = email_message.extra_headers.get('Message-ID')
-                print(f"Email sent successfully! Message ID: {message_id}")
+                print(f"Email sent successfully to {recipient}")
 
-                print("Email sent successfully!")
+                # Log the email and attachments
+                EmailLog.objects.create(
+                    sender=sender,
+                    recipient=recipient,
+                    subject=subject,
+                    message=message,
+                    is_sent=True,
+                    attachments=attachment_paths,  # Store full file paths
+                    original_filenames=original_filenames,  # Store original file names
+                    message_id=message_id,
+                    application=application,
+                    solicitor_firm=solicitor_firm,
+                )
+                print(f"Email successfully logged in the database.")
+
             except Exception as e:
-                print("Error sending mail: ", e)
+                print(f"Error sending email to {recipient}: {e}")
             finally:
                 email_backend.close()
-                print("Connection closed.")
-        else:
-            print("Couldn't open the email backend connection.")
 
-        # Log the email in the database
-        EmailLog.objects.create(
-            sender=sender,
-            recipient=recipient,
-            subject=subject,
-            message=message,
-            is_sent=True,
-            attachments=attachments,
-            message_id=message_id,
-            application=application,
-            solicitor_firm=solicitor_firm,
-
-        )
-        print(f"Email sent successfully to {recipient}")
     except Exception as e:
-        print("Error opening connection: ", e)
+        print(f"Error occurred: {e}")
 
 
 # Function to Fetch Emails Using IMAP
@@ -141,75 +147,113 @@ def fetch_emails():
         print(f"Failed to connect to IMAP server: {e}")
         return
 
-    # Select the inbox
-    mail.select("inbox")
-    print("Selected the inbox folder.")
+    try:
+        # Select the inbox
+        mail.select("inbox")
+        print("Selected the inbox folder.")
 
-    # Search for all unseen emails
-    status, messages = mail.search(None, 'UNSEEN')
-    if status != "OK":
-        print("Error during email search. No new emails found or issue with server connection.")
-        return
-
-    print(f"Found {len(messages[0].split())} new unseen emails.")
-
-    # Process each unseen email
-    for num in messages[0].split():
-        print(f"Fetching email with ID: {num}...")
-        status, data = mail.fetch(num, "(RFC822)")
+        # Search for all unseen emails
+        status, messages = mail.search(None, 'UNSEEN')
         if status != "OK":
-            print(f"Failed to fetch email {num}. Skipping to the next email.")
-            continue
+            print("Error during email search. No new emails found or issue with server connection.")
+            return
 
-        print(f"Successfully fetched email with ID: {num}.")
-        msg = email.message_from_bytes(data[0][1])
+        unseen_emails = messages[0].split()
+        print(f"Found {len(unseen_emails)} new unseen emails.")
 
-        # Decode subject
-        subject = decode_header(msg["Subject"])[0][0]
-        if isinstance(subject, bytes):
-            subject = subject.decode()
-        print(f"Email subject: {subject}")
+        # Process each unseen email
+        for num in unseen_emails:
+            try:
+                print(f"Fetching email with ID: {num}...")
+                status, data = mail.fetch(num, "(RFC822)")
+                if status != "OK":
+                    print(f"Failed to fetch email {num}. Skipping to the next email.")
+                    continue
 
-        sender = parseaddr(msg.get("From"))[1]
-        recipient = imap_user
-        message = ""
-        html_content = ""  # To capture HTML content if present
+                print(f"Successfully fetched email with ID: {num}.")
+                msg = email.message_from_bytes(data[0][1])
 
-        # trying to get solicitors firm from the email
+                # Decode subject
+                subject = decode_header(msg["Subject"])[0][0]
+                if isinstance(subject, bytes):
+                    subject = subject.decode()
+                print(f"Email subject: {subject}")
 
-        solicitor_firm = find_user_by_email(sender)
+                sender = parseaddr(msg.get("From"))[1]
+                recipient = imap_user
+                message = ""
+                html_content = ""  # To capture HTML content if present
+                attachments = []  # List to hold attachment file paths
+                original_filenames = []  # To store original filenames for logging
 
-        # Check the headers for a custom Message_ID
-        message_id = msg.get("Message-ID", "")
-        print(f"Message-ID: {message_id}")
+                # Get the solicitor's firm by email
+                solicitor_firm = find_user_by_email(sender)
 
-        # Check for and extract attachments and message body
-        if msg.is_multipart():
-            print("Email is multipart, extracting message body and attachments...")
-            for part in msg.walk():
-                content_type = part.get_content_type()
-                content_disposition = str(part.get("Content-Disposition"))
+                # Check the headers for a custom Message_ID
+                message_id = msg.get("Message-ID", "")
+                print(f"Message-ID: {message_id}")
 
-                # If the part is text/html, prioritize it over text/plain
-                if content_type == "text/html":
-                    html_content += part.get_payload(decode=True).decode()
-                elif content_type == "text/plain" and not html_content:
-                    message += part.get_payload(decode=True).decode()
+                # Check for and extract attachments and message body
+                if msg.is_multipart():
+                    print("Email is multipart, extracting message body and attachments...")
+                    for part in msg.walk():
+                        content_type = part.get_content_type()
+                        content_disposition = str(part.get("Content-Disposition"))
 
-        else:
-            message = msg.get_payload(decode=True).decode()
+                        # Print content type and disposition for debugging
+                        print(f"Part content type: {content_type}")
+                        print(f"Part content disposition: {content_disposition}")
 
-        # Save the received email to the database, preferring HTML content if available
-        EmailLog.objects.create(
-            sender=sender,
-            recipient=recipient,
-            subject=subject,
-            message=html_content if html_content else message,  # Save HTML content if present
-            is_sent=False,  # Mark as a received email
-            message_id=message_id,
-            solicitor_firm=solicitor_firm,
-        )
+                        # If the part is text/html, prioritize it over text/plain
+                        if content_type == "text/html":
+                            print("Processing HTML content...")
+                            html_content += part.get_payload(decode=True).decode()
+                        elif content_type == "text/plain" and not html_content:
+                            print("Processing plain text content...")
+                            message += part.get_payload(decode=True).decode()
 
-    print("All new emails have been processed.")
-    mail.logout()
-    print("Logged out from the IMAP server.")
+                        # Check if part is an attachment
+                        if "attachment" in content_disposition:
+                            try:
+                                original_filename = part.get_filename()
+                                print(f"Found attachment: {original_filename}")
+                                original_filenames.append(original_filename)
+
+                                # Save the attachment to the 'email_attachments' directory
+                                unique_filename = f"{uuid.uuid4()}{os.path.splitext(original_filename)[1]}"
+                                file_path = os.path.join('email_attachments', unique_filename)
+
+                                # Save the file using Django's default storage system
+                                file_content = part.get_payload(decode=True)
+                                saved_path = default_storage.save(file_path, ContentFile(file_content))
+                                full_file_path = os.path.join(settings.MEDIA_ROOT, saved_path)
+                                attachments.append(full_file_path)
+                                print(f"Attachment saved at: {full_file_path}")
+                            except Exception as e:
+                                print(f"Failed to process attachment: {e}")
+                else:
+                    message = msg.get_payload(decode=True).decode()
+
+                # Save the received email and its attachments to the database
+                EmailLog.objects.create(
+                    sender=sender,
+                    recipient=recipient,
+                    subject=subject,
+                    message=html_content if html_content else message,  # Save HTML content if present
+                    is_sent=False,  # Mark as a received email
+                    message_id=message_id,
+                    solicitor_firm=solicitor_firm,
+                    attachments=attachments,  # Store attachment file paths
+                    original_filenames=original_filenames,  # Store original attachment filenames
+                )
+                print("Email and attachments logged successfully.")
+
+            except Exception as e:
+                print(f"Error processing email with ID {num}: {e}")
+                continue
+
+    except Exception as e:
+        print(f"Error in fetching emails: {e}")
+    finally:
+        mail.logout()
+        print("Logged out from the IMAP server.")

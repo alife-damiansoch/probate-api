@@ -147,6 +147,16 @@ class Solicitor(models.Model):
         return f"{self.title} {self.first_name} {self.last_name} "
 
 
+class AssociatedEmail(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='associated_emails')
+    email = models.EmailField()
+    date_added = models.DateTimeField(default=timezone.now)
+    added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='added_emails')
+
+    def __str__(self):
+        return self.email
+
+
 # endregion
 class Deceased(models.Model):
     first_name = models.CharField(max_length=255)

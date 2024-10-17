@@ -14,7 +14,8 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 
 from core import models
-from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog
+from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog, \
+    AssociatedEmail
 
 from rest_framework.authtoken.models import Token
 
@@ -492,3 +493,8 @@ admin.site.register(Document, DocumentAdmin)
 admin.site.register(SignedDocumentLog, SignedDocumentLogAdmin)
 admin.site.register(Assignment, AssignmentAdmin)
 admin.site.register(EmailLog, EmailLogAdmin)
+
+
+@admin.register(AssociatedEmail)
+class AssociatedEmailAdmin(admin.ModelAdmin):
+    search_fields = ['user__email']  # Enables search by user email

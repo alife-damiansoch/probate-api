@@ -163,7 +163,7 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
         if not firm_id:
             return Response({"error": "Firm ID is required."}, status=400)
-        
+
         # Call the email fetching function
         fetch_emails()
 
@@ -271,12 +271,7 @@ class AttachmentDownloadView(APIView):
     @extend_schema(
         summary='Download Email Attachment',
         description='Downloads the specified attachment file from an email based on the email ID and unique filename. Requires authentication.',
-        parameters=[
-            OpenApiParameter(name='email_id', description='The ID of the email log entry', required=True,
-                             type=OpenApiTypes.INT),
-            OpenApiParameter(name='filename', description='The unique filename of the attachment', required=True,
-                             type=OpenApiTypes.STR),
-        ],
+        
         responses={
             200: {
                 'description': 'File download successful',

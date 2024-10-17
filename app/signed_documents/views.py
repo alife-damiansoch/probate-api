@@ -207,7 +207,8 @@ class SignedDocumentUploadView(APIView):
         }
         pdf_writer.add_metadata(metadata)
 
-        pdf_writer.encrypt(user_pwd="", owner_pwd=None, permissions_flag=UserAccessPermissions.PRINT, use_128bit=True)
+        pdf_writer.encrypt(user_password="", owner_pwd=None, permissions_flag=UserAccessPermissions.PRINT,
+                           use_128bit=True)
 
         # Save the modified PDF to an in-memory file
         signed_pdf_buffer = BytesIO()
@@ -227,7 +228,7 @@ class SignedDocumentUploadView(APIView):
             is_loan_agreement=True if is_loan_agreement == "true" else False,
         )
 
-        print(f"Created Document: {model_to_dict(signed_document)}")  # Debug: Full object details
+        # print(f"Created Document: {model_to_dict(signed_document)}")  # Debug: Full object details
 
         # Capture metadata for logging
         user = request.user
@@ -277,7 +278,7 @@ class SignedDocumentUploadView(APIView):
             device_screen_resolution=screen_resolution,
         )
 
-        print(f"Created SignedDocumentLog: {model_to_dict(signed_document_log)}")  # Debug: Full log details
+        # print(f"Created SignedDocumentLog: {model_to_dict(signed_document_log)}")  # Debug: Full log details
 
         # send notification to users
         notification = Notification.objects.create(
