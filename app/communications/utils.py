@@ -199,6 +199,7 @@ def fetch_emails():
                     for part in msg.walk():
                         content_type = part.get_content_type()
                         content_disposition = str(part.get("Content-Disposition"))
+                        filename = part.get_filename()
 
                         # Print content type and disposition for debugging
                         print(f"Part content type: {content_type}")
@@ -212,15 +213,14 @@ def fetch_emails():
                             print("Processing plain text content...")
                             message += part.get_payload(decode=True).decode()
 
-                        # Check if part is an attachment
-                        if "attachment" in content_disposition:
+                        # Process both inline and regular attachments
+                        if filename:
                             try:
-                                original_filename = part.get_filename()
-                                print(f"Found attachment: {original_filename}")
-                                original_filenames.append(original_filename)
+                                print(f"Found attachment: {filename}")
+                                original_filenames.append(filename)
 
                                 # Save the attachment to the 'email_attachments' directory
-                                unique_filename = f"{uuid.uuid4()}{os.path.splitext(original_filename)[1]}"
+                                unique_filename = f"{uuid.uuid4()}{os.path.splitext(filename)[1]}"
                                 file_path = os.path.join('email_attachments', unique_filename)
 
                                 # Save the file using Django's default storage system
