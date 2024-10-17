@@ -6,12 +6,14 @@ import email
 import re
 from email.utils import parseaddr
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.mail import EmailMessage
 from email.header import decode_header
 from django.conf import settings
-from core.models import EmailLog, Application, Solicitor, User, AssociatedEmail
+from core.models import EmailLog, Application, Solicitor, User, AssociatedEmail, Notification, Assignment
 from django.core.mail.backends.smtp import EmailBackend
 from django.core.mail import EmailMultiAlternatives
 
@@ -235,7 +237,7 @@ def fetch_emails():
                     message = msg.get_payload(decode=True).decode()
 
                 # Save the received email and its attachments to the database
-                EmailLog.objects.create(
+                email_log = EmailLog.objects.create(
                     sender=sender,
                     recipient=recipient,
                     subject=subject,
@@ -248,6 +250,23 @@ def fetch_emails():
                 )
                 print("Email and attachments logged successfully.")
 
+                staff_user = None
+                agency_user = User.objects.filter(email=sender).first()
+
+                # Check if no agency_user was found, and try Solicitor's email
+                if not agency_user:
+                    solicitor = Solicitor.objects.filter(own_email=sender).first()
+                    if solicitor:
+                        agency_user = solicitor.user  # Link it back to the associated User
+
+                if agency_user:
+                    assignments = Assignment.objects.filter(agency_user=agency_user).first()
+                    if assignments:
+                        staff_user = assignments.staff_user
+
+                # Send notification with the found staff_user (if any)
+                _send_notification(email_log, f"New email received from: {sender} {solicitor_firm}", staff_user)
+
             except Exception as e:
                 print(f"Error processing email with ID {num}: {e}")
                 continue
@@ -257,3 +276,45 @@ def fetch_emails():
     finally:
         mail.logout()
         print("Logged out from the IMAP server.")
+
+
+def _send_notification(email_log, message, recipient):
+    """Send a notification to the assigned user when an email log is created, updated, or deleted."""
+    try:
+        print("Creating notification object...")
+        notification = Notification.objects.create(
+            recipient=recipient,
+            text=message,
+            seen=False,
+            created_by=email_log.solicitor_firm,
+            application=None,
+        )
+        print(f"Notification created: {notification.id}")
+    except Exception as e:
+        print(f"Error creating notification: {e}")
+        return
+
+    try:
+        print("Getting channel layer...")
+        channel_layer = get_channel_layer()
+        print("Channel layer obtained.")
+    except Exception as e:
+        print(f"Error getting channel layer: {e}")
+        return
+
+    try:
+        print("Sending notification via channel layer...")
+        async_to_sync(channel_layer.group_send)(
+            'broadcast',
+            {
+                'type': 'notification',
+                'message': notification.text,
+                'recipient': notification.recipient.email if notification.recipient else None,
+                'notification_id': notification.id,
+                'application_id': None,
+                'seen': notification.seen,
+            }
+        )
+        print("Notification sent successfully.")
+    except Exception as e:
+        print(f"Error sending notification: {e}")
