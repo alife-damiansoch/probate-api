@@ -123,3 +123,11 @@ TO 'Europe/Dublin'GRANT ALL PRIVILEGES ON DATABASE your\_database\_name TO your\
     5. python manage.py migrate
 
     6. python manage.py runserver
+
+### The command to go throught all solicitors and users and add their emails into the AssociatedEmials
+
+To execute the management command, run the following from your command line:
+
+python manage.py add_emails
+
+This will process all users and solicitors, adding their emails to the AssociatedEmail model as needed.

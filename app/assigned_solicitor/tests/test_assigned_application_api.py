@@ -1,8 +1,11 @@
+import random
+import uuid
+
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from core.models import Solicitor
+from core.models import Solicitor, AssociatedEmail
 from assigned_solicitor.serializers import AssignedSolicitorSerializer
 
 
@@ -12,7 +15,7 @@ def create_assigned_solicitor(user, **params):
         'title': 'Mr.',
         'first_name': 'John',
         'last_name': 'Doe',
-        'own_email': 'john.doe@example.com',
+        'own_email': f'john.doe_{random.randint(0, 1000)}@example.com',
         'own_phone_number': '1234567890',
     }
     defaults.update(params)
@@ -254,3 +257,99 @@ class AssignedSolicitorModelTest(APITestCase):
 
         # Expect 404 Not Found because non-staff users cannot access others' data
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class AssignedSolicitorEmailTests(APITestCase):
+    """Test suite for creating and updating solicitor email and ensuring it's added to AssociatedEmail"""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email='user@example.com',
+            password='testpass123'
+        )
+        self.client.force_authenticate(self.user)
+        self.ASSIGNED_SOLICITORS_URL = reverse('assigned_solicitor:assigned_solicitor-list')
+
+    # helper function
+    def create_solicitor_via_api(self, user, **params):
+        """Helper method to create a solicitor using the API for tests involving AssociatedEmail"""
+        payload = {
+            'title': 'Mr.',
+            'first_name': 'John',
+            'last_name': 'Doe',
+            'own_email': f'john.doe_{random.randint(0, 1000)}@example.com',
+            'own_phone_number': '+353869876543',
+        }
+        payload.update(params)
+
+        # Make the POST request to create the solicitor
+        response = self.client.post(self.ASSIGNED_SOLICITORS_URL, payload)
+
+        # Check the response status and print the response if it's not 201
+        if response.status_code != status.HTTP_201_CREATED:
+            print(f"Response status code: {response.status_code}")
+            print(f"Response data: {response.data}")
+
+        # Assert that the status code is 201
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        return Solicitor.objects.get(id=response.data['id'])
+
+    def test_create_solicitor_adds_email_to_associated_email(self):
+        """Test that creating a solicitor adds their own_email to AssociatedEmail"""
+        payload = {
+            'title': 'Ms.',
+            'first_name': 'Emily',
+            'last_name': 'Doe',
+            'own_email': 'emily.doe@example.com',
+            'own_phone_number': '+353868406699'
+        }
+        response = self.client.post(self.ASSIGNED_SOLICITORS_URL, payload)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Check that the email was added to AssociatedEmail
+        solicitor = Solicitor.objects.get(id=response.data['id'])
+        associated_email = AssociatedEmail.objects.filter(user=self.user, email=solicitor.own_email).first()
+
+        self.assertIsNotNone(associated_email)
+        self.assertEqual(associated_email.email, payload['own_email'])
+        self.assertEqual(associated_email.user, self.user)
+
+    def test_update_solicitor_email_updates_associated_email(self):
+        """Test that updating a solicitor's own_email updates AssociatedEmail"""
+        solicitor = self.create_solicitor_via_api(user=self.user, own_email='old.email@example.com')
+
+        payload = {'own_email': 'new.email@example.com'}
+        url = get_detail_url(solicitor.id)
+        response = self.client.patch(url, payload)
+
+        solicitor.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(solicitor.own_email, payload['own_email'])
+
+        # Check that the email in AssociatedEmail is updated
+        associated_email = AssociatedEmail.objects.filter(user=self.user, email=payload['own_email']).first()
+        self.assertIsNotNone(associated_email)
+        self.assertEqual(associated_email.email, payload['own_email'])
+        self.assertEqual(associated_email.user, self.user)
+
+    def test_associated_email_not_removed_on_solicitor_deletion(self):
+        """Test that associated email remains even after the solicitor is deleted"""
+        solicitor = self.create_solicitor_via_api(user=self.user, own_email='test.email@example.com')
+
+        # Verify the associated email exists
+        associated_email = AssociatedEmail.objects.filter(user=self.user, email=solicitor.own_email).first()
+        self.assertIsNotNone(associated_email)
+
+        # Delete the solicitor
+        url = get_detail_url(solicitor.id)
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Check that the associated email still exists
+        associated_email_still_exists = AssociatedEmail.objects.filter(user=self.user,
+                                                                       email='test.email@example.com').exists()
+        self.assertTrue(associated_email_still_exists)

@@ -5,7 +5,7 @@ from django.contrib.auth import (get_user_model, authenticate, )
 from django.utils.translation import gettext as _
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from core.models import Team, Address, User, Application, Loan
+from core.models import Team, Address, User, Application, Loan, AssociatedEmail
 
 import re
 
@@ -89,6 +89,14 @@ class UserSerializer(serializers.ModelSerializer):
         if password:
             user.set_password(password)
             user.save()
+
+        # Automatically add the user's email to AssociatedEmail
+        request = self.context.get('request')
+        AssociatedEmail.objects.create(
+            user=user,
+            email=user.email,
+            added_by=user
+        )
         return user
 
     def update(self, instance, validated_data):
@@ -112,6 +120,21 @@ class UserSerializer(serializers.ModelSerializer):
         if phone_number and not phone_number.startswith('+'):
             phone_number = '+353' + phone_number.lstrip('0')
         instance.phone_number = phone_number
+
+        # Check if email is updated and update in AssociatedEmail
+        new_email = validated_data.get('email', None)
+        if new_email and new_email != instance.email:
+            request = self.context.get('request')
+
+            # Update the email in AssociatedEmail or create a new one if it doesn't exist
+            associated_email, created = AssociatedEmail.objects.get_or_create(
+                user=instance,
+                email=new_email,
+                defaults={'added_by': request.user if request else None}
+            )
+            if not created:
+                associated_email.added_by = request.user if request else None
+                associated_email.save()
 
         user = super().update(instance, validated_data)
 

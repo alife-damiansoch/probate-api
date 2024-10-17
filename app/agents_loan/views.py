@@ -10,6 +10,7 @@ from django.http import JsonResponse, Http404, HttpResponseForbidden, HttpRespon
 from django.shortcuts import get_object_or_404
 
 from rest_framework import (viewsets, status)
+from rest_framework.decorators import action
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -69,6 +70,21 @@ from core.models import Document
         summary='Delete an application {-Works only for staff users-}',
         description='Deletes an existing application and does not return any content.',
         tags=['agent_application']
+    ),
+    all_application_ids=extend_schema(
+        summary='Retrieve all application IDs {-Works only for staff users-}',
+        description='Returns a list of all application IDs.',
+        tags=['agent_application']
+    ),
+    application_ids_by_user=extend_schema(
+        summary='Retrieve application IDs for a specific user {-Works only for staff users-}',
+        description='Returns a list of application IDs filtered by user.',
+        tags=['agent_application'],
+        parameters=[
+            OpenApiParameter(name='user_id',
+                             description='The ID of the user whose applications you want to retrieve.',
+                             required=True, type=int)
+        ]
     )
 )
 class AgentApplicationViewSet(viewsets.ModelViewSet):
@@ -105,6 +121,22 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
                 return queryset.order_by('id')
         else:
             return queryset.order_by('-id')
+
+    @action(detail=False, methods=['get'])
+    def all_application_ids(self, request):
+        """Returns a list of all application IDs"""
+        application_ids = self.queryset.values_list('id', flat=True)
+        return Response(application_ids, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'])
+    def application_ids_by_user(self, request):
+        """Returns a list of application IDs for a specific user"""
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({'detail': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        application_ids = self.queryset.filter(user_id=user_id).values_list('id', flat=True)
+        return Response(application_ids, status=status.HTTP_200_OK)
 
     def get_serializer_class(self):
         """Return serializer class for the requested model."""

@@ -3,6 +3,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
+from django.db.models import JSONField
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
@@ -138,12 +139,22 @@ class Solicitor(models.Model):
     title = models.CharField(max_length=50)
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
-    own_email = models.EmailField(max_length=255, null=True, blank=True)  # Optional email field
+    own_email = models.EmailField(max_length=255, null=True, blank=True, unique=True)  # Optional email field
     own_phone_number = models.CharField(validators=[validate_irish_phone_number], max_length=20, null=True,
                                         blank=True)  # Optional phone number field
 
     def __str__(self):
         return f"{self.title} {self.first_name} {self.last_name} "
+
+
+class AssociatedEmail(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='associated_emails')
+    email = models.EmailField()
+    date_added = models.DateTimeField(default=timezone.now)
+    added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='added_emails')
+
+    def __str__(self):
+        return self.email
 
 
 # endregion
@@ -490,7 +501,26 @@ class Assignment(models.Model):
         return f"{self.agency_user.name if self.agency_user else 'Unassigned'} assigned to {self.staff_user.name}"
 
 
+class EmailLog(models.Model):
+    sender = models.EmailField()
+    recipient = models.EmailField()
+    subject = models.CharField(max_length=255)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_sent = models.BooleanField(default=False)
+    attachments = models.JSONField(null=True, blank=True)  # Store file paths as a JSON object
+    original_filenames = models.JSONField(null=True, blank=True)  # Store original file names
+    message_id = models.CharField(max_length=255, null=True, blank=True)
+    application = ForeignKey(Application, on_delete=models.CASCADE, null=True, blank=True)
+    solicitor_firm = ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+
+    def __str__(self):
+        return f"Email from {self.sender} to {self.recipient} - {self.subject}"
+
+
 auditlog.register(User)
 auditlog.register(Application)
 auditlog.register(Document)
 auditlog.register(Loan)
+auditlog.register(SignedDocumentLog)
+auditlog.register(EmailLog)
