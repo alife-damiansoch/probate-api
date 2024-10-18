@@ -16,6 +16,9 @@ urlpatterns = [
     path('communications/reply/', ReplyToEmailViewSet.as_view({'post': 'reply_to_email'}), name='reply_to_email'),
     path('communications/update_application_id/<int:pk>/', SendEmailViewSet.as_view({'patch': 'update_application'}),
          name='update_application'),
+    path('communications/update_seen/<int:pk>/', SendEmailViewSet.as_view({'patch': 'update_seen'}),
+         name='update_seen'),
+
     path('communications/download_attachment/<int:email_id>/<str:filename>/', AttachmentDownloadView.as_view(),
          name='download_attachment'),
     path('communications/delete_attachment/<int:email_id>/<str:filename>/', DeleteAttachmentView.as_view(),

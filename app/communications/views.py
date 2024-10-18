@@ -17,7 +17,7 @@ from django.http import FileResponse, Http404
 from agents_loan.permissions import IsStaff
 from core.models import EmailLog, Application, Solicitor
 from .serializers import SendEmailSerializerByApplicationId, EmailLogSerializer, SendEmailToRecipientsSerializer, \
-    ReplyEmailSerializer, UpdateEmailLogApplicationSerializer
+    ReplyEmailSerializer, UpdateEmailLogApplicationSerializer, UpdateEmailLogSeenSerializer
 from .utils import send_email_f, fetch_emails
 
 
@@ -131,6 +131,29 @@ from .utils import send_email_f, fetch_emails
             }
         }
     ),
+    update_seen=extend_schema(
+        summary='Update Email Log Seen Status',
+        description='Allows updating the seen field for a specific email log.',
+        tags=['communications'],
+        request=UpdateEmailLogSeenSerializer,
+        responses={
+            200: {
+                'description': 'Seen status updated successfully',
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string', 'example': 'Seen status updated successfully.'}
+                }
+            },
+            400: {
+                'description': 'Validation Error',
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string', 'example': 'Invalid seen status or email log.'}
+                }
+            }
+        }
+    )
+
 )
 class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """
@@ -260,6 +283,23 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=['patch'], url_path='update_seen')
+    def update_seen(self, request, pk=None):
+        """
+        Custom action to update the seen field in the email log.
+        """
+        try:
+            email_log = EmailLog.objects.get(pk=pk)
+        except EmailLog.DoesNotExist:
+            return Response({"error": "Email log not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UpdateEmailLogSeenSerializer(email_log, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Seen status updated successfully."}, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class AttachmentDownloadView(APIView):
     """
@@ -271,7 +311,7 @@ class AttachmentDownloadView(APIView):
     @extend_schema(
         summary='Download Email Attachment',
         description='Downloads the specified attachment file from an email based on the email ID and unique filename. Requires authentication.',
-        
+
         responses={
             200: {
                 'description': 'File download successful',

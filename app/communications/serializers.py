@@ -71,3 +71,9 @@ class UpdateEmailLogApplicationSerializer(serializers.ModelSerializer):
         if not Application.objects.filter(id=value.id).exists():
             raise serializers.ValidationError("Application not found.")
         return value
+
+
+class UpdateEmailLogSeenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailLog
+        fields = ['seen']

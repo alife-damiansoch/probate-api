@@ -513,6 +513,7 @@ class EmailLog(models.Model):
     message_id = models.CharField(max_length=255, null=True, blank=True)
     application = ForeignKey(Application, on_delete=models.CASCADE, null=True, blank=True)
     solicitor_firm = ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    seen = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Email from {self.sender} to {self.recipient} - {self.subject}"

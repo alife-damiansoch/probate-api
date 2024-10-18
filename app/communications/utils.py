@@ -116,6 +116,7 @@ def send_email_f(sender, recipient, subject, message, attachments=None, applicat
                     message_id=message_id,
                     application=application,
                     solicitor_firm=solicitor_firm,
+                    seen=True
                 )
                 print(f"Email successfully logged in the database.")
 
@@ -247,6 +248,7 @@ def fetch_emails():
                     solicitor_firm=solicitor_firm,
                     attachments=attachments,  # Store attachment file paths
                     original_filenames=original_filenames,  # Store original attachment filenames
+                    seen=False
                 )
                 print("Email and attachments logged successfully.")
 
