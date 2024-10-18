@@ -152,7 +152,28 @@ from .utils import send_email_f, fetch_emails
                 }
             }
         }
-    )
+    ),
+    count_unseen=extend_schema(
+        summary='Count Unseen Email Logs',
+        description='Returns the count of email logs that have not been seen yet (seen = False).',
+        tags=['communications'],
+        responses={
+            200: {
+                'description': 'Count of unseen email logs returned successfully',
+                'type': 'object',
+                'properties': {
+                    'count': {'type': 'integer', 'example': 5}
+                }
+            },
+            400: {
+                'description': 'Error occurred while fetching unseen email logs count',
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string', 'example': 'Invalid request or database error.'}
+                }
+            }
+        }
+    ),
 
 )
 class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -176,6 +197,14 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
         # Return the list of email logs as usual
         return super().list(request, *args, **kwargs)
+
+    @action(detail=False, methods=['get'], url_path='count-unseen')
+    def count_unseen(self, request):
+        """
+        Custom action to return the count of unseen emails.
+        """
+        unseen_count = EmailLog.objects.filter(seen=False).count()
+        return Response({'unseen_count': unseen_count})
 
     @action(detail=False, methods=['get'], url_path='list_by_solicitor_firm')
     def list_by_solicitor_firm(self, request):

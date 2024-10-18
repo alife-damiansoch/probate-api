@@ -7,6 +7,8 @@ app_name = 'communications'
 # Define custom URL patterns for only the specified endpoints
 urlpatterns = [
     path('communications/list/', SendEmailViewSet.as_view({'get': 'list'}), name='email_list'),
+    path('communications/count-unseen_info_email/', SendEmailViewSet.as_view({'get': 'count_unseen'}),
+         name='email_count_unseen'),
     path('communications/list_by_solicitor_firm/', SendEmailViewSet.as_view({'get': 'list_by_solicitor_firm'}),
          name='email_list_by_solicitor_firm'),
     path('communications/send_with_application/', SendEmailViewSet.as_view({'post': 'send_email_with_application'}),
