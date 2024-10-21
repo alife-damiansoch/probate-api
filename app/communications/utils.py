@@ -118,7 +118,11 @@ def send_email_f(sender, recipient, subject, message, attachments=None, applicat
                     message=message,
                     attachments=[att.file.name for att in attachments],  # Adjust attachment logic as necessary
                     application=application,
-                    solicitor_firm=solicitor_firm
+                    solicitor_firm=solicitor_firm,
+                    seen=True,
+                    message_id=message_id,
+                    original_filenames=original_filenames if attachments else [],
+                    is_sent=True
                 )
                 print(f"Email successfully logged in the database.")
 

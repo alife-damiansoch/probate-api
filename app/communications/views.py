@@ -684,6 +684,7 @@ class UserEmailViewSet(SendEmailViewSet):
                 message=message,
                 attachments=attachments,
                 email_model=UserEmailLog  # Save in UserEmailLog
+
             )
 
         return Response({"message": "Emails sent successfully."}, status=status.HTTP_200_OK)
