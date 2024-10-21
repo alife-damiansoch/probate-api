@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 from django.http import FileResponse, Http404
 
 from agents_loan.permissions import IsStaff
-from core.models import EmailLog, Application, Solicitor
+from core.models import EmailLog, Application, Solicitor, UserEmailLog
 from .serializers import SendEmailSerializerByApplicationId, EmailLogSerializer, SendEmailToRecipientsSerializer, \
     ReplyEmailSerializer, UpdateEmailLogApplicationSerializer, UpdateEmailLogSeenSerializer
 from .utils import send_email_f, fetch_emails
@@ -499,3 +499,179 @@ class ReplyToEmailViewSet(viewsets.GenericViewSet):
             return Response({"error": "Original email log not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema_view(
+    list=extend_schema(
+        summary='List all Emails for the User',
+        description='Returns a list of all sent and received emails for the current user, including metadata like sender, recipient, subject, and message content.',
+        tags=['user_communications'],
+    ),
+    send_email_to_recipients=extend_schema(
+        summary='Send an Email (User)',
+        description='Sends an email using the current user\'s email as the sender, along with the list of recipients, subject, and message. Returns a confirmation message on success.',
+        tags=['user_communications'],
+        request=SendEmailToRecipientsSerializer,
+        responses={
+            200: {
+                'description': 'Email sent successfully',
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string', 'example': 'Email sent successfully.'}
+                }
+            },
+            400: {
+                'description': 'Validation Error',
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string', 'example': 'All fields are required.'}
+                }
+            }
+        }
+    ),
+    update_application=extend_schema(
+        summary='Update User Email Log Application',
+        description='Allows updating the application field for a specific user email log.',
+        tags=['user_communications'],
+        request=UpdateEmailLogApplicationSerializer,
+        responses={
+            200: {
+                'description': 'Application updated successfully',
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string', 'example': 'Application updated successfully.'}
+                }
+            },
+            400: {
+                'description': 'Validation Error',
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string', 'example': 'Invalid application or email log.'}
+                }
+            }
+        }
+    ),
+    update_seen=extend_schema(
+        summary='Update User Email Log Seen Status',
+        description='Allows updating the seen field for a specific user email log.',
+        tags=['user_communications'],
+        request=UpdateEmailLogSeenSerializer,
+        responses={
+            200: {
+                'description': 'Seen status updated successfully',
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string', 'example': 'Seen status updated successfully.'}
+                }
+            },
+            400: {
+                'description': 'Validation Error',
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string', 'example': 'Invalid seen status or email log.'}
+                }
+            }
+        }
+    ),
+    count_unseen=extend_schema(
+        summary='Count Unseen User Emails',
+        description='Returns the count of user emails that have not been seen yet (seen = False).',
+        tags=['user_communications'],
+        responses={
+            200: {
+                'description': 'Count of unseen user email logs returned successfully',
+                'type': 'object',
+                'properties': {
+                    'count': {'type': 'integer', 'example': 5}
+                }
+            },
+            400: {
+                'description': 'Error occurred while fetching unseen user email logs count',
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string', 'example': 'Invalid request or database error.'}
+                }
+            }
+        }
+    ),
+)
+class UserEmailViewSet(SendEmailViewSet):
+    """
+    A ViewSet for listing and sending user-specific emails using UserEmailLog.
+    """
+
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = [IsAuthenticated, IsStaff]
+    serializer_class = EmailLogSerializer
+
+    def get_queryset(self):
+        """
+        Return emails only from UserEmailLog where the current user is either the sender or recipient.
+        """
+        user_email = self.request.user.email
+        return UserEmailLog.objects.filter(sender=user_email).union(
+            UserEmailLog.objects.filter(recipient=user_email)).order_by('created_at')
+
+    def list(self, request, *args, **kwargs):
+        """
+        Return the list of UserEmailLog entries where the current user is the sender or recipient.
+        """
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='count-unseen')
+    def count_unseen(self, request):
+        """
+        Custom action to return the count of unseen emails for the current user.
+        """
+        unseen_count = UserEmailLog.objects.filter(seen=False, recipient=request.user.email).count()
+        return Response({'unseen_count': unseen_count})
+
+    @action(detail=False, methods=['post'], serializer_class=SendEmailToRecipientsSerializer)
+    def send_email_to_recipients(self, request):
+        """
+        Custom action to send an email to a list of recipients for UserEmailLog.
+        """
+        return super().send_email_to_recipients(request)  # Reuse the existing logic but with UserEmailLog
+
+    @action(detail=True, methods=['patch'], url_path='update_application')
+    def update_application(self, request, pk=None):
+        """
+        Update the application field for UserEmailLog.
+        """
+        try:
+            email_log = UserEmailLog.objects.get(pk=pk)
+        except UserEmailLog.DoesNotExist:
+            return Response({"error": "Email log not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UpdateEmailLogApplicationSerializer(email_log, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Application updated successfully."}, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['patch'], url_path='update_seen')
+    def update_seen(self, request, pk=None):
+        """
+        Update the seen field for UserEmailLog.
+        """
+        try:
+            email_log = UserEmailLog.objects.get(pk=pk)
+        except UserEmailLog.DoesNotExist:
+            return Response({"error": "Email log not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UpdateEmailLogSeenSerializer(email_log, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Seen status updated successfully."}, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], serializer_class=ReplyEmailSerializer)
+    def reply_to_email(self, request):
+        """
+        Reply to an email in UserEmailLog.
+        """
+        return super().reply_to_email(request)  # Reuse the reply logic

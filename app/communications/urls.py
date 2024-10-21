@@ -1,6 +1,6 @@
 # communications/urls.py
 from django.urls import path
-from .views import SendEmailViewSet, AttachmentDownloadView, DeleteAttachmentView, ReplyToEmailViewSet
+from .views import SendEmailViewSet, AttachmentDownloadView, DeleteAttachmentView, ReplyToEmailViewSet, UserEmailViewSet
 
 app_name = 'communications'
 
@@ -25,4 +25,18 @@ urlpatterns = [
          name='download_attachment'),
     path('communications/delete_attachment/<int:email_id>/<str:filename>/', DeleteAttachmentView.as_view(),
          name='delete_attachment'),
+]
+
+urlpatterns += [
+    path('communications/user_emails/list/', UserEmailViewSet.as_view({'get': 'list'}), name='user_email_list'),
+    path('communications/user_emails/count-unseen/', UserEmailViewSet.as_view({'get': 'count_unseen'}),
+         name='user_email_count_unseen'),
+    path('communications/user_emails/send_to_recipients/',
+         UserEmailViewSet.as_view({'post': 'send_email_to_recipients'}), name='send_user_email_to_recipients'),
+    path('communications/user_emails/update_application/<int:pk>/',
+         UserEmailViewSet.as_view({'patch': 'update_application'}), name='update_user_application'),
+    path('communications/user_emails/update_seen/<int:pk>/', UserEmailViewSet.as_view({'patch': 'update_seen'}),
+         name='update_user_seen'),
+    path('communications/user_emails/reply/', UserEmailViewSet.as_view({'post': 'reply_to_email'}),
+         name='reply_to_user_email'),
 ]
