@@ -9,6 +9,8 @@ https://docs.djangoproject.com/en/3.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
+import sys
+
 from dotenv import load_dotenv
 import os
 from datetime import timedelta
@@ -235,6 +237,8 @@ SPECTACULAR_SETTINGS = {
 }
 
 ASGI_APPLICATION = 'app.routing.application'
+
+TESTING = 'test' in sys.argv
 
 CHANNEL_LAYERS = {
     "default": {

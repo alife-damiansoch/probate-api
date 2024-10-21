@@ -17,7 +17,7 @@ from django.http import FileResponse, Http404
 from agents_loan.permissions import IsStaff
 from core.models import EmailLog, Application, Solicitor, UserEmailLog
 from .serializers import SendEmailSerializerByApplicationId, EmailLogSerializer, SendEmailToRecipientsSerializer, \
-    ReplyEmailSerializer, UpdateEmailLogApplicationSerializer, UpdateEmailLogSeenSerializer
+    ReplyEmailSerializer, UpdateEmailLogApplicationSerializer, UpdateEmailLogSeenSerializer, ReplyUserEmailSerializer
 from .utils import send_email_f, fetch_emails
 
 
@@ -594,6 +594,35 @@ class ReplyToEmailViewSet(viewsets.GenericViewSet):
             }
         }
     ),
+    reply_to_email=extend_schema(
+        summary='Reply to an Email (User)',
+        description='Replies to an email from the user, using the original email\'s log ID. The reply is sent to the original sender, with tracking in the email log.',
+        tags=['user_communications'],
+        request=ReplyEmailSerializer,
+        responses={
+            200: {
+                'description': 'Reply sent successfully',
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string', 'example': 'Reply sent successfully.'}
+                }
+            },
+            400: {
+                'description': 'Validation Error',
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string', 'example': 'Invalid data or reply information.'}
+                }
+            },
+            404: {
+                'description': 'Original email log not found',
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string', 'example': 'Original email log not found.'}
+                }
+            }
+        }
+    ),
 )
 class UserEmailViewSet(SendEmailViewSet):
     """
@@ -628,12 +657,36 @@ class UserEmailViewSet(SendEmailViewSet):
         unseen_count = UserEmailLog.objects.filter(seen=False, recipient=request.user.email).count()
         return Response({'unseen_count': unseen_count})
 
-    @action(detail=False, methods=['post'], serializer_class=SendEmailToRecipientsSerializer)
+    @action(detail=False, methods=['post'])
     def send_email_to_recipients(self, request):
         """
         Custom action to send an email to a list of recipients for UserEmailLog.
         """
-        return super().send_email_to_recipients(request)  # Reuse the existing logic but with UserEmailLog
+        serializer = SendEmailToRecipientsSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Extract data from the serializer
+        subject = serializer.validated_data['subject']
+        message = serializer.validated_data['message']
+        recipients = serializer.validated_data['recipients']
+        attachments = serializer.validated_data.get('attachments', [])
+
+        # Use request.user.email as the sender
+        sender = request.user.email
+
+        # Send email to each recipient and save to UserEmailLog
+        for recipient in recipients:
+            send_email_f(
+                sender=sender,
+                recipient=recipient,
+                subject=subject,
+                message=message,
+                attachments=attachments,
+                email_model=UserEmailLog  # Save in UserEmailLog
+            )
+
+        return Response({"message": "Emails sent successfully."}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['patch'], url_path='update_application')
     def update_application(self, request, pk=None):
@@ -669,9 +722,50 @@ class UserEmailViewSet(SendEmailViewSet):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['post'], serializer_class=ReplyEmailSerializer)
+    @action(detail=False, methods=['post'])
     def reply_to_email(self, request):
         """
         Reply to an email in UserEmailLog.
         """
-        return super().reply_to_email(request)  # Reuse the reply logic
+        # Use the correct serializer explicitly instead of self.get_serializer
+        serializer = ReplyUserEmailSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Extract data from the serializer
+        message = serializer.validated_data['message']
+        email_log_id = serializer.validated_data['email_log_id']
+        attachments = serializer.validated_data.get('attachments', [])
+
+        # Use request.user.email as the sender
+        sender = request.user.email
+
+        try:
+            print("here")
+            # Retrieve the original email log from UserEmailLog
+            original_email = UserEmailLog.objects.get(id=email_log_id)
+
+            # Use the original email's recipient as the sender for the reply
+            recipient = original_email.sender
+            subject = f"Re: {original_email.subject}"
+            application = original_email.application
+            solicitor_firm = original_email.solicitor_firm
+
+            # Call the send_email function with the UserEmailLog model
+            send_email_f(
+                sender=sender,
+                recipient=recipient,
+                subject=subject,
+                message=message,
+                attachments=attachments,
+                application=application,
+                solicitor_firm=solicitor_firm,
+                email_model=UserEmailLog  # Use UserEmailLog for saving
+            )
+
+            return Response({"message": "Reply sent successfully."}, status=status.HTTP_200_OK)
+
+        except UserEmailLog.DoesNotExist:
+            return Response({"error": "Original email log not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

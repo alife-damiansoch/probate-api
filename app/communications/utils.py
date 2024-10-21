@@ -48,10 +48,13 @@ def find_user_by_email(sender):
 # communications/utils.py
 
 
-def send_email_f(sender, recipient, subject, message, attachments=None, application=None, solicitor_firm=None):
+def send_email_f(sender, recipient, subject, message, attachments=None, application=None, solicitor_firm=None,
+                 email_model=EmailLog):
     """
     Function to send an email using the SMTP settings.
     """
+    if attachments is None:
+        attachments = []
     processed_attachments = []
     original_filenames = []
     attachment_paths = []
@@ -108,18 +111,14 @@ def send_email_f(sender, recipient, subject, message, attachments=None, applicat
                 print(f"Email sent successfully to {recipient}")
 
                 # Log the email and attachments
-                EmailLog.objects.create(
+                email_log_entry = email_model.objects.create(
                     sender=sender,
                     recipient=recipient,
                     subject=subject,
                     message=message,
-                    is_sent=True,
-                    attachments=attachment_paths,  # Store full file paths
-                    original_filenames=original_filenames,  # Store original file names
-                    message_id=message_id,
+                    attachments=[att.file.name for att in attachments],  # Adjust attachment logic as necessary
                     application=application,
-                    solicitor_firm=solicitor_firm,
-                    seen=True
+                    solicitor_firm=solicitor_firm
                 )
                 print(f"Email successfully logged in the database.")
 

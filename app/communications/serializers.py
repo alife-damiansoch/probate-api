@@ -1,6 +1,6 @@
 # communications/serializers.py
 from rest_framework import serializers
-from core.models import EmailLog, Application
+from core.models import EmailLog, Application, UserEmailLog
 
 
 class EmailLogSerializer(serializers.ModelSerializer):
@@ -58,6 +58,23 @@ class ReplyEmailSerializer(serializers.Serializer):
             EmailLog.objects.get(id=value)
         except EmailLog.DoesNotExist:
             raise serializers.ValidationError("Invalid email log ID.")
+        return value
+
+
+class ReplyUserEmailSerializer(serializers.Serializer):
+    email_log_id = serializers.IntegerField()  # The ID of the original user email log to reply to
+    message = serializers.CharField()
+    attachments = serializers.ListField(
+        child=serializers.FileField(allow_empty_file=True, use_url=False),
+        required=False,
+        allow_null=True,
+    )
+
+    def validate_email_log_id(self, value):
+        try:
+            UserEmailLog.objects.get(id=value)
+        except UserEmailLog.DoesNotExist:
+            raise serializers.ValidationError("Invalid user email log ID.")
         return value
 
 
