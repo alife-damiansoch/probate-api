@@ -142,7 +142,7 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
     imap_server = settings.IMAP_SERVER
     imap_port = settings.IMAP_PORT
     imap_password = settings.IMAP_PASSWORD
-    mail = None  # Initialize mail to None to avoid reference before assignment
+    mail = None
 
     print(f"Connecting to IMAP server: {imap_server}:{imap_port} as user {imap_user}...")
 
@@ -160,13 +160,27 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
 
         for num in unseen_emails:
             try:
-                status, data = await mail.fetch(num, "(RFC822)")
-                msg = email.message_from_bytes(data[0][1])
+                email_id = num.decode('utf-8')
+                print(f"Fetching email with ID: {email_id}...")
+
+                status, data = await mail.fetch(email_id, "(RFC822)")
+                print(f"Status: {status}, Data: {data}")
+
+                if status != "OK" or not data or len(data) < 2 or not isinstance(data[1], (bytes, bytearray)):
+                    print(f"Failed to fetch email {email_id}. Skipping.")
+                    continue
+
+                print(f"Successfully fetched email with ID: {email_id}.")
+                msg = email.message_from_bytes(data[1])
 
                 # Decode subject
-                subject = decode_header(msg["Subject"])[0][0]
+                subject_tuple = decode_header(msg.get("Subject", "No Subject"))[0]
+                subject, encoding = subject_tuple if isinstance(subject_tuple[0], (bytes, str)) else (
+                'No Subject', None)
                 if isinstance(subject, bytes):
-                    subject = subject.decode()
+                    subject = subject.decode(encoding if encoding else 'utf-8')
+
+                print(f"Email subject: {subject}")
 
                 sender = parseaddr(msg.get("From"))[1]
                 recipient = imap_user
@@ -174,7 +188,9 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
                 html_content = ""
                 attachments = []
                 original_filenames = []
-                solicitor_firm = find_user_by_email(sender)
+
+                # Use sync_to_async for find_user_by_email function
+                solicitor_firm = await sync_to_async(find_user_by_email)(sender)
                 message_id = msg.get("Message-ID", "")
 
                 if msg.is_multipart():
@@ -183,26 +199,26 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
                         filename = part.get_filename()
 
                         if content_type == "text/html":
-                            html_content += part.get_payload(decode=True).decode()
+                            html_content += part.get_payload(decode=True).decode('utf-8', errors='replace')
                         elif content_type == "text/plain" and not html_content:
-                            message += part.get_payload(decode=True).decode()
+                            message += part.get_payload(decode=True).decode('utf-8', errors='replace')
 
                         if filename:
                             unique_filename = f"{uuid.uuid4()}{os.path.splitext(filename)[1]}"
                             file_path = os.path.join('email_attachments', unique_filename)
 
-                            # Save file using async I/O
                             file_content = part.get_payload(decode=True)
                             async with aiofiles.open(file_path, 'wb') as f:
                                 await f.write(file_content)
 
                             attachments.append(file_path)
                             original_filenames.append(filename)
+                            print(f"Attachment saved at: {file_path}")
 
                 else:
-                    message = msg.get_payload(decode=True).decode()
+                    message = msg.get_payload(decode=True).decode('utf-8', errors='replace')
 
-                # Save email log
+                # Save the email asynchronously using sync_to_async
                 await sync_to_async(log_model.objects.create)(
                     sender=sender,
                     recipient=recipient,
@@ -218,14 +234,15 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
                 print(f"Email from {imap_user} logged successfully.")
 
             except Exception as e:
-                print(f"Error processing email {num}: {e}")
+                print(f"Error processing email with ID {email_id}: {e}")
 
     except Exception as e:
         print(f"Error in fetching emails for {imap_user}: {e}")
 
     finally:
         if mail:
-            await mail.logout()  # Only call logout if mail was initialized successfully
+            await mail.logout()
+            print("Logged out from the IMAP server.")
 
 
 async def fetch_emails():
