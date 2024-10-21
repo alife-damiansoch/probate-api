@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'signed_documents',
     'agents_default_assignments',
     'communications'
+
 ]
 
 MIDDLEWARE = [
