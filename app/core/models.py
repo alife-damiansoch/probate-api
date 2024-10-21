@@ -501,7 +501,7 @@ class Assignment(models.Model):
         return f"{self.agency_user.name if self.agency_user else 'Unassigned'} assigned to {self.staff_user.name}"
 
 
-class EmailLog(models.Model):
+class BaseEmailLog(models.Model):
     sender = models.EmailField()
     recipient = models.EmailField()
     subject = models.CharField(max_length=255)
@@ -511,12 +511,27 @@ class EmailLog(models.Model):
     attachments = models.JSONField(null=True, blank=True)  # Store file paths as a JSON object
     original_filenames = models.JSONField(null=True, blank=True)  # Store original file names
     message_id = models.CharField(max_length=255, null=True, blank=True)
-    application = ForeignKey(Application, on_delete=models.CASCADE, null=True, blank=True)
-    solicitor_firm = ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    application = models.ForeignKey('Application', on_delete=models.CASCADE, null=True, blank=True)
+    solicitor_firm = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     seen = models.BooleanField(default=False)
+
+    class Meta:
+        abstract = True  # This makes the model abstract so it won't create a database table
 
     def __str__(self):
         return f"Email from {self.sender} to {self.recipient} - {self.subject}"
+
+
+# Extend BaseEmailLog for default info@ emails
+class EmailLog(BaseEmailLog):
+    # You can add any specific fields or methods if needed, but it's empty here
+    pass
+
+
+# Extend BaseEmailLog for user-specific emails
+class UserEmailLog(BaseEmailLog):
+    # Similarly, you can add specific fields or methods here if needed
+    pass
 
 
 auditlog.register(User)

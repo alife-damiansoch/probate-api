@@ -15,7 +15,7 @@ from django.utils.html import format_html
 
 from core import models
 from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog, \
-    AssociatedEmail
+    AssociatedEmail, UserEmailLog
 
 from rest_framework.authtoken.models import Token
 
@@ -493,6 +493,7 @@ admin.site.register(Document, DocumentAdmin)
 admin.site.register(SignedDocumentLog, SignedDocumentLogAdmin)
 admin.site.register(Assignment, AssignmentAdmin)
 admin.site.register(EmailLog, EmailLogAdmin)
+admin.site.register(UserEmailLog, EmailLogAdmin)
 
 
 @admin.register(AssociatedEmail)
