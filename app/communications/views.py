@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 from django.http import FileResponse, Http404
 
 from agents_loan.permissions import IsStaff
-from core.models import EmailLog, Application, Solicitor, UserEmailLog
+from core.models import EmailLog, Application, Solicitor, UserEmailLog, User
 from .serializers import SendEmailSerializerByApplicationId, EmailLogSerializer, SendEmailToRecipientsSerializer, \
     ReplyEmailSerializer, UpdateEmailLogApplicationSerializer, UpdateEmailLogSeenSerializer, ReplyUserEmailSerializer
 from .utils import send_email_f, fetch_emails
@@ -706,6 +706,16 @@ class UserEmailViewSet(SendEmailViewSet):
         # Use request.user.email as the sender
         sender = request.user.email
 
+        solicitor_firm = None
+        if len(recipients) == 1:
+            def_recipient = recipients[0]
+            user_matching_email = User.objects.filter(email=def_recipient).exclude(id=request.user.id)
+            solicitor_matching_email = Solicitor.objects.filter(own_email=def_recipient).exclude(id=request.user.id)
+            if user_matching_email.exists():
+                solicitor_firm = user_matching_email.first()
+            elif solicitor_matching_email.exists():
+                solicitor_firm = solicitor_matching_email.first().user
+
         # Send email to each recipient and save to UserEmailLog
         for recipient in recipients:
             send_email_f(
@@ -715,7 +725,8 @@ class UserEmailViewSet(SendEmailViewSet):
                 message=message,
                 attachments=attachments,
                 email_model=UserEmailLog,  # Save in UserEmailLog
-                use_info_email=False
+                use_info_email=False,
+                solicitor_firm=solicitor_firm
             )
 
         return Response({"message": "Emails sent successfully."}, status=status.HTTP_200_OK)
@@ -782,7 +793,7 @@ class UserEmailViewSet(SendEmailViewSet):
         sender = request.user.email
 
         try:
-            print("here")
+            # print("here")
             # Retrieve the original email log from UserEmailLog
             original_email = UserEmailLog.objects.get(id=email_log_id)
 
