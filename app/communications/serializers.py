@@ -81,7 +81,7 @@ class ReplyUserEmailSerializer(serializers.Serializer):
 class UpdateEmailLogApplicationSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmailLog
-        fields = ['application']  # Only allow updating the application field
+        fields = ['application', 'solicitor_firm']  # Only allow updating the application field
 
     def validate_application(self, value):
         # Ensure the application exists

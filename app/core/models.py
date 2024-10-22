@@ -514,6 +514,7 @@ class BaseEmailLog(models.Model):
     application = models.ForeignKey('Application', on_delete=models.CASCADE, null=True, blank=True)
     solicitor_firm = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     seen = models.BooleanField(default=False)
+    send_from = models.EmailField(null=True, blank=True)
 
     class Meta:
         abstract = True  # This makes the model abstract so it won't create a database table

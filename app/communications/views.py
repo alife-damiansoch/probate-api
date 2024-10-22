@@ -209,7 +209,7 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     @action(detail=False, methods=['get'], url_path='list_by_solicitor_firm')
     def list_by_solicitor_firm(self, request):
         """
-        Custom action to list emails filtered by solicitor firm.
+        Custom action to list emails filtered by solicitor firm from both EmailLog and UserEmailLog.
         """
         firm_id = request.query_params.get('firm_id')
 
@@ -219,13 +219,18 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         # Call the email fetching function
         fetch_emails()
 
-        # Assuming Solicitor model is related to EmailLog via a ForeignKey
+        # Fetch emails from both EmailLog and UserEmailLog for the specified solicitor firm
         try:
-            emails = self.queryset.filter(solicitor_firm_id=firm_id).order_by('created_at')
+            email_log_emails = EmailLog.objects.filter(solicitor_firm_id=firm_id)
+            user_email_log_emails = UserEmailLog.objects.filter(solicitor_firm_id=firm_id)
+
+            # Combine the two querysets and sort by 'created_at'
+            combined_emails = email_log_emails.union(user_email_log_emails).order_by('created_at')
         except Solicitor.DoesNotExist:
             return Response({"error": "Firm ID not found."}, status=400)
 
-        serializer = self.get_serializer(emails, many=True)
+        # Serialize and return the combined email logs
+        serializer = self.get_serializer(combined_emails, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['post'])
@@ -305,7 +310,15 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         except EmailLog.DoesNotExist:
             return Response({"error": "Email log not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = UpdateEmailLogApplicationSerializer(email_log, data=request.data, partial=True)
+        application_id = request.data.get('application')
+        try:
+            application = Application.objects.get(id=application_id)
+        except Application.DoesNotExist:
+            return Response({"error": "Invalid application ID."}, status=status.HTTP_400_BAD_REQUEST)
+
+        data_for_update = {"application": application.id, "solicitor_firm": application.user.id}
+
+        serializer = UpdateEmailLogApplicationSerializer(email_log, data=data_for_update, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response({"message": "Application updated successfully."}, status=status.HTTP_200_OK)
@@ -645,6 +658,9 @@ class UserEmailViewSet(SendEmailViewSet):
         """
         Return the list of UserEmailLog entries where the current user is the sender or recipient.
         """
+        # Call the email fetching function
+        fetch_emails()
+
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
@@ -683,8 +699,8 @@ class UserEmailViewSet(SendEmailViewSet):
                 subject=subject,
                 message=message,
                 attachments=attachments,
-                email_model=UserEmailLog  # Save in UserEmailLog
-
+                email_model=UserEmailLog,  # Save in UserEmailLog
+                use_info_email=False
             )
 
         return Response({"message": "Emails sent successfully."}, status=status.HTTP_200_OK)
@@ -699,7 +715,16 @@ class UserEmailViewSet(SendEmailViewSet):
         except UserEmailLog.DoesNotExist:
             return Response({"error": "Email log not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = UpdateEmailLogApplicationSerializer(email_log, data=request.data, partial=True)
+        application_id = request.data.get('application')
+        try:
+            application = Application.objects.get(id=application_id)
+        except Application.DoesNotExist:
+            return Response({"error": "Invalid application ID."}, status=status.HTTP_400_BAD_REQUEST)
+
+        data_for_update = {"application": application.id, "solicitor_firm": application.user.id}
+        print(data_for_update)
+
+        serializer = UpdateEmailLogApplicationSerializer(email_log, data=data_for_update, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response({"message": "Application updated successfully."}, status=status.HTTP_200_OK)
@@ -761,7 +786,8 @@ class UserEmailViewSet(SendEmailViewSet):
                 attachments=attachments,
                 application=application,
                 solicitor_firm=solicitor_firm,
-                email_model=UserEmailLog  # Use UserEmailLog for saving
+                email_model=UserEmailLog,  # Use UserEmailLog for saving
+                use_info_email=False
             )
 
             return Response({"message": "Reply sent successfully."}, status=status.HTTP_200_OK)

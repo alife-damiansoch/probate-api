@@ -49,7 +49,7 @@ def find_user_by_email(sender):
 
 
 def send_email_f(sender, recipient, subject, message, attachments=None, application=None, solicitor_firm=None,
-                 email_model=EmailLog):
+                 email_model=EmailLog, use_info_email=True):
     """
     Function to send an email using the SMTP settings.
     """
@@ -83,7 +83,7 @@ def send_email_f(sender, recipient, subject, message, attachments=None, applicat
         email_message = EmailMessage(
             subject=subject,
             body=message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
+            from_email=settings.DEFAULT_FROM_EMAIL if use_info_email else sender,
             to=[recipient],
         )
 
@@ -122,7 +122,8 @@ def send_email_f(sender, recipient, subject, message, attachments=None, applicat
                     seen=True,
                     message_id=message_id,
                     original_filenames=original_filenames if attachments else [],
-                    is_sent=True
+                    is_sent=True,
+                    send_from=email_message.from_email,
                 )
                 print(f"Email successfully logged in the database.")
 
@@ -164,7 +165,7 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
                 print(f"Fetching email with ID: {email_id}...")
 
                 status, data = await mail.fetch(email_id, "(RFC822)")
-                print(f"Status: {status}, Data: {data}")
+                # print(f"Status: {status}, Data: {data}")
 
                 if status != "OK" or not data or len(data) < 2 or not isinstance(data[1], (bytes, bytearray)):
                     print(f"Failed to fetch email {email_id}. Skipping.")
@@ -176,11 +177,11 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
                 # Decode subject
                 subject_tuple = decode_header(msg.get("Subject", "No Subject"))[0]
                 subject, encoding = subject_tuple if isinstance(subject_tuple[0], (bytes, str)) else (
-                'No Subject', None)
+                    'No Subject', None)
                 if isinstance(subject, bytes):
                     subject = subject.decode(encoding if encoding else 'utf-8')
 
-                print(f"Email subject: {subject}")
+                # print(f"Email subject: {subject}")
 
                 sender = parseaddr(msg.get("From"))[1]
                 recipient = imap_user
