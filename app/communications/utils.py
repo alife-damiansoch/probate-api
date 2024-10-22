@@ -1,4 +1,5 @@
 # communications/utils.py
+import asyncio
 import os
 import uuid
 import imaplib
@@ -6,14 +7,18 @@ import email
 import re
 from email.utils import parseaddr
 
-from asgiref.sync import async_to_sync
+import aiofiles
+from aioimaplib import aioimaplib
+from asgiref.sync import async_to_sync, sync_to_async
 from channels.layers import get_channel_layer
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.mail import EmailMessage
 from email.header import decode_header
 from django.conf import settings
-from core.models import EmailLog, Application, Solicitor, User, AssociatedEmail, Notification, Assignment
+from django.db import transaction
+
+from core.models import EmailLog, Application, Solicitor, User, AssociatedEmail, Notification, Assignment, UserEmailLog
 from django.core.mail.backends.smtp import EmailBackend
 from django.core.mail import EmailMultiAlternatives
 
@@ -45,278 +50,250 @@ def find_user_by_email(sender):
 # communications/utils.py
 
 
-def send_email_f(sender, recipient, subject, message, attachments=None, application=None, solicitor_firm=None):
-    """
-    Function to send an email using the SMTP settings.
-    """
+def send_email_f(sender, recipient, subject, message, attachments=None, application=None, solicitor_firm=None,
+                 email_model=EmailLog, use_info_email=True):
+    if attachments is None:
+        attachments = []
     processed_attachments = []
     original_filenames = []
     attachment_paths = []
 
     if attachments:
         for attachment in attachments:
-            original_filenames.append(attachment.name)  # Log original filename
-            # Generate a unique filename with the same extension for logging purposes only
-            unique_filename = f"{uuid.uuid4()}{os.path.splitext(attachment.name)[1]}"
-            file_path = os.path.join('email_attachments', unique_filename)  # Path within the media directory
+            original_filename = getattr(attachment, 'name', 'attachment')  # Safe handling of name
+            original_filenames.append(original_filename)
 
-            # Save the file to the media/email_attachments directory
-            saved_path = default_storage.save(file_path, ContentFile(attachment.read()))  # Save the file content
+            unique_filename = f"{uuid.uuid4()}{os.path.splitext(original_filename)[1]}"
+            file_path = os.path.join('email_attachments', unique_filename)
 
-            # Add the full path to the log
+            saved_path = default_storage.save(file_path, ContentFile(attachment.read()))
             full_file_path = os.path.join(settings.MEDIA_ROOT, saved_path)
             attachment_paths.append(full_file_path)
 
-            # Reopen the file for reading as binary for email attachment
             with open(full_file_path, 'rb') as f:
-                file_data = f.read()  # Read file in binary format
-                processed_attachments.append((attachment.name, file_data, attachment.content_type))
+                file_data = f.read()
+                processed_attachments.append((original_filename, file_data, attachment.content_type))
 
     try:
-        # Create the email message
-        email_message = EmailMessage(
-            subject=subject,
-            body=message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[recipient],
-        )
+        # Wrap both the email log saving and email sending in a single transaction
+        with transaction.atomic():
+            # Save the email log in the database first
+            email_log_entry = email_model.objects.create(
+                sender=sender,
+                recipient=recipient,
+                subject=subject,
+                message=message,
+                attachments=attachment_paths,
+                application=application,
+                solicitor_firm=solicitor_firm,
+                seen=True,
+                message_id=str(uuid.uuid4()),  # Generate a unique Message-ID for the log
+                original_filenames=original_filenames if attachments else [],
+                is_sent=True,
+                send_from=settings.DEFAULT_FROM_EMAIL if use_info_email else sender,
+            )
+            print(f"Email successfully logged in the database.")
 
-        # Attach files to the email with their original filenames
-        for file_tuple in processed_attachments:
-            email_message.attach(*file_tuple)  # Attach with original name and binary content
+            # Create the email message
+            email_message = EmailMessage(
+                subject=subject,
+                body=message,
+                from_email=email_log_entry.send_from,
+                to=[recipient],
+            )
 
-        # Set HTML content
-        email_message.content_subtype = 'html'
+            # Attach files to the email with their original filenames
+            for file_tuple in processed_attachments:
+                email_message.attach(*file_tuple)
 
-        # Generate a unique Message-ID
-        message_id = str(uuid.uuid4())
-        email_message.extra_headers = {
-            'Message-ID': message_id,
-            'Content-Type': 'text/html',
-        }
+            email_message.content_subtype = 'html'
+            email_message.extra_headers = {
+                'Message-ID': email_log_entry.message_id,
+                'Content-Type': 'text/html',
+            }
 
-        # Send the email
-        email_backend = EmailBackend()
-        connection = email_backend.open()
+            # Send the email
+            email_backend = EmailBackend()
+            connection = email_backend.open()
 
-        if connection:
-            try:
+            if connection:
                 email_backend.send_messages([email_message])
                 print(f"Email sent successfully to {recipient}")
 
-                # Log the email and attachments
-                EmailLog.objects.create(
-                    sender=sender,
-                    recipient=recipient,
-                    subject=subject,
-                    message=message,
-                    is_sent=True,
-                    attachments=attachment_paths,  # Store full file paths
-                    original_filenames=original_filenames,  # Store original file names
-                    message_id=message_id,
-                    application=application,
-                    solicitor_firm=solicitor_firm,
-                    seen=True
-                )
-                print(f"Email successfully logged in the database.")
-
-            except Exception as e:
-                print(f"Error sending email to {recipient}: {e}")
-            finally:
-                email_backend.close()
+            # Close the email connection
+            email_backend.close()
 
     except Exception as e:
         print(f"Error occurred: {e}")
+        return {"error": str(e)}
+
+    return {"success": "Email sent and logged successfully"}
 
 
 # Function to Fetch Emails Using IMAP
 # communications/utils.py
 
-def fetch_emails():
-    print("Starting the email fetching process...")
-
-    # Use settings loaded from .env
+async def fetch_emails_for_imap_user(imap_user, log_model):
     imap_server = settings.IMAP_SERVER
     imap_port = settings.IMAP_PORT
-    imap_user = settings.IMAP_USER
     imap_password = settings.IMAP_PASSWORD
+    mail = None
 
     print(f"Connecting to IMAP server: {imap_server}:{imap_port} as user {imap_user}...")
-    try:
-        mail = imaplib.IMAP4_SSL(imap_server, imap_port)
-        mail.login(imap_user, imap_password)
-        print(f"Successfully connected to IMAP server and logged in as {imap_user}.")
-    except Exception as e:
-        print(f"Failed to connect to IMAP server: {e}")
-        return
 
     try:
-        # Select the inbox
-        mail.select("inbox")
-        print("Selected the inbox folder.")
+        mail = aioimaplib.IMAP4_SSL(imap_server, imap_port)
+        await mail.wait_hello_from_server()
+        await mail.login(imap_user, imap_password)
+        print(f"Successfully logged in as {imap_user}.")
 
-        # Search for all unseen emails
-        status, messages = mail.search(None, 'UNSEEN')
-        if status != "OK":
-            print("Error during email search. No new emails found or issue with server connection.")
-            return
+        await mail.select("inbox")
 
+        status, messages = await mail.search('UNSEEN')
         unseen_emails = messages[0].split()
-        print(f"Found {len(unseen_emails)} new unseen emails.")
+        print(f"Found {len(unseen_emails)} new unseen emails for {imap_user}.")
 
-        # Process each unseen email
         for num in unseen_emails:
             try:
-                print(f"Fetching email with ID: {num}...")
-                status, data = mail.fetch(num, "(RFC822)")
-                if status != "OK":
-                    print(f"Failed to fetch email {num}. Skipping to the next email.")
+                email_id = num.decode('utf-8')
+                print(f"Fetching email with ID: {email_id}...")
+
+                status, data = await mail.fetch(email_id, "(RFC822)")
+                # print(f"Status: {status}, Data: {data}")
+
+                if status != "OK" or not data or len(data) < 2 or not isinstance(data[1], (bytes, bytearray)):
+                    print(f"Failed to fetch email {email_id}. Skipping.")
                     continue
 
-                print(f"Successfully fetched email with ID: {num}.")
-                msg = email.message_from_bytes(data[0][1])
+                print(f"Successfully fetched email with ID: {email_id}.")
+                msg = email.message_from_bytes(data[1])
 
                 # Decode subject
-                subject = decode_header(msg["Subject"])[0][0]
+                subject_tuple = decode_header(msg.get("Subject", "No Subject"))[0]
+                subject, encoding = subject_tuple if isinstance(subject_tuple[0], (bytes, str)) else (
+                    'No Subject', None)
                 if isinstance(subject, bytes):
-                    subject = subject.decode()
-                print(f"Email subject: {subject}")
+                    subject = subject.decode(encoding if encoding else 'utf-8')
+
+                # print(f"Email subject: {subject}")
 
                 sender = parseaddr(msg.get("From"))[1]
                 recipient = imap_user
                 message = ""
-                html_content = ""  # To capture HTML content if present
-                attachments = []  # List to hold attachment file paths
-                original_filenames = []  # To store original filenames for logging
+                html_content = ""
+                attachments = []
+                original_filenames = []
 
-                # Get the solicitor's firm by email
-                solicitor_firm = find_user_by_email(sender)
-
-                # Check the headers for a custom Message_ID
+                # Use sync_to_async for find_user_by_email function
+                solicitor_firm = await sync_to_async(find_user_by_email)(sender)
                 message_id = msg.get("Message-ID", "")
-                print(f"Message-ID: {message_id}")
 
-                # Check for and extract attachments and message body
                 if msg.is_multipart():
-                    print("Email is multipart, extracting message body and attachments...")
                     for part in msg.walk():
                         content_type = part.get_content_type()
-                        content_disposition = str(part.get("Content-Disposition"))
                         filename = part.get_filename()
 
-                        # Print content type and disposition for debugging
-                        print(f"Part content type: {content_type}")
-                        print(f"Part content disposition: {content_disposition}")
-
-                        # If the part is text/html, prioritize it over text/plain
                         if content_type == "text/html":
-                            print("Processing HTML content...")
-                            html_content += part.get_payload(decode=True).decode()
+                            html_content += part.get_payload(decode=True).decode('utf-8', errors='replace')
                         elif content_type == "text/plain" and not html_content:
-                            print("Processing plain text content...")
-                            message += part.get_payload(decode=True).decode()
+                            message += part.get_payload(decode=True).decode('utf-8', errors='replace')
 
-                        # Process both inline and regular attachments
                         if filename:
-                            try:
-                                print(f"Found attachment: {filename}")
-                                original_filenames.append(filename)
+                            unique_filename = f"{uuid.uuid4()}{os.path.splitext(filename)[1]}"
+                            file_path = os.path.join(settings.MEDIA_ROOT, 'email_attachments',
+                                                     unique_filename)  # Use MEDIA_ROOT
 
-                                # Save the attachment to the 'email_attachments' directory
-                                unique_filename = f"{uuid.uuid4()}{os.path.splitext(filename)[1]}"
-                                file_path = os.path.join('email_attachments', unique_filename)
+                            file_content = part.get_payload(decode=True)
+                            async with aiofiles.open(file_path, 'wb') as f:
+                                await f.write(file_content)
 
-                                # Save the file using Django's default storage system
-                                file_content = part.get_payload(decode=True)
-                                saved_path = default_storage.save(file_path, ContentFile(file_content))
-                                full_file_path = os.path.join(settings.MEDIA_ROOT, saved_path)
-                                attachments.append(full_file_path)
-                                print(f"Attachment saved at: {full_file_path}")
-                            except Exception as e:
-                                print(f"Failed to process attachment: {e}")
+                            attachments.append(file_path)
+                            original_filenames.append(filename)
+                            print(f"Attachment saved at: {file_path}")
+
                 else:
-                    message = msg.get_payload(decode=True).decode()
+                    message = msg.get_payload(decode=True).decode('utf-8', errors='replace')
 
-                # Save the received email and its attachments to the database
-                email_log = EmailLog.objects.create(
+                # Save the email asynchronously using sync_to_async
+                await sync_to_async(log_model.objects.create)(
                     sender=sender,
                     recipient=recipient,
                     subject=subject,
-                    message=html_content if html_content else message,  # Save HTML content if present
-                    is_sent=False,  # Mark as a received email
+                    message=html_content if html_content else message,
+                    is_sent=False,
                     message_id=message_id,
                     solicitor_firm=solicitor_firm,
-                    attachments=attachments,  # Store attachment file paths
-                    original_filenames=original_filenames,  # Store original attachment filenames
+                    attachments=attachments,
+                    original_filenames=original_filenames,
                     seen=False
                 )
-                print("Email and attachments logged successfully.")
-
-                staff_user = None
-                agency_user = User.objects.filter(email=sender).first()
-
-                # Check if no agency_user was found, and try Solicitor's email
-                if not agency_user:
-                    solicitor = Solicitor.objects.filter(own_email=sender).first()
-                    if solicitor:
-                        agency_user = solicitor.user  # Link it back to the associated User
-
-                if agency_user:
-                    assignments = Assignment.objects.filter(agency_user=agency_user).first()
-                    if assignments:
-                        staff_user = assignments.staff_user
-
-                # Send notification with the found staff_user (if any)
-                _send_notification(email_log, f"New email received from: {sender} {solicitor_firm}", staff_user)
+                print(f"Email from {imap_user} logged successfully.")
 
             except Exception as e:
-                print(f"Error processing email with ID {num}: {e}")
-                continue
+                print(f"Error processing email with ID {email_id}: {e}")
 
     except Exception as e:
-        print(f"Error in fetching emails: {e}")
+        print(f"Error in fetching emails for {imap_user}: {e}")
+
     finally:
-        mail.logout()
-        print("Logged out from the IMAP server.")
+        if mail:
+            await mail.logout()
+            print("Logged out from the IMAP server.")
 
 
-def _send_notification(email_log, message, recipient):
-    """Send a notification to the assigned user when an email log is created, updated, or deleted."""
-    try:
-        print("Creating notification object...")
-        notification = Notification.objects.create(
-            recipient=recipient,
-            text=message,
-            seen=False,
-            created_by=email_log.solicitor_firm,
-            application=None,
-        )
-        print(f"Notification created: {notification.id}")
-    except Exception as e:
-        print(f"Error creating notification: {e}")
-        return
+async def fetch_emails():
+    # Fetch emails for the default IMAP user
+    await fetch_emails_for_imap_user(settings.IMAP_USER, EmailLog)
 
-    try:
-        print("Getting channel layer...")
-        channel_layer = get_channel_layer()
-        print("Channel layer obtained.")
-    except Exception as e:
-        print(f"Error getting channel layer: {e}")
-        return
+    # Fetch emails for users who are staff and belong to the "agents" team
+    # Using sync_to_async to perform the Django ORM query in an async context
+    users = await sync_to_async(lambda: list(User.objects.filter(is_staff=True, team__name="agents")))()
 
-    try:
-        print("Sending notification via channel layer...")
-        async_to_sync(channel_layer.group_send)(
-            'broadcast',
-            {
-                'type': 'notification',
-                'message': notification.text,
-                'recipient': notification.recipient.email if notification.recipient else None,
-                'notification_id': notification.id,
-                'application_id': None,
-                'seen': notification.seen,
-            }
-        )
-        print("Notification sent successfully.")
-    except Exception as e:
-        print(f"Error sending notification: {e}")
+    # Create a list of tasks for each user
+    tasks = [
+        fetch_emails_for_imap_user(user.email, UserEmailLog) for user in users
+    ]
+
+    # Run all the tasks concurrently
+    await asyncio.gather(*tasks)
+
+# def _send_notification(email_log, message, recipient):
+#     """Send a notification to the assigned user when an email log is created, updated, or deleted."""
+#     try:
+#         print("Creating notification object...")
+#         notification = Notification.objects.create(
+#             recipient=recipient,
+#             text=message,
+#             seen=False,
+#             created_by=email_log.solicitor_firm,
+#             application=None,
+#         )
+#         print(f"Notification created: {notification.id}")
+#     except Exception as e:
+#         print(f"Error creating notification: {e}")
+#         return
+#
+#     try:
+#         print("Getting channel layer...")
+#         channel_layer = get_channel_layer()
+#         print("Channel layer obtained.")
+#     except Exception as e:
+#         print(f"Error getting channel layer: {e}")
+#         return
+#
+#     try:
+#         print("Sending notification via channel layer...")
+#         async_to_sync(channel_layer.group_send)(
+#             'broadcast',
+#             {
+#                 'type': 'notification',
+#                 'message': notification.text,
+#                 'recipient': notification.recipient.email if notification.recipient else None,
+#                 'notification_id': notification.id,
+#                 'application_id': None,
+#                 'seen': notification.seen,
+#             }
+#         )
+#         print("Notification sent successfully.")
+#     except Exception as e:
+#         print(f"Error sending notification: {e}")

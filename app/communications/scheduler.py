@@ -1,15 +1,17 @@
+import asyncio
 from apscheduler.schedulers.background import BackgroundScheduler
+
 from communications.utils import fetch_emails
 
 
 def start_scheduler():
-    # Create a scheduler instance
     scheduler = BackgroundScheduler()
-
-    # Add the fetch_emails task to run every minute
-    scheduler.add_job(fetch_emails, 'interval', minutes=1)  # No need for self
-
-    # Start the scheduler
+    scheduler.add_job(fetch_emails_sync, 'interval', minutes=1)  # Adjust interval as needed
     scheduler.start()
+
+
+def fetch_emails_sync():
+    # Running the async function in a synchronous context
+    asyncio.run(fetch_emails())
 
     print("Scheduler started: Email fetch job will run every minute.")

@@ -1,4 +1,5 @@
 from django.apps import AppConfig
+from django.conf import settings
 
 
 class CommunicationsConfig(AppConfig):
@@ -6,7 +7,8 @@ class CommunicationsConfig(AppConfig):
     name = 'communications'
 
     def ready(self):
-        # Import and start the scheduler only once apps are loaded
-        from .scheduler import start_scheduler
-        print("Starting the scheduler from ready method.")
-        start_scheduler()
+        # Only start the scheduler if not in test mode
+        if not settings.TESTING:
+            from .scheduler import start_scheduler
+            print("Starting the scheduler from ready method.")
+            start_scheduler()
