@@ -16,6 +16,8 @@ from django.core.files.storage import default_storage
 from django.core.mail import EmailMessage
 from email.header import decode_header
 from django.conf import settings
+from django.db import transaction
+
 from core.models import EmailLog, Application, Solicitor, User, AssociatedEmail, Notification, Assignment, UserEmailLog
 from django.core.mail.backends.smtp import EmailBackend
 from django.core.mail import EmailMultiAlternatives
@@ -50,9 +52,6 @@ def find_user_by_email(sender):
 
 def send_email_f(sender, recipient, subject, message, attachments=None, application=None, solicitor_firm=None,
                  email_model=EmailLog, use_info_email=True):
-    """
-    Function to send an email using the SMTP settings.
-    """
     if attachments is None:
         attachments = []
     processed_attachments = []
@@ -61,79 +60,74 @@ def send_email_f(sender, recipient, subject, message, attachments=None, applicat
 
     if attachments:
         for attachment in attachments:
-            original_filenames.append(attachment.name)  # Log original filename
-            # Generate a unique filename with the same extension for logging purposes only
-            unique_filename = f"{uuid.uuid4()}{os.path.splitext(attachment.name)[1]}"
-            file_path = os.path.join('email_attachments', unique_filename)  # Path within the media directory
+            original_filename = getattr(attachment, 'name', 'attachment')  # Safe handling of name
+            original_filenames.append(original_filename)
 
-            # Save the file to the media/email_attachments directory
-            saved_path = default_storage.save(file_path, ContentFile(attachment.read()))  # Save the file content
+            unique_filename = f"{uuid.uuid4()}{os.path.splitext(original_filename)[1]}"
+            file_path = os.path.join('email_attachments', unique_filename)
 
-            # Add the full path to the log
+            saved_path = default_storage.save(file_path, ContentFile(attachment.read()))
             full_file_path = os.path.join(settings.MEDIA_ROOT, saved_path)
             attachment_paths.append(full_file_path)
 
-            # Reopen the file for reading as binary for email attachment
             with open(full_file_path, 'rb') as f:
-                file_data = f.read()  # Read file in binary format
-                processed_attachments.append((attachment.name, file_data, attachment.content_type))
+                file_data = f.read()
+                processed_attachments.append((original_filename, file_data, attachment.content_type))
 
     try:
-        # Create the email message
-        email_message = EmailMessage(
-            subject=subject,
-            body=message,
-            from_email=settings.DEFAULT_FROM_EMAIL if use_info_email else sender,
-            to=[recipient],
-        )
+        # Wrap both the email log saving and email sending in a single transaction
+        with transaction.atomic():
+            # Save the email log in the database first
+            email_log_entry = email_model.objects.create(
+                sender=sender,
+                recipient=recipient,
+                subject=subject,
+                message=message,
+                attachments=attachment_paths,
+                application=application,
+                solicitor_firm=solicitor_firm,
+                seen=True,
+                message_id=str(uuid.uuid4()),  # Generate a unique Message-ID for the log
+                original_filenames=original_filenames if attachments else [],
+                is_sent=True,
+                send_from=settings.DEFAULT_FROM_EMAIL if use_info_email else sender,
+            )
+            print(f"Email successfully logged in the database.")
 
-        # Attach files to the email with their original filenames
-        for file_tuple in processed_attachments:
-            email_message.attach(*file_tuple)  # Attach with original name and binary content
+            # Create the email message
+            email_message = EmailMessage(
+                subject=subject,
+                body=message,
+                from_email=email_log_entry.send_from,
+                to=[recipient],
+            )
 
-        # Set HTML content
-        email_message.content_subtype = 'html'
+            # Attach files to the email with their original filenames
+            for file_tuple in processed_attachments:
+                email_message.attach(*file_tuple)
 
-        # Generate a unique Message-ID
-        message_id = str(uuid.uuid4())
-        email_message.extra_headers = {
-            'Message-ID': message_id,
-            'Content-Type': 'text/html',
-        }
+            email_message.content_subtype = 'html'
+            email_message.extra_headers = {
+                'Message-ID': email_log_entry.message_id,
+                'Content-Type': 'text/html',
+            }
 
-        # Send the email
-        email_backend = EmailBackend()
-        connection = email_backend.open()
+            # Send the email
+            email_backend = EmailBackend()
+            connection = email_backend.open()
 
-        if connection:
-            try:
+            if connection:
                 email_backend.send_messages([email_message])
                 print(f"Email sent successfully to {recipient}")
 
-                # Log the email and attachments
-                email_log_entry = email_model.objects.create(
-                    sender=sender,
-                    recipient=recipient,
-                    subject=subject,
-                    message=message,
-                    attachments=[att.file.name for att in attachments],  # Adjust attachment logic as necessary
-                    application=application,
-                    solicitor_firm=solicitor_firm,
-                    seen=True,
-                    message_id=message_id,
-                    original_filenames=original_filenames if attachments else [],
-                    is_sent=True,
-                    send_from=email_message.from_email,
-                )
-                print(f"Email successfully logged in the database.")
-
-            except Exception as e:
-                print(f"Error sending email to {recipient}: {e}")
-            finally:
-                email_backend.close()
+            # Close the email connection
+            email_backend.close()
 
     except Exception as e:
         print(f"Error occurred: {e}")
+        return {"error": str(e)}
+
+    return {"success": "Email sent and logged successfully"}
 
 
 # Function to Fetch Emails Using IMAP
@@ -206,7 +200,8 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
 
                         if filename:
                             unique_filename = f"{uuid.uuid4()}{os.path.splitext(filename)[1]}"
-                            file_path = os.path.join('email_attachments', unique_filename)
+                            file_path = os.path.join(settings.MEDIA_ROOT, 'email_attachments',
+                                                     unique_filename)  # Use MEDIA_ROOT
 
                             file_content = part.get_payload(decode=True)
                             async with aiofiles.open(file_path, 'wb') as f:

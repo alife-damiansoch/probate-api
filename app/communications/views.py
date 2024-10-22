@@ -353,7 +353,14 @@ class AttachmentDownloadView(APIView):
     @extend_schema(
         summary='Download Email Attachment',
         description='Downloads the specified attachment file from an email based on the email ID and unique filename. Requires authentication.',
-
+        parameters=[
+            OpenApiParameter(
+                name='is_user_email_log',
+                description='Set to true if the email is from UserEmailLog. Default is false.',
+                required=False,
+                type=OpenApiTypes.BOOL
+            )
+        ],
         responses={
             200: {
                 'description': 'File download successful',
@@ -370,8 +377,16 @@ class AttachmentDownloadView(APIView):
         tags=['communications']
     )
     def get(self, request, email_id, filename, *args, **kwargs):
+        # Check if the request should search in UserEmailLog (default is false)
+        is_user_email_log = request.query_params.get('is_user_email_log', 'false').lower() == 'true'
+
         try:
-            email_log = EmailLog.objects.get(id=email_id)
+            if is_user_email_log:
+                # Search in UserEmailLog if parameter is set to true
+                email_log = UserEmailLog.objects.get(id=email_id)
+            else:
+                # Default to EmailLog
+                email_log = EmailLog.objects.get(id=email_id)
 
             # Locate the full file path that ends with the provided unique filename
             file_path = next((path for path in email_log.attachments if os.path.basename(path) == filename), None)
@@ -381,7 +396,7 @@ class AttachmentDownloadView(APIView):
             # Serve the file using FileResponse
             return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
 
-        except EmailLog.DoesNotExist:
+        except (EmailLog.DoesNotExist, UserEmailLog.DoesNotExist):
             return Response({"error": "Email log entry not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
