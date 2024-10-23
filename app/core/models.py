@@ -347,21 +347,44 @@ class Loan(models.Model):
                                     related_name='loans_approved_by')
     last_updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
                                         default=None, related_name='loans_updated_by')
+    # New fields for paid out status
+    is_paid_out = models.BooleanField(default=False)
+    paid_out_date = models.DateField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
         with transaction.atomic():
             if not self.pk:  # pk is None for new objects
                 self.approved_date = timezone.now().date()
+
+            # Set paid_out_date when is_paid_out is True and paid_out_date is not already set
+            if self.is_paid_out and not self.paid_out_date:
+                self.paid_out_date = timezone.now().date()
+            elif not self.is_paid_out:
+                # Clear paid_out_date when is_paid_out is False
+                self.paid_out_date = None
+
             super().save(*args, **kwargs)
+
+            # Auto-approve the related application when a loan is saved, if not already approved
             if self.application and not self.application.approved:
                 self.application.approved = True
                 self.application.save(update_fields=['approved'])
 
     @property
     def maturity_date(self):
+        """
+        Calculate the maturity date based on the paid_out_date if present, otherwise, return None.
+        """
+        # If the loan has not been paid out, return None
+        if not self.paid_out_date:
+            return None
+
+        # Sum the total extension term
         extensions_term_sum = self.extensions.aggregate(total_extension_term=Sum('extension_term_months'))[
                                   'total_extension_term'] or 0
-        return self.approved_date + relativedelta(months=self.term_agreed + extensions_term_sum)
+
+        # Calculate maturity date based on paid_out_date
+        return self.paid_out_date + relativedelta(months=self.term_agreed + extensions_term_sum)
 
     @property
     def current_balance(self):
