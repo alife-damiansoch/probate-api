@@ -279,8 +279,8 @@ class LoanModelTests(TestCase):
         self.assertEqual(loan.amount_paid, loan1.amount_paid)
 
         # Expected maturity date as a date object
-        expected_maturity_date = loan1.approved_date + relativedelta(months=loan1.term_agreed)
-        self.assertEqual(loan.maturity_date, expected_maturity_date)
+
+        self.assertEqual(loan.maturity_date, None)
 
     def test_transactions_and_extensions_affect_balance_and_maturity(self):
         """Test that transactions and extensions affect the loan balance and maturity date correctly"""
@@ -292,6 +292,7 @@ class LoanModelTests(TestCase):
             fee_agreed=fees[1],
             term_agreed=12,
             approved_date=timezone.now().date(),  # Ensure approved_date is a date object
+            is_paid_out=True
         )
 
         models.Transaction.objects.create(loan=loan, amount=transactions[0], created_by=self.user,
@@ -309,7 +310,7 @@ class LoanModelTests(TestCase):
         self.assertEqual(loan.amount_paid, Decimal(sum(transactions)))
 
         # Expected maturity date with extension as a date object
-        expected_maturity_date = loan.approved_date + relativedelta(months=loan.term_agreed + 6)
+        expected_maturity_date = loan.paid_out_date + relativedelta(months=loan.term_agreed + 6)
         self.assertEqual(loan.maturity_date, expected_maturity_date)
 
     def test_creating_loan_updates_application_connected_to_approved(self):

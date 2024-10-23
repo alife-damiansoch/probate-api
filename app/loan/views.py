@@ -120,12 +120,33 @@ class LoanExtensionViewSet(viewsets.ModelViewSet):
 @extend_schema_view(
     list=extend_schema(
         summary='Retrieve all loans {-Works only for staff users-}',
-        description='Returns  all loans.',
+        description='Returns all loans with optional filters for status, assignment, payout status, and sorting.',
         tags=['loans'],
         parameters=[
-            OpenApiParameter(name='status',
-                             description='Filter by application status - optional (active,settled)',
-                             required=False, type=str),
+            OpenApiParameter(
+                name='status',
+                description='Filter by loan status - optional (active, settled)',
+                required=False,
+                type=str
+            ),
+            OpenApiParameter(
+                name='assigned',
+                description='Filter by whether the loan is assigned to the logged-in user - optional (true, false)',
+                required=False,
+                type=str
+            ),
+            OpenApiParameter(
+                name='old_to_new',
+                description='Sort by loan ID from old to new (true) or new to old (default)',
+                required=False,
+                type=str
+            ),
+            OpenApiParameter(
+                name='not_paid_out_only',
+                description='Filter loans that are not paid out - optional (true, false)',
+                required=False,
+                type=str
+            ),
         ]
     ),
     retrieve=extend_schema(
@@ -133,25 +154,21 @@ class LoanExtensionViewSet(viewsets.ModelViewSet):
         description='Returns detailed information about a loan.',
         tags=['loans'],
     ),
-
     create=extend_schema(
         summary='Create a new loan {-Works only for staff users-}',
         description='Creates a new loan and returns information about the created loan.',
         tags=['loans']
     ),
-
     update=extend_schema(
         summary='Update a loan {-Works only for staff users-}',
         description='Updates an existing loan and returns information about the updated loan.',
         tags=['loans']
     ),
-
     partial_update=extend_schema(
         summary='Partially update a loan {-Works only for staff users-}',
         description='Partially updates an existing loan and returns information about the updated loan.',
         tags=['loans']
     ),
-
     destroy=extend_schema(
         summary='Delete a loan {-Works only for staff users-}',
         description='Deletes an existing loan and does not return any content.',
@@ -159,7 +176,7 @@ class LoanExtensionViewSet(viewsets.ModelViewSet):
     )
 )
 class LoanViewSet(viewsets.ModelViewSet):
-    """View for manage Loan Apis"""
+    """View for managing Loan APIs"""
     authentication_classes = (JWTAuthentication,)
     permission_classes = [IsAuthenticated, IsStaff]
     queryset = Loan.objects.all()
@@ -172,6 +189,7 @@ class LoanViewSet(viewsets.ModelViewSet):
         stat = self.request.query_params.get('status', None)
         assigned = self.request.query_params.get('assigned', None)
         old_to_new = self.request.query_params.get('old_to_new', None)
+        not_paid_out_only = self.request.query_params.get('not_paid_out_only', None)
 
         if assigned is not None:
             if assigned.lower() == "true":
@@ -185,11 +203,17 @@ class LoanViewSet(viewsets.ModelViewSet):
             elif stat == 'settled':
                 queryset = queryset.filter(is_settled=True)
 
+        if not_paid_out_only is not None:
+            if not_paid_out_only.lower() == "true":
+                queryset = queryset.filter(is_paid_out=False)
+
         if old_to_new is not None:
             if old_to_new == "true":
                 return queryset.order_by('id')
         else:
             return queryset.order_by('-id')
+
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(approved_by=self.request.user)

@@ -42,6 +42,8 @@ class UserAdmin(BaseUserAdmin):
     list_display = ["email", "name"]
     actions = ['delete_selected_with_tokens']
 
+    filter_horizontal = ('teams',)  # This adds a more user-friendly interface for selecting teams
+
     def delete_selected_with_tokens(self, request, queryset):
         for obj in queryset:
             # Delete related tokens of the user
@@ -51,7 +53,7 @@ class UserAdmin(BaseUserAdmin):
     delete_selected_with_tokens.short_description = 'Delete selected users with related tokens'
 
     fieldsets = (
-        (None, {"fields": ("email", "password", "team", "phone_number", "name", "address")}),
+        (None, {"fields": ("email", "password", "teams", "phone_number", "name", "address")}),
         (
             _("Permissions"),
             {"fields": (
@@ -79,7 +81,7 @@ class UserAdmin(BaseUserAdmin):
                 "password1",
                 "password2",
                 "name",
-                "team",
+                "teams",
                 "is_active",
                 "is_staff",
                 "is_superuser",
@@ -200,14 +202,13 @@ class LoanAdmin(admin.ModelAdmin):
                 "application", "amount_agreed", 'fee_agreed', "term_agreed", "approved_date",
                 "approved_by", "last_updated_by",)
         }),
-        (_("Settled Info"), {
+        (_("Settled / Paid_out Info"), {
             "fields": (
-                "is_settled", "settled_date"),
-
+                "is_paid_out", "paid_out_date"
+                , "is_settled", "settled_date",),  # Added new fields here
         }),
         (_("Read-only Info"), {
             "fields": ("maturity_date", "current_balance", "amount_paid", "extension_fees_total",),
-
         }),
     )
 
@@ -216,7 +217,8 @@ class LoanAdmin(admin.ModelAdmin):
         "extension_fees_total")
     ordering = ["id"]
     inlines = [TransactionInline, LoanExtensionInline]
-    list_display = ["id", "application", "amount_agreed", "term_agreed", "approved_by", "last_updated_by"]
+    list_display = ["id", "application", "amount_agreed", "term_agreed", "approved_by", "last_updated_by",
+                    "is_paid_out"]  # Added `is_paid_out` to list_display
 
     def save_model(self, request, obj, form, change):
         if not obj.pk:  # If object is being created
