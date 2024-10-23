@@ -42,12 +42,13 @@ class AddressSerializer(serializers.ModelSerializer):
 
 class UserListSerializer(serializers.ModelSerializer):
     """Serializer for listing users, returns only id and email fields"""
+    teams = TeamSerializer(many=True)
     applications = serializers.SerializerMethodField()
 
     class Meta:
         model = get_user_model()
-        fields = ['id', 'email', 'name', 'team', 'is_active', 'is_staff', 'is_superuser', 'applications']
-        read_only_fields = ['id', 'email', 'name', 'team', 'is_active', 'is_staff', 'is_superuser', 'applications']
+        fields = ['id', 'email', 'name', 'teams', 'is_active', 'is_staff', 'is_superuser', 'applications']
+        read_only_fields = ['id', 'email', 'name', 'teams', 'is_active', 'is_staff', 'is_superuser', 'applications']
 
     def get_applications(self, user) -> list:
         applications = Application.objects.filter(assigned_to=user)
@@ -57,14 +58,14 @@ class UserListSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for the User model"""
     address = AddressSerializer(required=False, default=None)
-    team = TeamSerializer(required=False, default=None)
+    teams = TeamSerializer(many=True, required=False, default=None)
 
     class Meta:
         model = get_user_model()
-        fields = ['id', 'email', 'password', 'name', 'phone_number', 'address', 'team', 'is_active', 'is_staff',
+        fields = ['id', 'email', 'password', 'name', 'phone_number', 'address', 'teams', 'is_active', 'is_staff',
                   'is_superuser']
         extra_kwargs = {'password': {'write_only': True, 'min_length': 5}}
-        read_only_fields = ('id', 'is_active', 'is_staff', 'is_superuser', 'team')
+        read_only_fields = ('id', 'is_active', 'is_staff', 'is_superuser', 'teams')
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
@@ -77,7 +78,7 @@ class UserSerializer(serializers.ModelSerializer):
         else:
             address = None  # if no address is provided in validated_data, assign None to address
 
-        validated_data.pop('team')
+        validated_data.pop('teams')
 
         phone_number = validated_data.pop('phone_number', None)
         if phone_number and not phone_number.startswith('+'):

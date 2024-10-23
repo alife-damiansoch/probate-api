@@ -110,7 +110,7 @@ class Address(models.Model):
 class User(AbstractBaseUser, PermissionsMixin):
     """User in the system"""
     email = models.EmailField(unique=True, max_length=255)
-    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, default=None)
+    teams = models.ManyToManyField(Team, blank=True, related_name='users')  # Changed to ManyToManyField
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     name = models.CharField(max_length=255)

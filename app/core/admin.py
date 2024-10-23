@@ -42,6 +42,8 @@ class UserAdmin(BaseUserAdmin):
     list_display = ["email", "name"]
     actions = ['delete_selected_with_tokens']
 
+    filter_horizontal = ('teams',)  # This adds a more user-friendly interface for selecting teams
+
     def delete_selected_with_tokens(self, request, queryset):
         for obj in queryset:
             # Delete related tokens of the user
@@ -51,7 +53,7 @@ class UserAdmin(BaseUserAdmin):
     delete_selected_with_tokens.short_description = 'Delete selected users with related tokens'
 
     fieldsets = (
-        (None, {"fields": ("email", "password", "team", "phone_number", "name", "address")}),
+        (None, {"fields": ("email", "password", "teams", "phone_number", "name", "address")}),
         (
             _("Permissions"),
             {"fields": (
@@ -79,7 +81,7 @@ class UserAdmin(BaseUserAdmin):
                 "password1",
                 "password2",
                 "name",
-                "team",
+                "teams",
                 "is_active",
                 "is_staff",
                 "is_superuser",

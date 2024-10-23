@@ -247,7 +247,7 @@ async def fetch_emails():
 
     # Fetch emails for users who are staff and belong to the "agents" team
     # Using sync_to_async to perform the Django ORM query in an async context
-    users = await sync_to_async(lambda: list(User.objects.filter(is_staff=True, team__name="agents")))()
+    users = await sync_to_async(lambda: list(User.objects.filter(is_staff=True, teams__name="agents")))()
 
     # Create a list of tasks for each user
     tasks = [
