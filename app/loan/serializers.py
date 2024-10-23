@@ -73,7 +73,7 @@ class LoanSerializer(serializers.ModelSerializer):
         model = Loan
         fields = ['id', 'amount_agreed', 'fee_agreed', 'amount_paid', 'extension_fees_total', 'current_balance',
                   'term_agreed', 'approved_date', 'is_settled', 'settled_date', 'maturity_date', 'approved_by_email',
-                  'last_updated_by_email', 'application', 'assigned_to_email']
+                  'last_updated_by_email', 'application', 'assigned_to_email', 'is_paid_out', 'paid_out_date']
         read_only_fields = ['id', 'extension_fees_total', 'current_balance', 'maturity_date', 'approved_by_email',
                             'last_updated_by_email']
         extra_kwargs = {"application": {'required': True}}
