@@ -92,9 +92,12 @@ from core.models import Document
         description='Search applications by passing any property from the model. Supports date range for date fields and foreign key filters. Excludes loans.',
         tags=['agent_application'],
         parameters=[
-            # Application ID and term
+            # Application ID and term range
             OpenApiParameter(name='id', description='Filter by application ID', required=False, type=int),
-            OpenApiParameter(name='term', description='Filter by term in months', required=False, type=int),
+            OpenApiParameter(name='from_term', description='Filter by minimum term in months (From term)',
+                             required=False, type=int),
+            OpenApiParameter(name='to_term', description='Filter by maximum term in months (To term)', required=False,
+                             type=int),
 
             # Amount range (grouped together)
             OpenApiParameter(name='from_amount', description='Filter by minimum amount (From amount)', required=False,
@@ -163,19 +166,24 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
     def search_applications(self, request):
         """
         Search all applications based on any model field, supporting foreign key and date filtering.
-        Returns application IDs and user information ordered by ID in descending order.
+        Returns application IDs, user information, and amount ordered by ID in descending order.
         """
         queryset = self.queryset
 
         # Filtering by application fields
         filter_params = {
             'id': request.query_params.get('id'),
-            'term': request.query_params.get('term'),
             'approved': (request.query_params.get('approved').lower() == 'true') if request.query_params.get(
                 'approved') else None,
             'is_rejected': (request.query_params.get('is_rejected').lower() == 'true') if request.query_params.get(
                 'is_rejected') else None,
         }
+
+        # Term filtering: from_term and to_term
+        from_term = request.query_params.get('from_term')
+        to_term = request.query_params.get('to_term')
+        if from_term and to_term:
+            queryset = queryset.filter(term__gte=from_term, term__lte=to_term)
 
         # Date filtering: from and to for 'date_submitted'
         date_from = request.query_params.get('from_date_submitted')
@@ -212,8 +220,8 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
             if value is not None:
                 queryset = queryset.filter(**{key: value})
 
-        # Select only application ID and related user info, ordered by ID in descending order
-        application_data = queryset.order_by('-id').values('id', 'user__id', 'user__email', 'user__name')
+        # Select application ID, amount, and related user info, ordered by ID in descending order
+        application_data = queryset.order_by('-id').values('id', 'amount', 'user__id', 'user__email', 'user__name')
 
         return Response(application_data, status=status.HTTP_200_OK)
 
