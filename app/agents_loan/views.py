@@ -166,7 +166,7 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
     def search_applications(self, request):
         """
         Search all applications based on any model field, supporting foreign key and date filtering.
-        Returns application IDs, user information, and amount ordered by ID in descending order.
+        Returns the whole application data using AgentApplicationDetailSerializer.
         """
         queryset = self.queryset
 
@@ -220,10 +220,10 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
             if value is not None:
                 queryset = queryset.filter(**{key: value})
 
-        # Select application ID, amount, and related user info, ordered by ID in descending order
-        application_data = queryset.order_by('-id').values('id', 'amount', 'user__id', 'user__email', 'user__name')
+        # Serialize the entire application data using AgentApplicationDetailSerializer
+        serializer = serializers.AgentApplicationDetailSerializer(queryset, many=True)
 
-        return Response(application_data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'])
     def all_application_ids(self, request):
