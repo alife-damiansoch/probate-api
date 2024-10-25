@@ -8,6 +8,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.db import transaction
 from django.http import JsonResponse, Http404, HttpResponseForbidden, HttpResponse, HttpResponseNotFound
 from django.shortcuts import get_object_or_404
+from drf_spectacular.types import OpenApiTypes
 
 from rest_framework import (viewsets, status)
 from rest_framework.decorators import action
@@ -85,7 +86,46 @@ from core.models import Document
                              description='The ID of the user whose applications you want to retrieve.',
                              required=True, type=int)
         ]
+    ),
+    search_applications=extend_schema(
+        summary='Search applications based on any field {-Works only for staff users-}',
+        description='Search applications by passing any property from the model. Supports date range for date fields and foreign key filters. Excludes loans.',
+        tags=['agent_application'],
+        parameters=[
+            # Application ID and term range
+            OpenApiParameter(name='id', description='Filter by application ID', required=False, type=int),
+            OpenApiParameter(name='from_term', description='Filter by minimum term in months (From term)',
+                             required=False, type=int),
+            OpenApiParameter(name='to_term', description='Filter by maximum term in months (To term)', required=False,
+                             type=int),
+
+            # Amount range (grouped together)
+            OpenApiParameter(name='from_amount', description='Filter by minimum amount (From amount)', required=False,
+                             type=float),
+            OpenApiParameter(name='to_amount', description='Filter by maximum amount (To amount)', required=False,
+                             type=float),
+
+            # Date range for date_submitted (grouped together)
+            OpenApiParameter(name='from_date_submitted', description='Start date range for date_submitted (From date)',
+                             required=False, type=OpenApiTypes.DATE),
+            OpenApiParameter(name='to_date_submitted', description='End date range for date_submitted (To date)',
+                             required=False, type=OpenApiTypes.DATE),
+
+            # Boolean filters
+            OpenApiParameter(name='approved', description='Filter by approval status (true/false)', required=False,
+                             type=bool),
+            OpenApiParameter(name='is_rejected', description='Filter by rejection status (true/false)', required=False,
+                             type=bool),
+
+            # Foreign key filters
+            OpenApiParameter(name='user_id', description='Filter by user ID', required=False, type=int),
+            OpenApiParameter(name='applicant_id', description='Filter by applicant ID', required=False, type=int),
+            OpenApiParameter(name='solicitor_id', description='Filter by solicitor ID', required=False, type=int),
+            OpenApiParameter(name='assigned_to_id', description='Filter by assigned to user ID', required=False,
+                             type=int),
+        ]
     )
+
 )
 class AgentApplicationViewSet(viewsets.ModelViewSet):
     """Viewset for applications"""
@@ -121,6 +161,69 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
                 return queryset.order_by('id')
         else:
             return queryset.order_by('-id')
+
+    @action(detail=False, methods=['get'], url_path='search-applications')
+    def search_applications(self, request):
+        """
+        Search all applications based on any model field, supporting foreign key and date filtering.
+        Returns application IDs, user information, and amount ordered by ID in descending order.
+        """
+        queryset = self.queryset
+
+        # Filtering by application fields
+        filter_params = {
+            'id': request.query_params.get('id'),
+            'approved': (request.query_params.get('approved').lower() == 'true') if request.query_params.get(
+                'approved') else None,
+            'is_rejected': (request.query_params.get('is_rejected').lower() == 'true') if request.query_params.get(
+                'is_rejected') else None,
+        }
+
+        # Term filtering: from_term and to_term
+        from_term = request.query_params.get('from_term')
+        to_term = request.query_params.get('to_term')
+        if from_term and to_term:
+            queryset = queryset.filter(term__gte=from_term, term__lte=to_term)
+
+        # Date filtering: from and to for 'date_submitted'
+        date_from = request.query_params.get('from_date_submitted')
+        date_to = request.query_params.get('to_date_submitted')
+        if date_from and date_to:
+            queryset = queryset.filter(date_submitted__range=[date_from, date_to])
+
+        # Amount filtering: from_amount and to_amount
+        from_amount = request.query_params.get('from_amount')
+        to_amount = request.query_params.get('to_amount')
+        if from_amount and to_amount:
+            queryset = queryset.filter(amount__gte=from_amount, amount__lte=to_amount)
+
+        # Foreign key filtering
+        user_id = request.query_params.get('user_id')
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+
+        solicitor_id = request.query_params.get('solicitor_id')
+        if solicitor_id:
+            queryset = queryset.filter(solicitor_id=solicitor_id)
+
+        assigned_to_id = request.query_params.get('assigned_to_id')
+        if assigned_to_id:
+            queryset = queryset.filter(assigned_to_id=assigned_to_id)
+
+        # Applicant filtering: applicant_id
+        applicant_id = request.query_params.get('applicant_id')
+        if applicant_id:
+            queryset = queryset.filter(applicants__id=applicant_id)
+
+        # Apply additional filters from the filter_params dictionary
+        for key, value in filter_params.items():
+            if value is not None:
+                queryset = queryset.filter(**{key: value})
+
+        # Select application ID, amount, and related user info, ordered by ID in descending order
+        application_data = queryset.order_by('-id').values('id', 'amount', 'user__id', 'user__email', 'user__name')
+
+        return Response(application_data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'])
     def all_application_ids(self, request):
