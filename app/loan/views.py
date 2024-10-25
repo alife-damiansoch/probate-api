@@ -372,6 +372,9 @@ class LoanViewSet(viewsets.ModelViewSet):
 
             queryset = queryset.filter(pk__in=[loan.pk for loan in filtered_loans])
 
+        # Optimize related object fetching with select_related and prefetch_related
+        queryset = queryset.select_related('application').prefetch_related('extensions')
+
         # Remove duplicate loans from the queryset
         queryset = queryset.distinct()
 

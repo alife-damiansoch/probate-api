@@ -220,6 +220,10 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
             if value is not None:
                 queryset = queryset.filter(**{key: value})
 
+        # Optimize related object fetching with select_related and prefetch_related
+        queryset = queryset.select_related('user', 'solicitor', 'assigned_to').order_by("-id").prefetch_related(
+            'applicants')
+
         # Serialize the entire application data using AgentApplicationDetailSerializer
         serializer = serializers.AgentApplicationDetailSerializer(queryset, many=True)
 

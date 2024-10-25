@@ -216,6 +216,16 @@ class Application(models.Model):
         Solicitor, on_delete=models.PROTECT, null=True, blank=True, related_name='applications'
     )
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['date_submitted']),
+            models.Index(fields=['term']),
+            models.Index(fields=['amount']),
+            models.Index(fields=['user']),
+            models.Index(fields=['solicitor']),
+            models.Index(fields=['assigned_to']),
+        ]
+
     def value_of_the_estate_after_expenses(self):
         estates_sum = self.estates.aggregate(total_estate_value=Sum('value'))['total_estate_value'] or 0
         expenses_sum = self.expenses.aggregate(total_expense_value=Sum('value'))['total_expense_value'] or 0
@@ -350,6 +360,17 @@ class Loan(models.Model):
     # New fields for paid out status
     is_paid_out = models.BooleanField(default=False)
     paid_out_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['amount_agreed']),
+            models.Index(fields=['fee_agreed']),
+            models.Index(fields=['term_agreed']),
+            models.Index(fields=['settled_date']),
+            models.Index(fields=['paid_out_date']),
+            models.Index(fields=['is_settled']),
+            models.Index(fields=['is_paid_out']),
+        ]
 
     def save(self, *args, **kwargs):
         with transaction.atomic():
