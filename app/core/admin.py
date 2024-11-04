@@ -200,12 +200,16 @@ class LoanAdmin(admin.ModelAdmin):
         (_("Loan Details"), {
             "fields": (
                 "application", "amount_agreed", 'fee_agreed', "term_agreed", "approved_date",
-                "approved_by", "last_updated_by",)
+                "approved_by", "last_updated_by", "needs_committee_approval", "is_committee_approved",
+            )
         }),
         (_("Settled / Paid_out Info"), {
             "fields": (
-                "is_paid_out", "paid_out_date"
-                , "is_settled", "settled_date",),  # Added new fields here
+                "is_paid_out", "paid_out_date", "is_settled", "settled_date",
+            ),
+        }),
+        (_("Committee Approval Status"), {
+            "fields": ("committee_approvements_status",),  # Display committee approval status
         }),
         (_("Read-only Info"), {
             "fields": ("maturity_date", "current_balance", "amount_paid", "extension_fees_total",),
@@ -214,11 +218,14 @@ class LoanAdmin(admin.ModelAdmin):
 
     readonly_fields = (
         'application', "maturity_date", "current_balance", "amount_paid", "last_updated_by", "approved_by",
-        "extension_fees_total")
+        "extension_fees_total", "committee_approvements_status",  # Adding `committee_approvements_status`
+    )
     ordering = ["id"]
     inlines = [TransactionInline, LoanExtensionInline]
-    list_display = ["id", "application", "amount_agreed", "term_agreed", "approved_by", "last_updated_by",
-                    "is_paid_out"]  # Added `is_paid_out` to list_display
+    list_display = [
+        "id", "application", "amount_agreed", "term_agreed", "approved_by", "last_updated_by",
+        "is_paid_out", "needs_committee_approval", "is_committee_approved",  # Added new fields to list_display
+    ]
 
     def save_model(self, request, obj, form, change):
         if not obj.pk:  # If object is being created

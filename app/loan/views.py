@@ -6,7 +6,7 @@ from datetime import datetime
 from django.db.models import Sum
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter, OpenApiTypes, OpenApiExample
 from rest_framework import (viewsets, )
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
@@ -15,7 +15,7 @@ import agents_loan.serializers as AgentLoanSerializers
 from app.pagination import CustomPageNumberPagination
 from .permissions import IsStaff
 
-from core.models import Loan, Transaction, LoanExtension
+from core.models import Loan, Transaction, LoanExtension, CommitteeApproval
 from loan import serializers
 
 from dateutil.relativedelta import relativedelta
@@ -25,6 +25,8 @@ from rest_framework.decorators import action
 from rest_framework import status
 from django.db.models import DateField
 from django.db.models.functions import Cast
+
+from .utils import check_committee_approval
 
 
 @extend_schema_view(
@@ -231,6 +233,64 @@ class LoanViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         serializer.save(last_updated_by=self.request.user)
+
+    @extend_schema(
+        summary='Approve or Reject Loan {-Committee Members only-}',
+        description='Allows committee members to approve or reject a loan. A rejection reason is required if rejecting.',
+        tags=['loans'],
+        request={
+            'application/json': OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Approve Loan',
+                value={
+                    'approved': True
+                },
+                description="Example request body for approving a loan."
+            ),
+            OpenApiExample(
+                'Reject Loan with Reason',
+                value={
+                    'approved': False,
+                    'rejection_reason': 'Insufficient documentation provided'
+                },
+                description="Example request body for rejecting a loan, with a required reason."
+            )
+        ],
+        responses={200: OpenApiTypes.OBJECT}
+    )
+    @action(detail=True, methods=['post'])
+    def approve_loan(self, request, pk=None):
+
+        loan = self.get_object()
+        member = request.user
+        approved = request.data.get('approved')
+        approved = approved.lower() == 'true' if isinstance(approved, str) else bool(approved)
+        rejection_reason = request.data.get('rejection_reason')
+
+        if not member.teams.filter(name="committee_members").exists():
+            return Response(
+                {"detail": "You are not authorized to approve this loan."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Ensure rejection reason is provided if loan is being rejected
+        if not approved and rejection_reason is None:
+            return Response(
+                {"detail": "Rejection reason is required when rejecting a loan."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Register the approval or rejection
+        approval, created = CommitteeApproval.objects.update_or_create(
+            loan=loan, member=member,
+            defaults={'approved': approved, 'rejection_reason': rejection_reason}
+        )
+
+        # Check if the loan now meets the approval or rejection requirements
+        check_committee_approval(loan, request_user=request.user)
+        return Response({"detail": "Your decision has been recorded."}, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary='Advanced search for loans {-Works only for staff users-}',

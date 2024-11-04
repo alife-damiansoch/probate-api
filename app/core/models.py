@@ -357,6 +357,10 @@ class Loan(models.Model):
                                     related_name='loans_approved_by')
     last_updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
                                         default=None, related_name='loans_updated_by')
+    # Fields for CommitteeApproval functionality
+    needs_committee_approval = models.BooleanField(default=False)
+    is_committee_approved = models.BooleanField(default=False)
+
     # New fields for paid out status
     is_paid_out = models.BooleanField(default=False)
     paid_out_date = models.DateField(null=True, blank=True)
@@ -370,11 +374,13 @@ class Loan(models.Model):
             models.Index(fields=['paid_out_date']),
             models.Index(fields=['is_settled']),
             models.Index(fields=['is_paid_out']),
+            models.Index(fields=['is_committee_approved']),
+            models.Index(fields=['needs_committee_approval']),
         ]
 
     def save(self, *args, **kwargs):
         with transaction.atomic():
-            if not self.pk:  # pk is None for new objects
+            if not self.pk:  # Only set approved_date for new objects
                 self.approved_date = timezone.now().date()
 
             # Set paid_out_date when is_paid_out is True and paid_out_date is not already set
@@ -384,12 +390,24 @@ class Loan(models.Model):
                 # Clear paid_out_date when is_paid_out is False
                 self.paid_out_date = None
 
+            # Set needs_committee_approval based on amount_agreed
+            if self.amount_agreed >= settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL:
+                self.needs_committee_approval = True
+            else:
+                self.needs_committee_approval = False
+                # If committee approval is not needed, reset is_committee_approved
+                self.is_committee_approved = False
+
             super().save(*args, **kwargs)
 
             # Auto-approve the related application when a loan is saved, if not already approved
             if self.application and not self.application.approved:
                 self.application.approved = True
                 self.application.save(update_fields=['approved'])
+
+            # Notify committee members if needs_committee_approval is set to True
+            if self.needs_committee_approval:
+                self.notify_committee_members()
 
     @property
     def maturity_date(self):
@@ -423,9 +441,61 @@ class Loan(models.Model):
     def extension_fees_total(self):
         return self.extensions.aggregate(total_extension_fee=Sum('extension_fee'))['total_extension_fee'] or 0
 
+    @property
+    def committee_approvements_status(self):
+        # Check if there are any recorded approvals or rejections
+        approvals = self.committee_approvals.filter(approved=True)
+        rejections = self.committee_approvals.filter(approved=False)
+        total_interactions = approvals.count() + rejections.count()
+
+        if total_interactions == 0:
+            return "No interactions recorded"
+
+        # Get lists of emails for each status
+        approved_emails = [approval.member.email for approval in approvals]
+        rejected_emails = [rejection.member.email for rejection in rejections]
+        all_committee_members = User.objects.filter(teams__name="committee_members")
+
+        # Exclude members who have already responded
+        pending_emails = [
+            member.email for member in all_committee_members
+            if member.email not in approved_emails and member.email not in rejected_emails
+        ]
+
+        # Build the status message
+        status_message = "Committee Approval Status:\n"
+        if approved_emails:
+            status_message += f"Approved by: {', '.join(approved_emails)}\n"
+        if rejected_emails:
+            status_message += f"Rejected by: {', '.join(rejected_emails)}\n"
+        if pending_emails:
+            status_message += f"No response from: {', '.join(pending_emails)}"
+
+        return status_message
+
     def first_applicant(self):
         applicant = self.application.applicants.first()
         return str(applicant) if applicant else 'No applicants'
+
+    def notify_committee_members(self):
+        # TODO Logic to notify the stakeholders that the loan needs their approval
+        pass
+
+
+class CommitteeApproval(models.Model):
+    loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name="committee_approvals")
+    member = models.ForeignKey(User, on_delete=models.CASCADE)
+    approved = models.BooleanField(default=False)
+    rejection_reason = models.TextField(null=True, blank=True)  # Required when rejected
+    decision_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('loan', 'member')
+
+    def clean(self):
+        # Ensure rejection_reason is provided when approved is False
+        if not self.approved and not self.rejection_reason:
+            raise ValidationError("Rejection reason is required when rejecting a loan.")
 
 
 class Transaction(models.Model):
