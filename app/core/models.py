@@ -359,7 +359,7 @@ class Loan(models.Model):
                                         default=None, related_name='loans_updated_by')
     # Fields for CommitteeApproval functionality
     needs_committee_approval = models.BooleanField(default=False)
-    is_committee_approved = models.BooleanField(default=False)
+    is_committee_approved = models.BooleanField(null=True, default=None)
 
     # New fields for paid out status
     is_paid_out = models.BooleanField(default=False)
@@ -396,7 +396,7 @@ class Loan(models.Model):
             else:
                 self.needs_committee_approval = False
                 # If committee approval is not needed, reset is_committee_approved
-                self.is_committee_approved = False
+                # self.is_committee_approved = False
 
             super().save(*args, **kwargs)
 

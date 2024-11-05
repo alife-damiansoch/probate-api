@@ -218,7 +218,7 @@ class LoanAdmin(admin.ModelAdmin):
 
     readonly_fields = (
         'application', "maturity_date", "current_balance", "amount_paid", "last_updated_by", "approved_by",
-        "extension_fees_total", "committee_approvements_status",  # Adding `committee_approvements_status`
+        "extension_fees_total", "committee_approvements_status",
     )
     ordering = ["id"]
     inlines = [TransactionInline, LoanExtensionInline]

@@ -343,6 +343,20 @@ class LoanViewSet(viewsets.ModelViewSet):
                              required=False, type=int),
             OpenApiParameter(name='application_assigned_to_id', description='Filter by application assigned to user ID',
                              required=False, type=int),
+
+            # New boolean filters for committee approval fields
+            OpenApiParameter(
+                name='needs_committee_approval',
+                description='Filter by needs committee approval status (true/false)',
+                required=False,
+                type=bool
+            ),
+            OpenApiParameter(
+                name='is_committee_approved',
+                description='Filter by committee approval status (true/false/null)',
+                required=False,
+                type=str  # Using string type to handle nullable boolean
+            ),
         ]
     )
     @action(detail=False, methods=['get'], url_path='search-advanced-loans')
@@ -408,6 +422,19 @@ class LoanViewSet(viewsets.ModelViewSet):
         if application_assigned_to_id:
             queryset = queryset.filter(application__assigned_to_id=application_assigned_to_id)
 
+            # Filter by needs_committee_approval (boolean)
+        needs_committee_approval = request.query_params.get('needs_committee_approval')
+        if needs_committee_approval is not None:
+            queryset = queryset.filter(needs_committee_approval=(needs_committee_approval.lower() == 'true'))
+
+        # Filter by is_committee_approved (nullable boolean)
+        is_committee_approved = request.query_params.get('is_committee_approved')
+        if is_committee_approved is not None:
+            if is_committee_approved.lower() == 'null':
+                queryset = queryset.filter(is_committee_approved__isnull=True)
+            else:
+                queryset = queryset.filter(is_committee_approved=(is_committee_approved.lower() == 'true'))
+                
         # Maturity date filtering (handled manually)
         from_maturity_date = request.query_params.get('from_maturity_date')
         to_maturity_date = request.query_params.get('to_maturity_date')
