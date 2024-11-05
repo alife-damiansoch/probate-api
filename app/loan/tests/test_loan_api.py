@@ -191,6 +191,7 @@ class PrivateLoanAPI(APITestCase):
 
     def test_needs_committee_approval_set_automatically(self):
         """Test that needs_committee_approval is set to True if amount_agreed >= 1,000,000"""
+        print("Test that needs_committee_approval is set to True if amount_agreed >= 1,000,000")
         data = {
             'application': create_application(self.user).id,
             'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL,  # threshold amount
@@ -205,6 +206,7 @@ class PrivateLoanAPI(APITestCase):
 
     def test_needs_committee_approval_set_to_false_below_threshold(self):
         """Test that needs_committee_approval is False if amount_agreed < 1,000,000"""
+        print("Test that needs_committee_approval is False if amount_agreed < 1,000,000")
         data = {
             'application': create_application(self.user).id,
             'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL - 100_000,  # below threshold
@@ -219,6 +221,7 @@ class PrivateLoanAPI(APITestCase):
 
     def test_committee_member_can_approve_loan(self):
         """Test that a committee member can approve a loan that requires committee approval"""
+        print("Test that a committee member can approve a loan that requires committee approval")
 
         # Create a loan with amount_agreed >= 1,000,000 to trigger committee approval
         data = {
@@ -234,7 +237,7 @@ class PrivateLoanAPI(APITestCase):
 
         # Simulate a committee member approving the loan
         committee_member = get_user_model().objects.create_user(
-            email='committee@example.com',
+            email='damiansoch@hotmail.com',
             password='testpass',
             is_staff=True,
         )
@@ -252,6 +255,7 @@ class PrivateLoanAPI(APITestCase):
 
     def test_committee_member_can_reject_loan_with_reason(self):
         """Test that a committee member can reject a loan and must provide a rejection reason"""
+        print("Test that a committee member can reject a loan and must provide a rejection reason")
 
         # Create a loan with amount_agreed >= 1,000,000 to trigger committee approval
         data = {
@@ -267,7 +271,7 @@ class PrivateLoanAPI(APITestCase):
 
         # Simulate a committee member rejecting the loan without a reason (should fail)
         committee_member = get_user_model().objects.create_user(
-            email='committee@example.com',
+            email='damiansoch@hotmail.com',
             password='testpass',
             is_staff=True,
         )
@@ -289,6 +293,7 @@ class PrivateLoanAPI(APITestCase):
 
     def test_committee_approvements_status_no_interactions(self):
         """Test that the status message is 'No interactions recorded' when no approvals or rejections exist."""
+        print("Test that the status message is 'No interactions recorded' when no approvals or rejections exist.")
         loan_data = {
             'application': create_application(self.user).id,
             'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL + 100_000,
@@ -303,6 +308,7 @@ class PrivateLoanAPI(APITestCase):
 
     def test_committee_approvements_status_with_approval(self):
         """Test that the status message reflects approvals by committee members."""
+        print("Test that the status message reflects approvals by committee members.")
         # Create loan that needs committee approval
         loan_data = {
             'application': create_application(self.user).id,
@@ -330,6 +336,7 @@ class PrivateLoanAPI(APITestCase):
 
     def test_committee_approvements_status_with_rejection(self):
         """Test that the status message reflects rejections by committee members with reasons."""
+        print("Test that the status message reflects rejections by committee members with reasons.")
         # Create loan that needs committee approval
         loan_data = {
             'application': create_application(self.user).id,
@@ -358,6 +365,7 @@ class PrivateLoanAPI(APITestCase):
 
     def test_committee_approvements_status_pending_responses(self):
         """Test that the status message includes pending committee members."""
+        print("Test that the status message includes pending committee members.")
 
         # Create loan that needs committee approval
         loan_data = {
@@ -398,6 +406,7 @@ class PrivateLoanAPI(APITestCase):
 
     def test_notification_created_on_loan_approval(self):
         """Test that a notification is created when a loan is approved by the committee"""
+        print("Test that a notification is created when a loan is approved by the committee")
 
         # Create a loan that requires committee approval
         data = {
@@ -413,7 +422,7 @@ class PrivateLoanAPI(APITestCase):
 
         # Simulate a committee member approving the loan
         committee_member = get_user_model().objects.create_user(
-            email='committee@example.com',
+            email='damiansoch@hotmail.com',
             password='testpass',
             is_staff=True,
         )
@@ -437,6 +446,7 @@ class PrivateLoanAPI(APITestCase):
 
     def test_notification_created_on_loan_rejection(self):
         """Test that a notification is created when a loan is rejected by the committee"""
+        print("Test that a notification is created when a loan is rejected by the committee")
 
         # Create a loan that requires committee approval
         data = {
@@ -452,7 +462,7 @@ class PrivateLoanAPI(APITestCase):
 
         # Simulate a committee member rejecting the loan
         committee_member = get_user_model().objects.create_user(
-            email='committee@example.com',
+            email='damiansoch@hotmail.com',
             password='testpass',
             is_staff=True,
         )

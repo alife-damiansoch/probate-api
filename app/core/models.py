@@ -478,8 +478,34 @@ class Loan(models.Model):
         return str(applicant) if applicant else 'No applicants'
 
     def notify_committee_members(self):
-        # TODO Logic to notify the stakeholders that the loan needs their approval
-        pass
+        from communications.utils import send_email_f  # importing it here because of the circular import
+        committee_members = User.objects.filter(teams__name='committee_members')
+
+        notification_message = ""
+        for member in committee_members:
+            res = send_email_f(
+                sender=settings.DEFAULT_FROM_EMAIL,
+                recipient=member.email,
+                subject=f'Committee Approval notification',
+                message=f'Advancement: {self.id}, application:{self.application.id} needs committee approval',
+                application=self.application,
+                solicitor_firm=self.application.user,
+
+            )
+            notification_message += f'Advancement committee approval {res}. Send to {member.email}\n'
+        try:
+            # print("Creating notification object...")
+            notification = Notification.objects.create(
+                recipient=None,
+                text=notification_message,
+                seen=False,
+                created_by=None,
+                application=self.application,
+            )
+            # print(f"Notification created: {notification.id}")
+        except Exception as e:
+            print(f"Error creating notification: {e}")
+            return
 
 
 class CommitteeApproval(models.Model):
