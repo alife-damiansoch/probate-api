@@ -159,6 +159,12 @@ class LoanExtensionViewSet(viewsets.ModelViewSet):
                 required=False,
                 type=str
             ),
+            OpenApiParameter(
+                name='awaiting_approval_only',
+                description='Filter loans that are awaiting approval from the committee - optional (true, false)',
+                required=False,
+                type=str
+            ),
         ]
     ),
     retrieve=extend_schema(
@@ -202,6 +208,7 @@ class LoanViewSet(viewsets.ModelViewSet):
         assigned = self.request.query_params.get('assigned', None)
         old_to_new = self.request.query_params.get('old_to_new', None)
         not_paid_out_only = self.request.query_params.get('not_paid_out_only', None)
+        awaiting_approval_only = self.request.query_params.get('awaiting_approval_only', None)
 
         if assigned is not None:
             if assigned.lower() == "true":
@@ -214,6 +221,10 @@ class LoanViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(is_settled=False)
             elif stat == 'settled':
                 queryset = queryset.filter(is_settled=True)
+
+        if awaiting_approval_only is not None:
+            if awaiting_approval_only.lower() == "true":
+                queryset = queryset.filter(needs_committee_approval=True, is_committee_approved__isnull=True)
 
         if not_paid_out_only is not None:
             if not_paid_out_only.lower() == "true":
@@ -434,7 +445,7 @@ class LoanViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(is_committee_approved__isnull=True)
             else:
                 queryset = queryset.filter(is_committee_approved=(is_committee_approved.lower() == 'true'))
-                
+
         # Maturity date filtering (handled manually)
         from_maturity_date = request.query_params.get('from_maturity_date')
         to_maturity_date = request.query_params.get('to_maturity_date')

@@ -380,34 +380,32 @@ class Loan(models.Model):
 
     def save(self, *args, **kwargs):
         with transaction.atomic():
-            if not self.pk:  # Only set approved_date for new objects
+            is_new = self.pk is None  # Check if the instance is new
+
+            if is_new:
+                # Set approved_date for new objects
                 self.approved_date = timezone.now().date()
 
-            # Set paid_out_date when is_paid_out is True and paid_out_date is not already set
+                # Determine if committee approval is needed
+                self.needs_committee_approval = self.amount_agreed >= settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL
+
+            # Set or clear paid_out_date based on is_paid_out
             if self.is_paid_out and not self.paid_out_date:
                 self.paid_out_date = timezone.now().date()
             elif not self.is_paid_out:
-                # Clear paid_out_date when is_paid_out is False
                 self.paid_out_date = None
 
-            # Set needs_committee_approval based on amount_agreed
-            if self.amount_agreed >= settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL:
-                self.needs_committee_approval = True
-            else:
-                self.needs_committee_approval = False
-                # If committee approval is not needed, reset is_committee_approved
-                # self.is_committee_approved = False
-
+            # Save the instance to ensure self.id is assigned
             super().save(*args, **kwargs)
 
-            # Auto-approve the related application when a loan is saved, if not already approved
+            # Notify committee members if approval is needed and this is a new instance
+            if is_new and self.needs_committee_approval:
+                self.notify_committee_members()
+
+            # Auto-approve the related application if not already approved
             if self.application and not self.application.approved:
                 self.application.approved = True
                 self.application.save(update_fields=['approved'])
-
-            # Notify committee members if needs_committee_approval is set to True
-            if self.needs_committee_approval:
-                self.notify_committee_members()
 
     @property
     def maturity_date(self):
@@ -453,7 +451,11 @@ class Loan(models.Model):
 
         # Get lists of emails for each status
         approved_emails = [approval.member.email for approval in approvals]
-        rejected_emails = [rejection.member.email for rejection in rejections]
+        rejected_emails = [rejection.member.email for rejection in rejections]  # Emails only for pending check
+        rejected_emails_with_reasons = [
+            f"{rejection.member.email} \n<strong >Reason:</strong> {rejection.rejection_reason or 'No reason provided'}"
+            for rejection in rejections
+        ]
         all_committee_members = User.objects.filter(teams__name="committee_members")
 
         # Exclude members who have already responded
@@ -463,13 +465,13 @@ class Loan(models.Model):
         ]
 
         # Build the status message
-        status_message = "Committee Approval Status:\n"
+        status_message = "<h5>Committee Approval Status:</h5>\n"
         if approved_emails:
-            status_message += f"Approved by: {', '.join(approved_emails)}\n"
-        if rejected_emails:
-            status_message += f"Rejected by: {', '.join(rejected_emails)}\n"
+            status_message += f"<strong>Approved by:\n</strong> {', '.join(approved_emails)}<hr />"
+        if rejected_emails_with_reasons:
+            status_message += f"<strong>Rejected by:\n</strong> {', '.join(rejected_emails_with_reasons)}<hr />"
         if pending_emails:
-            status_message += f"No response from: {', '.join(pending_emails)}"
+            status_message += f"<strong>No response from:\n</strong> {', '.join(pending_emails)}<hr />"
 
         return status_message
 
@@ -522,6 +524,9 @@ class CommitteeApproval(models.Model):
         # Ensure rejection_reason is provided when approved is False
         if not self.approved and not self.rejection_reason:
             raise ValidationError("Rejection reason is required when rejecting a loan.")
+
+    def __str__(self):
+        return f"{self.loan} - {self.member} - {'Approved' if self.approved else 'Rejected'}"
 
 
 class Transaction(models.Model):
@@ -681,3 +686,4 @@ auditlog.register(Document)
 auditlog.register(Loan)
 auditlog.register(SignedDocumentLog)
 auditlog.register(EmailLog)
+auditlog.register(CommitteeApproval)
