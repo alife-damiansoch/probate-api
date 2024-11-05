@@ -228,8 +228,10 @@ class LoanViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(approved_by=self.request.user)
-        serializer.save(approved_date=timezone.now().date())
+        serializer.save(
+            approved_by=self.request.user,
+            approved_date=timezone.now().date()
+        )
 
     def perform_update(self, serializer):
         serializer.save(last_updated_by=self.request.user)
