@@ -480,6 +480,7 @@ class Loan(models.Model):
         return str(applicant) if applicant else 'No applicants'
 
     def notify_committee_members(self):
+
         from communications.utils import send_email_f  # importing it here because of the circular import
         committee_members = User.objects.filter(teams__name='committee_members')
 
