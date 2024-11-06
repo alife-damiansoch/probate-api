@@ -364,6 +364,7 @@ class Loan(models.Model):
     # New fields for paid out status
     is_paid_out = models.BooleanField(default=False)
     paid_out_date = models.DateField(null=True, blank=True)
+    pay_out_reference_number = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         indexes = [
@@ -376,6 +377,7 @@ class Loan(models.Model):
             models.Index(fields=['is_paid_out']),
             models.Index(fields=['is_committee_approved']),
             models.Index(fields=['needs_committee_approval']),
+            models.Index(fields=["pay_out_reference_number"])
         ]
 
     def save(self, *args, **kwargs):

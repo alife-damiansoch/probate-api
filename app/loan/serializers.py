@@ -76,6 +76,7 @@ class LoanSerializer(serializers.ModelSerializer):
             'id', 'amount_agreed', 'fee_agreed', 'amount_paid', 'extension_fees_total', 'current_balance',
             'term_agreed', 'approved_date', 'is_settled', 'settled_date', 'maturity_date', 'approved_by_email',
             'last_updated_by_email', 'application', 'assigned_to_email', 'is_paid_out', 'paid_out_date',
+            'pay_out_reference_number',
             'committee_approvements_status', 'needs_committee_approval', 'is_committee_approved'
             # New fields added here
         ]

@@ -206,7 +206,7 @@ class LoanAdmin(admin.ModelAdmin):
         }),
         (_("Settled / Paid_out Info"), {
             "fields": (
-                "is_paid_out", "paid_out_date", "is_settled", "settled_date",
+                "is_paid_out", "paid_out_date", "pay_out_reference_number", "is_settled", "settled_date",
             ),
         }),
         (_("Committee Approval Status"), {
@@ -514,7 +514,7 @@ class AssociatedEmailAdmin(admin.ModelAdmin):
 @admin.register(CommitteeApproval)
 class CommitteeApprovalAdmin(admin.ModelAdmin):
     list_display = ('loan', 'member', 'approved', 'rejection_reason', 'decision_date')
-    list_filter = ('approved', 'member')  # Filter options for approved status and member
+    list_filter = ('approved',)  # Filter options for approved status and member
     search_fields = ('loan__id',)  # Enable search by loan ID
     ordering = ['loan', 'member']  # Sort by loan and member for better readability
     readonly_fields = ('decision_date', 'loan', 'member')  # Make decision_date read-only
