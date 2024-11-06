@@ -6,7 +6,7 @@ from datetime import datetime
 from django.db.models import Sum
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter, OpenApiTypes, OpenApiExample
 from rest_framework import (viewsets, )
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
@@ -15,7 +15,7 @@ import agents_loan.serializers as AgentLoanSerializers
 from app.pagination import CustomPageNumberPagination
 from .permissions import IsStaff
 
-from core.models import Loan, Transaction, LoanExtension
+from core.models import Loan, Transaction, LoanExtension, CommitteeApproval
 from loan import serializers
 
 from dateutil.relativedelta import relativedelta
@@ -25,6 +25,8 @@ from rest_framework.decorators import action
 from rest_framework import status
 from django.db.models import DateField
 from django.db.models.functions import Cast
+
+from .utils import check_committee_approval
 
 
 @extend_schema_view(
@@ -157,6 +159,12 @@ class LoanExtensionViewSet(viewsets.ModelViewSet):
                 required=False,
                 type=str
             ),
+            OpenApiParameter(
+                name='awaiting_approval_only',
+                description='Filter loans that are awaiting approval from the committee - optional (true, false)',
+                required=False,
+                type=str
+            ),
         ]
     ),
     retrieve=extend_schema(
@@ -200,6 +208,7 @@ class LoanViewSet(viewsets.ModelViewSet):
         assigned = self.request.query_params.get('assigned', None)
         old_to_new = self.request.query_params.get('old_to_new', None)
         not_paid_out_only = self.request.query_params.get('not_paid_out_only', None)
+        awaiting_approval_only = self.request.query_params.get('awaiting_approval_only', None)
 
         if assigned is not None:
             if assigned.lower() == "true":
@@ -212,6 +221,10 @@ class LoanViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(is_settled=False)
             elif stat == 'settled':
                 queryset = queryset.filter(is_settled=True)
+
+        if awaiting_approval_only is not None:
+            if awaiting_approval_only.lower() == "true":
+                queryset = queryset.filter(needs_committee_approval=True, is_committee_approved__isnull=True)
 
         if not_paid_out_only is not None:
             if not_paid_out_only.lower() == "true":
@@ -226,11 +239,71 @@ class LoanViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(approved_by=self.request.user)
-        serializer.save(approved_date=timezone.now().date())
+        serializer.save(
+            approved_by=self.request.user,
+            approved_date=timezone.now().date()
+        )
 
     def perform_update(self, serializer):
         serializer.save(last_updated_by=self.request.user)
+
+    @extend_schema(
+        summary='Approve or Reject Loan {-Committee Members only-}',
+        description='Allows committee members to approve or reject a loan. A rejection reason is required if rejecting.',
+        tags=['loans'],
+        request={
+            'application/json': OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Approve Loan',
+                value={
+                    'approved': True
+                },
+                description="Example request body for approving a loan."
+            ),
+            OpenApiExample(
+                'Reject Loan with Reason',
+                value={
+                    'approved': False,
+                    'rejection_reason': 'Insufficient documentation provided'
+                },
+                description="Example request body for rejecting a loan, with a required reason."
+            )
+        ],
+        responses={200: OpenApiTypes.OBJECT}
+    )
+    @action(detail=True, methods=['post'])
+    def approve_loan(self, request, pk=None):
+
+        loan = self.get_object()
+        member = request.user
+        approved = request.data.get('approved')
+        approved = approved.lower() == 'true' if isinstance(approved, str) else bool(approved)
+        rejection_reason = request.data.get('rejection_reason')
+
+        if not member.teams.filter(name="committee_members").exists():
+            return Response(
+                {"detail": "You are not authorized to approve this loan."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Ensure rejection reason is provided if loan is being rejected
+        if not approved and rejection_reason is None:
+            return Response(
+                {"detail": "Rejection reason is required when rejecting a loan."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Register the approval or rejection
+        approval, created = CommitteeApproval.objects.update_or_create(
+            loan=loan, member=member,
+            defaults={'approved': approved, 'rejection_reason': rejection_reason}
+        )
+
+        # Check if the loan now meets the approval or rejection requirements
+        check_committee_approval(loan, request_user=request.user)
+        return Response({"detail": "Your decision has been recorded."}, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary='Advanced search for loans {-Works only for staff users-}',
@@ -281,6 +354,20 @@ class LoanViewSet(viewsets.ModelViewSet):
                              required=False, type=int),
             OpenApiParameter(name='application_assigned_to_id', description='Filter by application assigned to user ID',
                              required=False, type=int),
+
+            # New boolean filters for committee approval fields
+            OpenApiParameter(
+                name='needs_committee_approval',
+                description='Filter by needs committee approval status (true/false)',
+                required=False,
+                type=bool
+            ),
+            OpenApiParameter(
+                name='is_committee_approved',
+                description='Filter by committee approval status (true/false/null)',
+                required=False,
+                type=str  # Using string type to handle nullable boolean
+            ),
         ]
     )
     @action(detail=False, methods=['get'], url_path='search-advanced-loans')
@@ -345,6 +432,19 @@ class LoanViewSet(viewsets.ModelViewSet):
         application_assigned_to_id = request.query_params.get('application_assigned_to_id')
         if application_assigned_to_id:
             queryset = queryset.filter(application__assigned_to_id=application_assigned_to_id)
+
+            # Filter by needs_committee_approval (boolean)
+        needs_committee_approval = request.query_params.get('needs_committee_approval')
+        if needs_committee_approval is not None:
+            queryset = queryset.filter(needs_committee_approval=(needs_committee_approval.lower() == 'true'))
+
+        # Filter by is_committee_approved (nullable boolean)
+        is_committee_approved = request.query_params.get('is_committee_approved')
+        if is_committee_approved is not None:
+            if is_committee_approved.lower() == 'null':
+                queryset = queryset.filter(is_committee_approved__isnull=True)
+            else:
+                queryset = queryset.filter(is_committee_approved=(is_committee_approved.lower() == 'true'))
 
         # Maturity date filtering (handled manually)
         from_maturity_date = request.query_params.get('from_maturity_date')

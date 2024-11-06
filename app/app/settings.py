@@ -16,6 +16,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+TESTING = 'test' in sys.argv
+
 # Load environment variables from the .env file
 load_dotenv()
 
@@ -40,6 +42,12 @@ IMAP_SERVER = os.getenv('IMAP_SERVER')
 IMAP_PORT = int(os.getenv('IMAP_PORT', 993))  # Convert to int
 IMAP_USER = os.getenv('IMAP_USER')
 IMAP_PASSWORD = os.getenv('IMAP_PASSWORD')
+
+# LOAN
+ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL = float(os.getenv("ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL", 1000000))
+COMMITTEE_MEMBERS_COUNT_REQUIRED_FOR_APPROVAL = int(os.getenv("COMMITTEE_MEMBERS_COUNT_REQUIRED_FOR_APPROVAL", 1))
+if TESTING:
+    COMMITTEE_MEMBERS_COUNT_REQUIRED_FOR_APPROVAL = 1
 
 # Application definition
 
@@ -237,8 +245,6 @@ SPECTACULAR_SETTINGS = {
 }
 
 ASGI_APPLICATION = 'app.routing.application'
-
-TESTING = 'test' in sys.argv
 
 CHANNEL_LAYERS = {
     "default": {

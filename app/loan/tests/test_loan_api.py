@@ -5,14 +5,15 @@ Test loan api
 import json
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
-from core.models import (Application, Deceased, Loan, )
+from app import settings
+from core.models import (Application, Deceased, Loan, Team, CommitteeApproval, Notification, )
 
 from loan.serializers import (LoanSerializer, )
 
@@ -187,3 +188,298 @@ class PrivateLoanAPI(APITestCase):
         self.assertIsNotNone(serializer.data['approved_date'])
         self.assertFalse(serializer.data['is_settled'])
         self.assertIsNone(serializer.data['last_updated_by_email'])
+
+    def test_needs_committee_approval_set_automatically(self):
+        """Test that needs_committee_approval is set to True if amount_agreed >= 1,000,000"""
+        print("Test that needs_committee_approval is set to True if amount_agreed >= 1,000,000")
+        data = {
+            'application': create_application(self.user).id,
+            'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL,  # threshold amount
+            'fee_agreed': 2000.00,
+            'term_agreed': 12,
+            'is_settled': False,
+        }
+        response = self.client.post(self.LOANS_URL, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        loan = Loan.objects.get(id=response.data['id'])
+        self.assertTrue(loan.needs_committee_approval)
+
+    def test_needs_committee_approval_set_to_false_below_threshold(self):
+        """Test that needs_committee_approval is False if amount_agreed < 1,000,000"""
+        print("Test that needs_committee_approval is False if amount_agreed < 1,000,000")
+        data = {
+            'application': create_application(self.user).id,
+            'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL - 100_000,  # below threshold
+            'fee_agreed': 2000.00,
+            'term_agreed': 12,
+            'is_settled': False,
+        }
+        response = self.client.post(self.LOANS_URL, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        loan = Loan.objects.get(id=response.data['id'])
+        self.assertFalse(loan.needs_committee_approval)
+
+    def test_committee_member_can_approve_loan(self):
+        """Test that a committee member can approve a loan that requires committee approval"""
+        print("Test that a committee member can approve a loan that requires committee approval")
+
+        # Create a loan with amount_agreed >= 1,000,000 to trigger committee approval
+        data = {
+            'application': create_application(self.user).id,
+            'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL + 100_000,
+            'fee_agreed': 2000.00,
+            'term_agreed': 12,
+            'is_settled': False,
+        }
+        response = self.client.post(self.LOANS_URL, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        loan = Loan.objects.get(id=response.data['id'])
+
+        # Simulate a committee member approving the loan
+        committee_member = get_user_model().objects.create_user(
+            email='damiansoch@hotmail.com',
+            password='testpass',
+            is_staff=True,
+        )
+        team = Team.objects.create(name="committee_members")
+        committee_member.teams.set([team.id])  # Use .set() for many-to-many assignment
+        self.client.force_authenticate(user=committee_member)
+
+        approve_url = reverse('loans:loan-approve-loan', args=[loan.id])
+        response = self.client.post(approve_url, {'approved': True})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Check if committee approval status is updated based on the threshold criteria
+        loan.refresh_from_db()
+        self.assertTrue(loan.is_committee_approved)
+
+    def test_committee_member_can_reject_loan_with_reason(self):
+        """Test that a committee member can reject a loan and must provide a rejection reason"""
+        print("Test that a committee member can reject a loan and must provide a rejection reason")
+
+        # Create a loan with amount_agreed >= 1,000,000 to trigger committee approval
+        data = {
+            'application': create_application(self.user).id,
+            'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL,
+            'fee_agreed': 2000.00,
+            'term_agreed': 12,
+            'is_settled': False,
+        }
+        response = self.client.post(self.LOANS_URL, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        loan = Loan.objects.get(id=response.data['id'])
+
+        # Simulate a committee member rejecting the loan without a reason (should fail)
+        committee_member = get_user_model().objects.create_user(
+            email='damiansoch@hotmail.com',
+            password='testpass',
+            is_staff=True,
+        )
+        team = Team.objects.create(name="committee_members")
+        committee_member.teams.set([team.id])  # Use .set() for many-to-many assignment
+        self.client.force_authenticate(user=committee_member)
+
+        approve_url = reverse('loans:loan-approve-loan', args=[loan.id])
+        response = self.client.post(approve_url, {'approved': False})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Retry with a rejection reason
+        response = self.client.post(approve_url, {'approved': False, 'rejection_reason': 'Insufficient collateral'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Ensure the loan is not committee-approved due to rejection
+        loan.refresh_from_db()
+        self.assertFalse(loan.is_committee_approved)
+
+    def test_committee_approvements_status_no_interactions(self):
+        """Test that the status message is 'No interactions recorded' when no approvals or rejections exist."""
+        print("Test that the status message is 'No interactions recorded' when no approvals or rejections exist.")
+        loan_data = {
+            'application': create_application(self.user).id,
+            'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL + 100_000,
+            'fee_agreed': 2000.00,
+            'term_agreed': 12,
+            'is_settled': False,
+        }
+        loan_response = self.client.post(self.LOANS_URL, loan_data)
+        loan_instance = Loan.objects.get(id=loan_response.data['id'])
+
+        self.assertEqual(loan_instance.committee_approvements_status, "No interactions recorded")
+
+    def test_committee_approvements_status_with_approval(self):
+        """Test that the status message reflects approvals by committee members."""
+        print("Test that the status message reflects approvals by committee members.")
+        # Create loan that needs committee approval
+        loan_data = {
+            'application': create_application(self.user).id,
+            'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL + 100_000,
+            'fee_agreed': 2000.00,
+            'term_agreed': 12,
+            'is_settled': False,
+        }
+        loan_response = self.client.post(self.LOANS_URL, loan_data)
+        loan_instance = Loan.objects.get(id=loan_response.data['id'])
+
+        # Add a committee member and approve the loan
+        approving_member = get_user_model().objects.create_user(
+            email='committee@example.com',
+            password='testpass',
+            is_staff=True,
+        )
+        committee_team = Team.objects.create(name="committee_members")
+        approving_member.teams.set([committee_team.id])
+        CommitteeApproval.objects.create(loan=loan_instance, member=approving_member, approved=True)
+
+        # Check that the approval is reflected in the status
+        expected_status = f"Committee Approval Status:\nApproved by: {approving_member.email}\n"
+        self.assertEqual(loan_instance.committee_approvements_status, expected_status)
+
+    def test_committee_approvements_status_with_rejection(self):
+        """Test that the status message reflects rejections by committee members with reasons."""
+        print("Test that the status message reflects rejections by committee members with reasons.")
+        # Create loan that needs committee approval
+        loan_data = {
+            'application': create_application(self.user).id,
+            'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL + 100_000,
+            'fee_agreed': 2000.00,
+            'term_agreed': 12,
+            'is_settled': False,
+        }
+        loan_response = self.client.post(self.LOANS_URL, loan_data)
+        loan_instance = Loan.objects.get(id=loan_response.data['id'])
+
+        # Add a committee member and reject the loan with a reason
+        rejecting_member = get_user_model().objects.create_user(
+            email='committee@example.com',
+            password='testpass',
+            is_staff=True,
+        )
+        committee_team = Team.objects.create(name="committee_members")
+        rejecting_member.teams.set([committee_team.id])
+        CommitteeApproval.objects.create(loan=loan_instance, member=rejecting_member, approved=False,
+                                         rejection_reason="Not sufficient")
+
+        # Check that the rejection is reflected in the status
+        expected_status = f"Committee Approval Status:\nRejected by: {rejecting_member.email}\n"
+        self.assertEqual(loan_instance.committee_approvements_status, expected_status)
+
+    def test_committee_approvements_status_pending_responses(self):
+        """Test that the status message includes pending committee members."""
+        print("Test that the status message includes pending committee members.")
+
+        # Create loan that needs committee approval
+        loan_data = {
+            'application': create_application(self.user).id,
+            'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL + 100_000,
+            'fee_agreed': 2000.00,
+            'term_agreed': 12,
+            'is_settled': False,
+        }
+        loan_response = self.client.post(self.LOANS_URL, loan_data)
+        loan_instance = Loan.objects.get(id=loan_response.data['id'])
+
+        # Add two committee members, one approves and the other does not respond
+        approving_member = get_user_model().objects.create_user(
+            email='committee1@example.com',
+            password='testpass',
+            is_staff=True,
+        )
+        pending_member = get_user_model().objects.create_user(
+            email='committee2@example.com',
+            password='testpass',
+            is_staff=True,
+        )
+        committee_team = Team.objects.create(name="committee_members")
+        approving_member.teams.set([committee_team.id])
+        pending_member.teams.set([committee_team.id])
+
+        # First member approves
+        CommitteeApproval.objects.create(loan=loan_instance, member=approving_member, approved=True)
+
+        # Expected status should show one approval and one pending response
+        expected_status = (
+            f"Committee Approval Status:\n"
+            f"Approved by: {approving_member.email}\n"
+            f"No response from: {pending_member.email}"
+        )
+        self.assertEqual(loan_instance.committee_approvements_status, expected_status)
+
+    def test_notification_created_on_loan_approval(self):
+        """Test that a notification is created when a loan is approved by the committee"""
+        print("Test that a notification is created when a loan is approved by the committee")
+
+        # Create a loan that requires committee approval
+        data = {
+            'application': create_application(self.user).id,
+            'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL + 100_000,
+            'fee_agreed': 2000.00,
+            'term_agreed': 12,
+            'is_settled': False,
+        }
+        response = self.client.post(self.LOANS_URL, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        loan = Loan.objects.get(id=response.data['id'])
+
+        # Simulate a committee member approving the loan
+        committee_member = get_user_model().objects.create_user(
+            email='damiansoch@hotmail.com',
+            password='testpass',
+            is_staff=True,
+        )
+        team = Team.objects.create(name="committee_members")
+        committee_member.teams.set([team.id])  # Assign committee member to team
+        self.client.force_authenticate(user=committee_member)
+
+        # Approve the loan
+        approve_url = reverse('loans:loan-approve-loan', args=[loan.id])
+        response = self.client.post(approve_url, {'approved': True})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check that a notification was created
+        notification = Notification.objects.filter(application=loan.application,
+                                                   text__contains='has been approved').first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.text, f'Advancement: {loan.id} has been approved by committee members')
+        self.assertFalse(notification.seen)
+        self.assertEqual(notification.created_by, committee_member)
+        self.assertEqual(notification.recipient, loan.application.assigned_to)
+
+    def test_notification_created_on_loan_rejection(self):
+        """Test that a notification is created when a loan is rejected by the committee"""
+        print("Test that a notification is created when a loan is rejected by the committee")
+
+        # Create a loan that requires committee approval
+        data = {
+            'application': create_application(self.user).id,
+            'amount_agreed': settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL + 100_000,
+            'fee_agreed': 2000.00,
+            'term_agreed': 12,
+            'is_settled': False,
+        }
+        response = self.client.post(self.LOANS_URL, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        loan = Loan.objects.get(id=response.data['id'])
+
+        # Simulate a committee member rejecting the loan
+        committee_member = get_user_model().objects.create_user(
+            email='damiansoch@hotmail.com',
+            password='testpass',
+            is_staff=True,
+        )
+        team = Team.objects.create(name="committee_members")
+        committee_member.teams.set([team.id])  # Assign committee member to team
+        self.client.force_authenticate(user=committee_member)
+
+        # Reject the loan with a reason
+        reject_url = reverse('loans:loan-approve-loan', args=[loan.id])
+        response = self.client.post(reject_url, {'approved': False, 'rejection_reason': 'Insufficient collateral'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check that a notification was created
+        notification = Notification.objects.filter(application=loan.application,
+                                                   text__contains='has been rejected').first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.text, f'Advancement: {loan.id} has been rejected by committee members')
+        self.assertFalse(notification.seen)
+        self.assertEqual(notification.created_by, committee_member)
+        self.assertEqual(notification.recipient, loan.application.assigned_to)

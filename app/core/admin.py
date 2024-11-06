@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django import forms
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 from rangefilter.filters import DateRangeFilter
 
@@ -15,7 +16,7 @@ from django.utils.html import format_html
 
 from core import models
 from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog, \
-    AssociatedEmail, UserEmailLog
+    AssociatedEmail, UserEmailLog, CommitteeApproval
 
 from rest_framework.authtoken.models import Token
 
@@ -200,12 +201,16 @@ class LoanAdmin(admin.ModelAdmin):
         (_("Loan Details"), {
             "fields": (
                 "application", "amount_agreed", 'fee_agreed', "term_agreed", "approved_date",
-                "approved_by", "last_updated_by",)
+                "approved_by", "last_updated_by", "needs_committee_approval", "is_committee_approved",
+            )
         }),
         (_("Settled / Paid_out Info"), {
             "fields": (
-                "is_paid_out", "paid_out_date"
-                , "is_settled", "settled_date",),  # Added new fields here
+                "is_paid_out", "paid_out_date", "is_settled", "settled_date",
+            ),
+        }),
+        (_("Committee Approval Status"), {
+            "fields": ("committee_approvements_status",),  # Display committee approval status
         }),
         (_("Read-only Info"), {
             "fields": ("maturity_date", "current_balance", "amount_paid", "extension_fees_total",),
@@ -214,11 +219,14 @@ class LoanAdmin(admin.ModelAdmin):
 
     readonly_fields = (
         'application', "maturity_date", "current_balance", "amount_paid", "last_updated_by", "approved_by",
-        "extension_fees_total")
+        "extension_fees_total", "committee_approvements_status",
+    )
     ordering = ["id"]
     inlines = [TransactionInline, LoanExtensionInline]
-    list_display = ["id", "application", "amount_agreed", "term_agreed", "approved_by", "last_updated_by",
-                    "is_paid_out"]  # Added `is_paid_out` to list_display
+    list_display = [
+        "id", "application", "amount_agreed", "term_agreed", "approved_by", "last_updated_by",
+        "is_paid_out", "needs_committee_approval", "is_committee_approved",  # Added new fields to list_display
+    ]
 
     def save_model(self, request, obj, form, change):
         if not obj.pk:  # If object is being created
@@ -501,3 +509,28 @@ admin.site.register(UserEmailLog, EmailLogAdmin)
 @admin.register(AssociatedEmail)
 class AssociatedEmailAdmin(admin.ModelAdmin):
     search_fields = ['user__email']  # Enables search by user email
+
+
+@admin.register(CommitteeApproval)
+class CommitteeApprovalAdmin(admin.ModelAdmin):
+    list_display = ('loan', 'member', 'approved', 'rejection_reason', 'decision_date')
+    list_filter = ('approved', 'member')  # Filter options for approved status and member
+    search_fields = ('loan__id',)  # Enable search by loan ID
+    ordering = ['loan', 'member']  # Sort by loan and member for better readability
+    readonly_fields = ('decision_date', 'loan', 'member')  # Make decision_date read-only
+
+    fieldsets = (
+        (None, {
+            'fields': ('loan', 'member', 'approved', 'rejection_reason')
+        }),
+        ('Decision Info', {
+            'fields': ('decision_date',),
+
+        }),
+    )
+
+    # Override save_model to provide custom messaging if needed
+    def save_model(self, request, obj, form, change):
+        if not obj.approved and not obj.rejection_reason:
+            self.message_user(request, "Please provide a rejection reason when rejecting.", level='error')
+        super().save_model(request, obj, form, change)
