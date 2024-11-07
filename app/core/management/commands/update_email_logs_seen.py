@@ -3,6 +3,24 @@ from core.models import EmailLog  # Update this import based on where your model
 
 
 class Command(BaseCommand):
+    """
+       Django management command to update all sent EmailLogs to mark them as seen.
+
+       This command:
+       1. Retrieves all `EmailLog` entries where `is_sent=True` and `seen=False`.
+       2. Updates the `seen` field to `True` for each matching entry, indicating the emails have been viewed.
+
+       If no matching entries are found, a warning message is displayed.
+
+       Attributes:
+       - help (str): A brief description of the command.
+
+       Methods:
+       - handle: Main method that performs the update, displaying the number of records updated or a warning if none are found.
+
+       Usage:
+       Run this command from the command line with `python manage.py <command_name>`.
+       """
     help = "Update all EmailLogs where is_sent=True to set seen=True"
 
     def handle(self, *args, **kwargs):

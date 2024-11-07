@@ -16,53 +16,15 @@ from django.db.models import ForeignKey, Sum
 from django.conf import settings
 
 import uuid
-import os
-import re
+
 from django.core.exceptions import ValidationError
 
 from django.utils.functional import cached_property
 
+from core.utils import validate_eircode, validate_irish_phone_number, get_application_document_file_path
+
 
 # helper function to get file name for the documents uploaded
-def get_application_document_file_path(instance, filename):
-    """Generate a file path for an application document."""
-    ext = os.path.splitext(filename)[1]
-    filename = f"{uuid.uuid4()}{ext}"
-
-    return os.path.join('uploads', 'application', filename)
-
-
-def validate_eircode(value):
-    value = value.upper()  # Convert to uppercase
-    """Check if the given value is a valid Eircode"""
-    # Regular expression for the routing key (general rule)
-    rk_regex = r'^[ACDEFHKNPRTVWXY][0-9][0-9W]$'
-    # Regular expression for unique identifier
-    ui_regex = r'^[ACDEFHKNPRTVWXY0-9]{4}$'
-
-    routing_key = value[:3]  # First 3 characters
-    unique_identifier = value[3:]  # Last 4 characters
-
-    if not re.match(rk_regex, routing_key):
-        raise ValidationError(
-            f'{value} is not a valid Eircode, invalid routing key',
-            params={'value': value},
-        )
-
-    if not re.match(ui_regex, unique_identifier):
-        raise ValidationError(
-            f'{value} is not a valid Eircode, invalid unique identifier',
-            params={'value': value},
-        )
-
-
-def validate_irish_phone_number(value):
-    """ Check if the value is a valid Irish phone number """
-    pattern = r'^(?:\+353|0)[124679]?\d{7,9}$'
-    if not re.match(pattern, value):
-        raise ValidationError(
-            f"{value} is not a valid Irish phone number. Please enter phone number in the format: '+353999999999' or '0999999999'",
-        )
 
 
 # region <Creating custom user model in django with extra fields name and team>
@@ -124,9 +86,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.name}  -  {self.email}"
-
-
-from django.db import models
 
 
 class Solicitor(models.Model):
@@ -443,6 +402,30 @@ class Loan(models.Model):
 
     @property
     def committee_approvements_status(self):
+        """
+            Generates a summary of the committee approval status, detailing approvals, rejections, and pending responses.
+
+            This property method:
+            1. Checks if there are any recorded approvals or rejections by committee members for a particular item.
+            2. Collects emails of committee members who have approved, rejected (including rejection reasons), or have not yet responded.
+            3. Builds a formatted HTML string that outlines the approval status, listing members who approved, members who rejected (with reasons), and members with no response.
+
+            Returns:
+            - str: An HTML-formatted status message with sections for approved, rejected, and pending members.
+
+            Example:
+            - Output:
+              ```
+              <h5>Committee Approval Status:</h5>
+              <strong>Approved by:</strong> member1@example.com, member2@example.com<hr />
+              <strong>Rejected by:</strong> member3@example.com <strong>Reason:</strong> Reason for rejection<hr />
+              <strong>No response from:</strong> member4@example.com, member5@example.com<hr />
+              ```
+
+            Notes:
+            - If there are no recorded interactions, returns "No interactions recorded".
+            - Committee members are identified as users in the "committee_members" team.
+            """
         # Check if there are any recorded approvals or rejections
         approvals = self.committee_approvals.filter(approved=True)
         rejections = self.committee_approvals.filter(approved=False)
