@@ -6,6 +6,7 @@ import re
 
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.db import transaction
+from django.db.models import Q
 from django.http import JsonResponse, Http404, HttpResponseForbidden, HttpResponse, HttpResponseNotFound
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
@@ -112,9 +113,13 @@ from core.models import Document
                              required=False, type=OpenApiTypes.DATE),
 
             # Boolean filters
-            OpenApiParameter(name='approved', description='Filter by approval status (true/false)', required=False,
+            OpenApiParameter(name='approved',
+                             description='Filter by approval status (true/false). This is based on the application, but also commitee approval status if applicable',
+                             required=False,
                              type=bool),
-            OpenApiParameter(name='is_rejected', description='Filter by rejection status (true/false)', required=False,
+            OpenApiParameter(name='is_rejected',
+                             description='Filter by rejection status (true/false). This is based on the application, but also commitee approval status if applicable',
+                             required=False,
                              type=bool),
 
             # Foreign key filters
@@ -148,13 +153,39 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
             if assigned == "false":
                 queryset = queryset.filter(assigned_to=None)
 
+            # Filter based on status parameter
         if stat is not None:
             if stat == 'active':
-                queryset = queryset.filter(is_rejected=False, approved=False)
+                # Include applications that are not rejected and not approved
+                # Also include approved applications with loans that need committee approval but are not yet approved
+                queryset = queryset.filter(is_rejected=False, approved=False) | queryset.filter(
+                    approved=True,
+                    loan__isnull=False,
+                    loan__needs_committee_approval=True,
+                    loan__is_committee_approved__isnull=True
+                )
+
             elif stat == 'rejected':
-                queryset = queryset.filter(is_rejected=True)
+                # Include explicitly rejected applications
+                # Also include approved applications with loans that need committee approval but were rejected
+                queryset = queryset.filter(is_rejected=True) | queryset.filter(
+                    is_rejected=False,
+                    approved=True,
+                    loan__isnull=False,
+                    loan__needs_committee_approval=True,
+                    loan__is_committee_approved=False
+                )
+
             elif stat == 'approved':
-                queryset = queryset.filter(approved=True)
+                # Include approved applications with loans that do not need committee approval
+                # Also include approved applications with loans that needed committee approval and were approved
+                queryset = queryset.filter(
+                    approved=True,
+                    loan__isnull=False
+                ).filter(
+                    (Q(loan__needs_committee_approval=False)) |
+                    (Q(loan__needs_committee_approval=True) & Q(loan__is_committee_approved=True))
+                )
 
         if old_to_new is not None:
             if old_to_new == "true":
