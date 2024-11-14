@@ -377,6 +377,11 @@ class LoanViewSet(viewsets.ModelViewSet):
         """
         queryset = self.queryset
 
+        advancement_id = request.query_params.get('id')
+
+        if advancement_id:
+            queryset = queryset.filter(id=advancement_id)
+
         # Amount, fee, term filtering
         from_amount_agreed = request.query_params.get('from_amount_agreed')
         to_amount_agreed = request.query_params.get('to_amount_agreed')
