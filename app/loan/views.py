@@ -218,9 +218,13 @@ class LoanViewSet(viewsets.ModelViewSet):
 
         if stat is not None:
             if stat == 'active':
-                queryset = queryset.filter(is_settled=False)
+                queryset = queryset.filter(is_settled=False).exclude(is_committee_approved=False)
+
             elif stat == 'settled':
                 queryset = queryset.filter(is_settled=True)
+
+            elif stat == 'not_committee_approved':
+                queryset = queryset.filter(is_committee_approved=False)
 
         if awaiting_approval_only is not None:
             if awaiting_approval_only.lower() == "true":
