@@ -358,9 +358,9 @@ class LoanViewSet(viewsets.ModelViewSet):
 
         with transaction.atomic():
             # Add auto comment to the application
-            logged_comment = Comment.objects.create(
+            logged_comment, created = Comment.objects.update_or_create(
                 text=f"Application: {loan.application.id} referred back to the agent assigned. Reason: {comment}. User: {request.user.email}",
-                created_by=request.user,
+                created_by=member,
                 is_important=True,
                 application=loan.application,
             )
@@ -370,6 +370,14 @@ class LoanViewSet(viewsets.ModelViewSet):
                 application=loan.application,
                 request_user=request.user,
                 comment=comment
+            )
+
+            # Create CommitteeApproval with the info about referring
+            CommitteeApproval.objects.create(
+                loan=loan,
+                member=request.user,
+                approved=False,
+                rejection_reason=logged_comment.text
             )
 
             # Send email to all committee members that the loan was referred back

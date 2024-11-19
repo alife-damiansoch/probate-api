@@ -498,7 +498,20 @@ class Loan(models.Model):
 
 
 class CommitteeApproval(models.Model):
-    loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name="committee_approvals")
+    loan = models.ForeignKey(
+        Loan,
+        on_delete=models.SET_NULL,
+        related_name="committee_approvals",
+        null=True,
+        blank=True
+    )
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name="committee_approvals",
+        null=True,
+        blank=True
+    )
     member = models.ForeignKey(User, on_delete=models.CASCADE)
     approved = models.BooleanField(default=False)
     rejection_reason = models.TextField(null=True, blank=True)  # Required when rejected
@@ -511,6 +524,12 @@ class CommitteeApproval(models.Model):
         # Ensure rejection_reason is provided when approved is False
         if not self.approved and not self.rejection_reason:
             raise ValidationError("Rejection reason is required when rejecting a loan.")
+
+    def save(self, *args, **kwargs):
+        # Automatically set application from the loan's application
+        if self.loan and not self.application:
+            self.application = self.loan.application
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.loan} - {self.member} - {'Approved' if self.approved else 'Rejected'}"
