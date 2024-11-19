@@ -359,7 +359,7 @@ class LoanViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             # Add auto comment to the application
             logged_comment = Comment.objects.create(
-                text=f"Advancement referred back to the agent assigned. Reason: {comment}. User: {request.user.email}",
+                text=f"Application: {loan.application.id} referred back to the agent assigned. Reason: {comment}. User: {request.user.email}",
                 created_by=request.user,
                 is_important=True,
                 application=loan.application,

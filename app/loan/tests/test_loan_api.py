@@ -514,7 +514,7 @@ class PrivateLoanAPI(APITestCase):
         # Check the response for the logged comment
         self.assertIn('comment', response.data)
         self.assertEqual(response.data['comment']['text'],
-                         'Advancement referred back to the agent assigned. Reason: Incomplete documentation provided. User: damiansoch@hotmail.com')
+                         f'Application: {application.id} referred back to the agent assigned. Reason: Incomplete documentation provided. User: damiansoch@hotmail.com')
 
     def test_refer_back_to_agent_fails_without_comment(self):
         """Test that referring a loan back to the agent fails if no comment is provided."""
