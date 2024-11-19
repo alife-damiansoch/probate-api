@@ -325,7 +325,7 @@ class LoanViewSet(viewsets.ModelViewSet):
             OpenApiExample(
                 'Refer Loan Back Example',
                 value={
-                    'comment': 'The loan application is incomplete and requires additional information.'
+                    'rejection_reason': 'The loan application is incomplete and requires additional information.'
                 },
                 description="Provide a comment explaining why the loan is referred back."
             )
@@ -348,7 +348,7 @@ class LoanViewSet(viewsets.ModelViewSet):
             )
 
         # Get the comment from the request
-        comment = request.data.get('comment', '').strip()
+        comment = request.data.get('rejection_reason', '').strip()
 
         if not comment:
             return Response(

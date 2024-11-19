@@ -498,7 +498,7 @@ class PrivateLoanAPI(APITestCase):
 
         # Refer back to agent with a comment
         refer_back_url = reverse('loans:loan-refer-back-to-agent', args=[loan.id])
-        response = self.client.post(refer_back_url, {'comment': 'Incomplete documentation provided'})
+        response = self.client.post(refer_back_url, {'rejection_reason': 'Incomplete documentation provided'})
 
         # Assert that the loan has been referred back
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -562,7 +562,7 @@ class PrivateLoanAPI(APITestCase):
 
         # Attempt to refer back to agent
         refer_back_url = reverse('loans:loan-refer-back-to-agent', args=[loan.id])
-        response = self.client.post(refer_back_url, {'comment': 'Incomplete documentation provided'})
+        response = self.client.post(refer_back_url, {'rejection_reason': 'Incomplete documentation provided'})
 
         # Assert that the response is a 403 error
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
