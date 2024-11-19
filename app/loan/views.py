@@ -5,6 +5,7 @@ from datetime import datetime
 
 from django.db.models import Sum
 from django.utils import timezone
+from django.db import transaction
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter, OpenApiTypes, OpenApiExample
 from rest_framework import (viewsets, )
@@ -15,7 +16,7 @@ import agents_loan.serializers as AgentLoanSerializers
 from app.pagination import CustomPageNumberPagination
 from .permissions import IsStaff
 
-from core.models import Loan, Transaction, LoanExtension, CommitteeApproval
+from core.models import Loan, Transaction, LoanExtension, CommitteeApproval, Comment
 from loan import serializers
 
 from dateutil.relativedelta import relativedelta
@@ -26,7 +27,7 @@ from rest_framework import status
 from django.db.models import DateField
 from django.db.models.functions import Cast
 
-from .utils import check_committee_approval
+from .utils import check_committee_approval, notify_application_referred_back_to_agent
 
 
 @extend_schema_view(
@@ -308,6 +309,97 @@ class LoanViewSet(viewsets.ModelViewSet):
         # Check if the loan now meets the approval or rejection requirements
         check_committee_approval(loan, request_user=request.user)
         return Response({"detail": "Your decision has been recorded."}, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary='Refer Loan Back to Agent {-Committee Members only-}',
+        description=(
+                'Allows committee members to refer a loan back to the agent. This action sets '
+                '`loan.application.approved` to `False`, deletes the loan, and logs the reason for referral '
+                'provided in the `comment` field.'
+        ),
+        tags=['loans'],
+        request={
+            'application/json': OpenApiTypes.OBJECT
+        },
+        examples=[
+            OpenApiExample(
+                'Refer Loan Back Example',
+                value={
+                    'comment': 'The loan application is incomplete and requires additional information.'
+                },
+                description="Provide a comment explaining why the loan is referred back."
+            )
+        ],
+        responses={200: OpenApiTypes.OBJECT, 403: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT}
+    )
+    @action(detail=True, methods=['post'])
+    def refer_back_to_agent(self, request, pk=None):
+        """
+        Action to refer a loan back to the agent with an optional comment.
+        """
+        loan = self.get_object()
+        member = request.user
+
+        # Ensure the user is a committee member
+        if not member.teams.filter(name="committee_members").exists():
+            return Response(
+                {"detail": "You are not authorized to perform this action."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Get the comment from the request
+        comment = request.data.get('comment', '').strip()
+
+        if not comment:
+            return Response(
+                {"detail": "A comment is required when referring back a loan."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            # Add auto comment to the application
+            logged_comment = Comment.objects.create(
+                text=f"Advancement referred back to the agent assigned. Reason: {comment}. User: {request.user.email}",
+                created_by=request.user,
+                is_important=True,
+                application=loan.application,
+            )
+
+            # Create notification and send it real time to all agents
+            notify_application_referred_back_to_agent(
+                application=loan.application,
+                request_user=request.user,
+                comment=comment
+            )
+
+            # Send email to all committee members that the loan was referred back
+            success = loan.notify_committee_members(message=logged_comment.text)
+
+            if success:
+                # Perform the necessary actions if emails are sent successfully
+                loan.application.approved = False
+                loan.application.save()
+                loan.delete()
+            else:
+                # Return an error if emails fail
+                return Response(
+                    {"detail": "Failed to notify committee members. Loan not deleted."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        # Prepare serialized response
+        response_data = {
+            "detail": "Loan has been referred back to the agent.",
+            "comment": {
+                "id": logged_comment.id,
+                "text": logged_comment.text,
+                "created_by": logged_comment.created_by.email,
+                "is_important": logged_comment.is_important,
+                "application_id": logged_comment.application.id,
+            }
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary='Advanced search for loans {-Works only for staff users-}',

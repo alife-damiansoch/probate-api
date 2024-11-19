@@ -151,3 +151,52 @@ def notify_loan_rejected(loan, request_user):
             'seen': notification.seen,
         }
     )
+
+
+def notify_application_referred_back_to_agent(application, request_user, comment):
+    """
+        Sends a notification to inform users that a application has been referred_back to agent assigned by committee member.
+
+        This function:
+        1. Creates a `Notification` entry in the database for the user assigned to the application, indicating that the referred_back to agent.
+        2. Broadcasts the notification asynchronously to a WebSocket channel layer group for real-time updates.
+
+        Parameters:
+        - application (Application): The application that has been rejected. {I had to use application, not loan because loan does't exist anymore at this stage}
+        - request_user (User): The user initiating the notification, typically the user performing the approval check.
+
+        Process:
+        - Creates a notification with details including the application ID and sets the recipient to the user assigned to the application.
+        - Uses `channels` to send the notification to the `broadcast` group, enabling real-time notification delivery.
+
+        Returns:
+        - None. This function creates a notification and broadcasts it without returning a value.
+
+        Example Notification Message:
+        - "Advancement: <loan_id> has been referred back to agent by committee member"
+
+        Notes:
+        - Assumes the existence of a `Notification` model with fields `recipient`, `text`, `seen`, `created_by`, and `application`.
+        - Requires a configured channel layer for broadcasting WebSocket messages.
+        """
+    # send notification to users
+    notification = Notification.objects.create(
+        recipient=application.assigned_to,
+        text=f'Application: {application.id} has been referred_back_to_agent by committee member. Reason: {comment}. User: {request_user}',
+        seen=False,
+        created_by=request_user,
+        application=application
+    )
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        'broadcast',
+        {
+            'type': 'notification',
+            'message': notification.text,
+            'recipient': notification.recipient.email if notification.recipient else None,
+            'notification_id': notification.id,
+            'application_id': application.id,
+            'seen': notification.seen,
+        }
+    )
