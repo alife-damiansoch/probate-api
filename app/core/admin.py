@@ -13,6 +13,7 @@ from rangefilter.filters import DateRangeFilter
 
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
+from django.urls import reverse
 
 from core import models
 from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog, \
@@ -513,21 +514,29 @@ class AssociatedEmailAdmin(admin.ModelAdmin):
 
 @admin.register(CommitteeApproval)
 class CommitteeApprovalAdmin(admin.ModelAdmin):
-    list_display = ('loan', 'member', 'approved', 'rejection_reason', 'decision_date')
-    list_filter = ('approved',)  # Filter options for approved status and member
-    search_fields = ('loan__id',)  # Enable search by loan ID
+    list_display = ('loan', 'get_application_link', 'member', 'approved', 'rejection_reason', 'decision_date')
+    list_filter = ('approved',)  # Filter options for approved status
+    search_fields = ('loan__id', 'application__id',)  # Enable search by loan ID
     ordering = ['loan', 'member']  # Sort by loan and member for better readability
-    readonly_fields = ('decision_date', 'loan', 'member')  # Make decision_date read-only
+    readonly_fields = ('decision_date', 'loan', 'member', 'application')  # Make fields read-only
 
     fieldsets = (
         (None, {
-            'fields': ('loan', 'member', 'approved', 'rejection_reason')
+            'fields': ('loan', 'application', 'member', 'approved', 'rejection_reason')
         }),
         ('Decision Info', {
             'fields': ('decision_date',),
-
         }),
     )
+
+    def get_application_link(self, obj):
+        if obj.application:
+            # Create a clickable link to the application object in the admin
+            url = reverse('admin:core_application_change', args=[obj.application.id])
+            return format_html('<a href="{}">{}</a>', url, obj.application)
+        return "-"
+
+    get_application_link.short_description = 'Application'  # Rename the column header to 'Application'
 
     # Override save_model to provide custom messaging if needed
     def save_model(self, request, obj, form, change):

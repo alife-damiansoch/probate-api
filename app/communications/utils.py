@@ -145,7 +145,7 @@ def send_email_f(sender, recipient, subject, message, attachments=None, applicat
                 is_sent=True,
                 send_from=settings.DEFAULT_FROM_EMAIL if use_info_email else sender,
             )
-            print(f"Email successfully logged in the database.")
+            # print(f"Email successfully logged in the database.")
 
             # Create the email message
             email_message = EmailMessage(
@@ -171,7 +171,7 @@ def send_email_f(sender, recipient, subject, message, attachments=None, applicat
 
             if connection:
                 email_backend.send_messages([email_message])
-                print(f"Email sent successfully to {recipient}")
+                # print(f"Email sent successfully to {recipient}")
 
             # Close the email connection
             email_backend.close()

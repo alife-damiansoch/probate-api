@@ -361,7 +361,8 @@ class Loan(models.Model):
 
             # Notify committee members if approval is needed and this is a new instance
             if is_new and self.needs_committee_approval:
-                self.notify_committee_members()
+                self.notify_committee_members(
+                    message=f'Advancement: {self.id}, application:{self.application.id} needs committee approval')
 
             # Auto-approve the related application if not already approved
             if self.application and not self.application.approved:
@@ -464,7 +465,7 @@ class Loan(models.Model):
         applicant = self.application.applicants.first()
         return str(applicant) if applicant else 'No applicants'
 
-    def notify_committee_members(self):
+    def notify_committee_members(self, message):
 
         from communications.utils import send_email_f  # importing it here because of the circular import
         committee_members = User.objects.filter(teams__name='committee_members')
@@ -475,7 +476,7 @@ class Loan(models.Model):
                 sender=settings.DEFAULT_FROM_EMAIL,
                 recipient=member.email,
                 subject=f'Committee Approval notification',
-                message=f'Advancement: {self.id}, application:{self.application.id} needs committee approval',
+                message=message,
                 application=self.application,
                 solicitor_firm=self.application.user,
 
@@ -490,14 +491,27 @@ class Loan(models.Model):
                 created_by=None,
                 application=self.application,
             )
-            # print(f"Notification created: {notification.id}")
+            return True  # Return True if all emails are sent successfully
         except Exception as e:
             print(f"Error creating notification: {e}")
-            return
+            return False  # Return False if any error occurs
 
 
 class CommitteeApproval(models.Model):
-    loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name="committee_approvals")
+    loan = models.ForeignKey(
+        Loan,
+        on_delete=models.SET_NULL,
+        related_name="committee_approvals",
+        null=True,
+        blank=True
+    )
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name="committee_approvals",
+        null=True,
+        blank=True
+    )
     member = models.ForeignKey(User, on_delete=models.CASCADE)
     approved = models.BooleanField(default=False)
     rejection_reason = models.TextField(null=True, blank=True)  # Required when rejected
@@ -510,6 +524,12 @@ class CommitteeApproval(models.Model):
         # Ensure rejection_reason is provided when approved is False
         if not self.approved and not self.rejection_reason:
             raise ValidationError("Rejection reason is required when rejecting a loan.")
+
+    def save(self, *args, **kwargs):
+        # Automatically set application from the loan's application
+        if self.loan and not self.application:
+            self.application = self.loan.application
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.loan} - {self.member} - {'Approved' if self.approved else 'Rejected'}"

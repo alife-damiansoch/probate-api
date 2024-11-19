@@ -476,3 +476,98 @@ class PrivateLoanAPI(APITestCase):
         self.assertFalse(notification.seen)
         self.assertEqual(notification.created_by, committee_member)
         self.assertEqual(notification.recipient, loan.application.assigned_to)
+
+    # STEP BACK FUNCTIONALITY TESTING
+    def test_committee_member_can_refer_loan_back_to_agent(self):
+        """Test that a committee member can refer a loan back to the agent with a comment."""
+        # Create a loan that requires committee approval
+        application = create_application(self.user)
+        loan = create_test_loan(self.user, application)
+        application.approved = True
+        application.save()
+
+        # Simulate a committee member
+        committee_member = get_user_model().objects.create_user(
+            email='damiansoch@hotmail.com',
+            password='testpass',
+            is_staff=True,
+        )
+        team = Team.objects.create(name="committee_members")
+        committee_member.teams.set([team.id])  # Assign committee member to the team
+        self.client.force_authenticate(user=committee_member)
+
+        # Refer back to agent with a comment
+        refer_back_url = reverse('loans:loan-refer-back-to-agent', args=[loan.id])
+        response = self.client.post(refer_back_url, {'rejection_reason': 'Incomplete documentation provided'})
+
+        # Assert that the loan has been referred back
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check that the loan has been deleted
+        loan_exists = Loan.objects.filter(id=loan.id).exists()
+        self.assertFalse(loan_exists, "Loan should have been deleted after being referred back to the agent.")
+
+        # Check the application approved status
+        application.refresh_from_db()
+        self.assertFalse(application.approved, "Application should have been set to not approved.")
+
+        # Check the response for the logged comment
+        self.assertIn('comment', response.data)
+        self.assertEqual(response.data['comment']['text'],
+                         f'Application: {application.id} referred back to the agent assigned. Reason: Incomplete documentation provided. User: damiansoch@hotmail.com')
+
+    def test_refer_back_to_agent_fails_without_comment(self):
+        """Test that referring a loan back to the agent fails if no comment is provided."""
+        application = create_application(self.user)
+        loan = create_test_loan(self.user, application)
+        application.approved = True
+        application.save()
+
+        # Simulate a committee member
+        committee_member = get_user_model().objects.create_user(
+            email='committee_member@example.com',
+            password='testpass',
+            is_staff=True,
+        )
+        team = Team.objects.create(name="committee_members")
+        committee_member.teams.set([team.id])  # Assign committee member to the team
+        self.client.force_authenticate(user=committee_member)
+
+        # Refer back without a comment
+        refer_back_url = reverse('loans:loan-refer-back-to-agent', args=[loan.id])
+        response = self.client.post(refer_back_url, {})
+
+        # Assert that the response is a 400 error
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['detail'], "A comment is required when referring back a loan.")
+
+        # Ensure the loan is not deleted
+        loan_exists = Loan.objects.filter(id=loan.id).exists()
+        self.assertTrue(loan_exists, "Loan should not be deleted when comment is missing.")
+
+    def test_non_committee_member_cannot_refer_back_to_agent(self):
+        """Test that non-committee members cannot refer a loan back to the agent."""
+        application = create_application(self.user)
+        loan = create_test_loan(self.user, application)
+        application.approved = True
+        application.save()
+
+        # Simulate a non-committee member
+        non_committee_member = get_user_model().objects.create_user(
+            email='non_committee_member@example.com',
+            password='testpass',
+            is_staff=True,
+        )
+        self.client.force_authenticate(user=non_committee_member)
+
+        # Attempt to refer back to agent
+        refer_back_url = reverse('loans:loan-refer-back-to-agent', args=[loan.id])
+        response = self.client.post(refer_back_url, {'rejection_reason': 'Incomplete documentation provided'})
+
+        # Assert that the response is a 403 error
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['detail'], "You are not authorized to perform this action.")
+
+        # Ensure the loan is not deleted
+        loan_exists = Loan.objects.filter(id=loan.id).exists()
+        self.assertTrue(loan_exists, "Loan should not be deleted by non-committee members.")
