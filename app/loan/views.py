@@ -3,7 +3,7 @@ viewsets for Loan api
 """
 from datetime import datetime
 
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.utils import timezone
 from django.db import transaction
 from drf_spectacular.types import OpenApiTypes
@@ -24,8 +24,8 @@ from django.db.models import Sum, F, ExpressionWrapper
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework import status
-from django.db.models import DateField
-from django.db.models.functions import Cast
+
+from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from .utils import check_committee_approval, notify_application_referred_back_to_agent
 
@@ -133,12 +133,12 @@ class LoanExtensionViewSet(viewsets.ModelViewSet):
 @extend_schema_view(
     list=extend_schema(
         summary='Retrieve all loans {-Works only for staff users-}',
-        description='Returns all loans with optional filters for status, assignment, payout status, and sorting.',
+        description='Returns all loans with optional filters for status, assignment, payout status, sorting, and applicant or ID search.',
         tags=['loans'],
         parameters=[
             OpenApiParameter(
                 name='status',
-                description='Filter by loan status - optional (active, settled)',
+                description='Filter by loan status - optional (active, paid_out, settled, not_committee_approved)',
                 required=False,
                 type=str
             ),
@@ -165,6 +165,21 @@ class LoanExtensionViewSet(viewsets.ModelViewSet):
                 description='Filter loans that are awaiting approval from the committee - optional (true, false)',
                 required=False,
                 type=str
+            ),
+            OpenApiParameter(
+                name='search_term',
+                description=(
+                        'Search for loans based on applicant details - optional. '
+                        'Supports partial matches for applicant first name, last name, or PPS number.'
+                ),
+                required=False,
+                type=str
+            ),
+            OpenApiParameter(
+                name='search_id',
+                description='Search for a loan by its unique ID - optional. Must be a valid integer.',
+                required=False,
+                type=int
             ),
         ]
     ),
@@ -210,6 +225,25 @@ class LoanViewSet(viewsets.ModelViewSet):
         old_to_new = self.request.query_params.get('old_to_new', None)
         not_paid_out_only = self.request.query_params.get('not_paid_out_only', None)
         awaiting_approval_only = self.request.query_params.get('awaiting_approval_only', None)
+        search_term = self.request.query_params.get('search_term', None)
+        search_id = self.request.query_params.get('search_id', None)
+
+        if search_id:
+            try:
+                search_id = int(search_id)  # Ensure search_id is an integer
+                queryset = queryset.filter(id=search_id)
+                return queryset
+            except ValueError:
+                raise DRFValidationError({"search_id": "Invalid ID. Must be an integer."})
+
+                # Filter by applicant search term
+        if search_term:
+            queryset = queryset.filter(
+                Q(application__applicants__first_name__icontains=search_term) |
+                Q(application__applicants__last_name__icontains=search_term) |
+                Q(application__applicants__pps_number__icontains=search_term)
+            ).distinct()
+            return queryset
 
         if assigned is not None:
             if assigned.lower() == "true":
@@ -219,7 +253,15 @@ class LoanViewSet(viewsets.ModelViewSet):
 
         if stat is not None:
             if stat == 'active':
-                queryset = queryset.filter(is_settled=False).exclude(is_committee_approved=False)
+                queryset = queryset.filter(is_settled=False).exclude(
+                    Q(is_committee_approved=False) | Q(is_paid_out=True) | Q(is_settled=True))
+            elif stat == 'paid_out':
+                queryset = queryset.filter(is_paid_out=True).exclude(is_settled=True)
+                queryset = sorted(
+                    queryset,
+                    key=lambda loan: loan.maturity_date if loan.maturity_date else timezone.datetime.max,
+                )
+                return queryset
 
             elif stat == 'settled':
                 queryset = queryset.filter(is_settled=True)

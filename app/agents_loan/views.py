@@ -4,6 +4,8 @@ Views for agents_application API
 import os
 import re
 
+from django.utils import timezone
+
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.db import transaction
 from django.db.models import Q
@@ -35,13 +37,48 @@ from core.models import Document
 
 @extend_schema_view(
     list=extend_schema(
-        summary='Retrieve all applications {-Works only for staff users-}',
-        description='Returns  all applications.',
+        summary='Retrieve all solicitor applications {-Works only for non-staff users-}',
+        description='Returns all solicitor applications with optional filters for status, applicant search, and application ID.',
         tags=['agent_application'],
         parameters=[
-            OpenApiParameter(name='status',
-                             description='Filter by application status - optional (active,rejected,approved)',
-                             required=False, type=str),
+            OpenApiParameter(
+                name='status',
+                description=(
+                        'Filter applications by their status. Options include: '
+                        '`active` (applications in progress), `rejected` (applications rejected), '
+                        '`approved` (applications approved but not paid out or settled), '
+                        '`paid_out` (applications paid out but not settled), '
+                        '`settled` (applications fully paid and settled).'
+                ),
+                required=False,
+                type=OpenApiTypes.STR
+            ),
+            OpenApiParameter(
+                name='search',
+                description=(
+                        'Search for applications by applicant details. Searches through '
+                        '`first_name`, `last_name`, and `pps_number` fields of the applicants. '
+                        'Partial matches are allowed.'
+                ),
+                required=False,
+                type=OpenApiTypes.STR
+            ),
+            OpenApiParameter(
+                name='search_id',
+                description=(
+                        'Filter applications by their unique application ID. Must be an integer.'
+                ),
+                required=False,
+                type=OpenApiTypes.INT
+            ),
+            OpenApiParameter(
+                name='search_term',
+                description=(
+                        'Filter applications by their applicants. Partial search by first_name, last_name and PPS number.'
+                ),
+                required=False,
+                type=OpenApiTypes.STR
+            ),
         ]
     ),
     retrieve=extend_schema(
@@ -145,7 +182,26 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
 
         stat = self.request.query_params.get('status', None)
         assigned = self.request.query_params.get('assigned', None)
-        old_to_new = self.request.query_params.get('old_to_new', None)
+
+        search_term = self.request.query_params.get('search_term', None)
+        search_id = self.request.query_params.get('search_id', None)
+
+        if search_id:
+            try:
+                search_id = int(search_id)  # Ensure search_id is an integer
+                queryset = queryset.filter(id=search_id)
+                return queryset
+            except ValueError:
+                raise DRFValidationError({"search_id": "Invalid ID. Must be an integer."})
+
+                # Filter by applicant search term
+        if search_term:
+            queryset = queryset.filter(
+                Q(applicants__first_name__icontains=search_term) |
+                Q(applicants__last_name__icontains=search_term) |
+                Q(applicants__pps_number__icontains=search_term)
+            ).distinct()
+            return queryset
 
         if assigned is not None:
             if assigned == "true":
@@ -156,42 +212,71 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
             # Filter based on status parameter
         if stat is not None:
             if stat == 'active':
-                # Include applications that are not rejected and not approved
-                # Also include approved applications with loans that need committee approval but are not yet approved
-                queryset = queryset.filter(is_rejected=False, approved=False) | queryset.filter(
-                    approved=True,
-                    loan__isnull=False,
-                    loan__needs_committee_approval=True,
-                    loan__is_committee_approved__isnull=True
-                )
+                # Applications that are not rejected or approved, or need committee approval and are pending approval
+                queryset = queryset.filter(
+                    Q(is_rejected=False, approved=False) |
+                    Q(
+                        approved=True,
+                        loan__isnull=False,
+                        loan__needs_committee_approval=True,
+                        loan__is_committee_approved__isnull=True
+                    )
+                ).distinct()
 
             elif stat == 'rejected':
-                # Include explicitly rejected applications
-                # Also include approved applications with loans that need committee approval but were rejected
-                queryset = queryset.filter(is_rejected=True) | queryset.filter(
-                    is_rejected=False,
-                    approved=True,
-                    loan__isnull=False,
-                    loan__needs_committee_approval=True,
-                    loan__is_committee_approved=False
-                )
+                # Applications explicitly rejected or rejected in the loan approval process
+                queryset = queryset.filter(
+                    Q(is_rejected=True) |
+                    Q(
+                        is_rejected=False,
+                        approved=True,
+                        loan__isnull=False,
+                        loan__needs_committee_approval=True,
+                        loan__is_committee_approved=False
+                    )
+                ).distinct()
 
             elif stat == 'approved':
-                # Include approved applications with loans that do not need committee approval
-                # Also include approved applications with loans that needed committee approval and were approved
+                # Approved applications with loans that are not paid out or settled
                 queryset = queryset.filter(
                     approved=True,
                     loan__isnull=False
                 ).filter(
-                    (Q(loan__needs_committee_approval=False)) |
-                    (Q(loan__needs_committee_approval=True) & Q(loan__is_committee_approved=True))
+                    (Q(loan__needs_committee_approval=False) & Q(loan__is_paid_out=False) & Q(loan__is_settled=False)) |
+                    (Q(loan__needs_committee_approval=True) & Q(loan__is_committee_approved=True) & Q(
+                        loan__is_paid_out=False) & Q(loan__is_settled=False))
                 )
 
-        if old_to_new is not None:
-            if old_to_new == "true":
-                return queryset.order_by('id')
-        else:
-            return queryset.order_by('-id')
+            elif stat == 'paid_out':
+                # Applications with loans paid out but not settled
+                queryset = queryset.filter(
+                    approved=True,
+                    loan__isnull=False
+                ).filter(
+                    (Q(loan__needs_committee_approval=False) & Q(loan__is_paid_out=True) & Q(loan__is_settled=False)) |
+                    (Q(loan__needs_committee_approval=True) & Q(loan__is_committee_approved=True) & Q(
+                        loan__is_paid_out=True) & Q(loan__is_settled=False))
+                )
+                # Add maturity_date dynamically and sort
+                queryset = sorted(
+                    queryset,
+                    key=lambda
+                        app: app.loan.maturity_date if app.loan and app.loan.maturity_date else timezone.datetime.max
+                )
+                return queryset
+
+            elif stat == 'settled':
+                # Applications with loans that are fully paid out and settled
+                queryset = queryset.filter(
+                    approved=True,
+                    loan__isnull=False
+                ).filter(
+                    (Q(loan__needs_committee_approval=False) & Q(loan__is_paid_out=True) & Q(loan__is_settled=True)) |
+                    (Q(loan__needs_committee_approval=True) & Q(loan__is_committee_approved=True) & Q(
+                        loan__is_paid_out=True) & Q(loan__is_settled=True))
+                )
+
+        return queryset.order_by('-id')
 
     @action(detail=False, methods=['get'], url_path='search-applications')
     def search_applications(self, request):
