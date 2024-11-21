@@ -96,6 +96,15 @@ class PrivateTestApplicationAPI(APITestCase):
         self.client.force_authenticate(user=self.user)
         self.APPLICATIONS_URL = reverse('agents_loan:agent_application-list')
 
+    def create_applicant(self, application, first_name, last_name, pps_number):
+        """Helper function to create an applicant"""
+        return Applicant.objects.create(
+            application=application,
+            first_name=first_name,
+            last_name=last_name,
+            pps_number=pps_number
+        )
+
     def test_retrieve_applications(self):
         """Test retrieving all applications"""
 
