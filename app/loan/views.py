@@ -275,7 +275,13 @@ class LoanViewSet(viewsets.ModelViewSet):
 
         if not_paid_out_only is not None:
             if not_paid_out_only.lower() == "true":
-                queryset = queryset.filter(is_paid_out=False)
+                queryset = queryset.filter(is_paid_out=False).exclude(
+                    needs_committee_approval=True,
+                    is_committee_approved=None,
+                ).exclude(
+                    needs_committee_approval=True,
+                    is_committee_approved=False,
+                )
 
         if old_to_new is not None:
             if old_to_new == "true":
