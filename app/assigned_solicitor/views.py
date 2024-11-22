@@ -86,8 +86,17 @@ class AssignedSolicitorViewSet(viewsets.ModelViewSet):
         """Staff users are not allowed to create new solicitors."""
         if self.request.user.is_staff:
             raise PermissionDenied("Staff users are not allowed to create new solicitors.")
-        """Ensure the user is set to the currently authenticated user when creating a new solicitor"""
+
+        # Ensure the user is set to the currently authenticated user when creating a new solicitor
+        if serializer.validated_data.get('own_email') == "":
+            serializer.validated_data['own_email'] = None
         serializer.save(user=self.request.user)
+
+    def perform_update(self, serializer):
+        """Override perform_update to handle own_email uniqueness properly."""
+        if serializer.validated_data.get('own_email') == "":
+            serializer.validated_data['own_email'] = None
+        serializer.save()
 
     def perform_destroy(self, instance):
         """Override perform_destroy to handle ProtectedError."""
