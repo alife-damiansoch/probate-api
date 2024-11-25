@@ -501,6 +501,8 @@ class ReplyToEmailViewSet(viewsets.GenericViewSet):
         attachments = serializer.validated_data.get('attachments', [])
         use_info_email = serializer.validated_data.get('use_info_email', False)
 
+        print(use_info_email)
+
         # Use request.user.email as the sender
         sender = request.user.email
 

@@ -11,6 +11,7 @@ import aiofiles
 from aioimaplib import aioimaplib
 from asgiref.sync import async_to_sync, sync_to_async
 from channels.layers import get_channel_layer
+from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.mail import EmailMessage
@@ -147,11 +148,30 @@ def send_email_f(sender, recipient, subject, message, attachments=None, applicat
             )
             # print(f"Email successfully logged in the database.")
 
+            # getting the sending user name to add it the the email
+            # Assuming `sender` contains the email address of the user sending the email
+            # Assuming `sender` contains the email address of the user sending the email
+            user_model = get_user_model()
+            try:
+                # Get the user based on the email address
+                user_instance = user_model.objects.get(email=sender)
+
+                # Extract the user's name if it exists, otherwise default to email
+                if user_instance.name:
+                    # Get the first part of the full name (before any space)
+                    sender_name = user_instance.name.split()[0]
+                    from_email = f"{sender_name} <{email_log_entry.send_from}>"
+                else:
+                    from_email = sender
+            except user_model.DoesNotExist:
+                # If user does not exist, fallback to just the sender email
+                from_email = sender
+
             # Create the email message
             email_message = EmailMessage(
                 subject=subject,
                 body=message,
-                from_email=email_log_entry.send_from,
+                from_email=from_email,
                 to=[recipient],
             )
 
