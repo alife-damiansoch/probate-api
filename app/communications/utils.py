@@ -72,7 +72,7 @@ def find_user_by_email(sender):
 
 
 def send_email_f(sender, recipient, subject, message, attachments=None, application=None, solicitor_firm=None,
-                 email_model=EmailLog, use_info_email=True):
+                 email_model=EmailLog, use_info_email=False):
     """
       Sends an email with optional attachments and logs the email in the specified email model.
 
@@ -244,7 +244,6 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
                 print(f"Fetching email with ID: {email_id}...")
 
                 status, data = await mail.fetch(email_id, "(RFC822)")
-                # print(f"Status: {status}, Data: {data}")
 
                 if status != "OK" or not data or len(data) < 2 or not isinstance(data[1], (bytes, bytearray)):
                     print(f"Failed to fetch email {email_id}. Skipping.")
@@ -260,10 +259,28 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
                 if isinstance(subject, bytes):
                     subject = subject.decode(encoding if encoding else 'utf-8')
 
-                # print(f"Email subject: {subject}")
+                print(f"Email Subject: {subject}")
 
+                # Print all headers for debugging
+                for header, value in msg.items():
+                    print(f"{header}: {value}")
+
+                # Extract sender and recipient information
                 sender = parseaddr(msg.get("From"))[1]
-                recipient = imap_user
+                recipient = parseaddr(msg.get("Delivered-To"))[1] or parseaddr(msg.get("To"))[1]
+
+                # Handle forwarded emails by looking for additional headers like "X-Forwarded-To"
+                if msg.get("X-Forwarded-To"):
+                    recipient = parseaddr(msg.get("X-Forwarded-To"))[1]
+
+                # If the recipient is still None, use imap_user as the recipient
+                if not recipient:
+                    recipient = imap_user
+
+                # Log details
+                print(f"Sender: {sender}")
+                print(f"Recipient: {recipient}")
+
                 message = ""
                 html_content = ""
                 attachments = []
@@ -285,8 +302,7 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
 
                         if filename:
                             unique_filename = f"{uuid.uuid4()}{os.path.splitext(filename)[1]}"
-                            file_path = os.path.join(settings.MEDIA_ROOT, 'email_attachments',
-                                                     unique_filename)  # Use MEDIA_ROOT
+                            file_path = os.path.join(settings.MEDIA_ROOT, 'email_attachments', unique_filename)
 
                             file_content = part.get_payload(decode=True)
                             async with aiofiles.open(file_path, 'wb') as f:
@@ -349,17 +365,18 @@ async def fetch_emails():
     # Fetch emails for the default IMAP user
     await fetch_emails_for_imap_user(settings.IMAP_USER, EmailLog)
 
-    # Fetch emails for users who are staff and belong to the "agents" team
-    # Using sync_to_async to perform the Django ORM query in an async context
-    users = await sync_to_async(lambda: list(User.objects.filter(is_staff=True, teams__name="agents")))()
-
-    # Create a list of tasks for each user
-    tasks = [
-        fetch_emails_for_imap_user(user.email, UserEmailLog) for user in users
-    ]
-
-    # Run all the tasks concurrently
-    await asyncio.gather(*tasks)
+    """This part is turned off, because im using forwarders to forward all user related emails into the info inbox"""
+    # # Fetch emails for users who are staff and belong to the "agents" team
+    # # Using sync_to_async to perform the Django ORM query in an async context
+    # users = await sync_to_async(lambda: list(User.objects.filter(is_staff=True, teams__name="agents")))()
+    #
+    # # Create a list of tasks for each user
+    # tasks = [
+    #     fetch_emails_for_imap_user(user.email, UserEmailLog) for user in users
+    # ]
+    #
+    # # Run all the tasks concurrently
+    # await asyncio.gather(*tasks)
 
 # def _send_notification(email_log, message, recipient):
 #     """Send a notification to the assigned user when an email log is created, updated, or deleted."""

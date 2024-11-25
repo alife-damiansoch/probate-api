@@ -19,6 +19,7 @@ class SendEmailSerializerByApplicationId(serializers.Serializer):
         required=False,
         allow_null=True,
     )
+    use_info_email = serializers.BooleanField(default=False)
 
     def validate_application_id(self, value):
         try:
@@ -52,6 +53,7 @@ class ReplyEmailSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
     )
+    use_info_email = serializers.BooleanField(default=False)
 
     def validate_email_log_id(self, value):
         try:
