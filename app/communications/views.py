@@ -293,13 +293,14 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         message = serializer.validated_data['message']
         recipients = serializer.validated_data['recipients']
         attachments = serializer.validated_data.get('attachments', [])
+        use_info_email = serializer.validated_data.get('use_info_email', False)
 
         # Use request.user.email as the sender
         sender = request.user.email
 
         # Send email to each recipient
         for recipient in recipients:
-            send_email_f(sender, recipient, subject, message, attachments=attachments)
+            send_email_f(sender, recipient, subject, message, attachments=attachments, use_info_email=use_info_email)
 
         return Response({"message": "Emails sent successfully."}, status=status.HTTP_200_OK)
 

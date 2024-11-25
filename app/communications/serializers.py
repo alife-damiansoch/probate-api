@@ -38,6 +38,7 @@ class SendEmailToRecipientsSerializer(serializers.Serializer):
     attachments = serializers.ListField(
         child=serializers.FileField(), required=False, allow_empty=True
     )
+    use_info_email = serializers.BooleanField(default=False)
 
 
 class DownloadAttachmentSerializer(serializers.Serializer):
