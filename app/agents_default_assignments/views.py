@@ -1,11 +1,13 @@
-from rest_framework import generics
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 
 from agents_loan.permissions import IsStaff
-from core.models import Assignment
+from core.models import Assignment, Application, User
 from .serializers import AssignmentSerializer, CreateAssignmentSerializer
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.response import Response
 
 
 class AssignmentListCreateView(generics.ListCreateAPIView):
@@ -28,10 +30,42 @@ class AssignmentListCreateView(generics.ListCreateAPIView):
         description='Creates a new assignment linking a staff user to an agency.',
         request=CreateAssignmentSerializer,  # Specify the request serializer
         responses={201: AssignmentSerializer},  # Define the response serializer
+        parameters=[
+            OpenApiParameter(
+                name='overwrite_existing_applications_assigned_solicitor',
+                type=OpenApiTypes.BOOL,
+                description='Set to true to overwrite existing application assignments for the given solicitor.',
+                default=False
+            )
+        ],
         tags=['Assignments'],
     )
     def post(self, request, *args, **kwargs):
         """Create a new assignment."""
+        # Extract the query parameter or set the default value
+        overwrite_existing = request.query_params.get('overwrite_existing_applications_assigned_solicitor',
+                                                      'false').lower() == 'true'
+
+        # Add your logic here to handle the `overwrite_existing` flag
+        # For example, you can pass it to the serializer or handle custom behavior
+        if overwrite_existing:
+            # Logic to overwrite existing application assignments
+            print("Overwriting existing application assignments.")
+            agency_user_id = request.data.get('agency_user_id', None)
+            staff_user_id = request.data.get('staff_user_id', None)
+            if agency_user_id and staff_user_id:
+                agency_user_obj = get_object_or_404(User, id=agency_user_id)
+                staff_user_obj = get_object_or_404(User, id=staff_user_id)
+                applications_for_user = Application.objects.filter(user=agency_user_obj)
+                for application in applications_for_user:
+                    application.assigned_to = staff_user_obj
+                    application.save()
+            else:
+                return Response(
+                    {"detail": "Both agency_user and staff_user are required."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         return super().post(request, *args, **kwargs)
 
     def get_serializer_class(self):
@@ -58,24 +92,100 @@ class AssignmentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView)
     @extend_schema(
         summary='Update an Assignment',
         description='Updates an existing assignment linking a staff user to an agency.',
-        request=CreateAssignmentSerializer,  # Specify the request serializer
-        responses={200: AssignmentSerializer},  # Define the response serializer
+        request=CreateAssignmentSerializer,
+        responses={200: AssignmentSerializer},
+        parameters=[
+            OpenApiParameter(
+                name='overwrite_existing_applications_assigned_solicitor',
+                type=OpenApiTypes.BOOL,
+                description='Set to true to overwrite existing application assignments for the given solicitor.',
+                default=False
+            )
+        ],
         tags=['Assignments'],
     )
     def put(self, request, *args, **kwargs):
         """Update an assignment with new data."""
+        overwrite_existing = request.query_params.get(
+            'overwrite_existing_applications_assigned_solicitor', 'false'
+        ).lower() == 'true'
+
+        assignment_id = kwargs.get('pk')  # Get the assignment ID from the URL
+        assignment_obj = get_object_or_404(Assignment, id=assignment_id)  # Retrieve the assignment object
+        agency_user_obj = assignment_obj.agency_user
+        staff_user_id = request.data.get('staff_user_id')
+
+        if not staff_user_id:
+            return Response(
+                {"detail": "Staff user ID is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        staff_user_obj = get_object_or_404(User, id=staff_user_id)
+
+        if overwrite_existing:
+            applications_for_user = Application.objects.filter(user=agency_user_obj)
+            for application in applications_for_user:
+                application.assigned_to = staff_user_obj
+                application.save()
+
         return super().put(request, *args, **kwargs)
 
     @extend_schema(
         summary='Partially Update an Assignment',
         description='Partially updates an existing assignment between staff and agencies.',
-        request=CreateAssignmentSerializer,  # Specify the request serializer
-        responses={200: AssignmentSerializer},  # Define the response serializer
+        request=CreateAssignmentSerializer,
+        responses={200: AssignmentSerializer},
+        parameters=[
+            OpenApiParameter(
+                name='overwrite_existing_applications_assigned_solicitor',
+                type=OpenApiTypes.BOOL,
+                description='Set to true to overwrite existing application assignments for the given solicitor.',
+                default=False
+            )
+        ],
         tags=['Assignments'],
     )
     def patch(self, request, *args, **kwargs):
         """Partially update an assignment."""
+        overwrite_existing = request.query_params.get(
+            'overwrite_existing_applications_assigned_solicitor', 'false'
+        ).lower() == 'true'
+
+        assignment_id = kwargs.get('pk')  # Get the assignment ID from the URL
+        assignment_obj = get_object_or_404(Assignment, id=assignment_id)  # Retrieve the assignment object
+        agency_user_obj = assignment_obj.agency_user
+        staff_user_id = request.data.get('staff_user_id')
+
+        if not staff_user_id:
+            return Response(
+                {"detail": "Staff user ID is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        staff_user_obj = get_object_or_404(User, id=staff_user_id)
+
+        if overwrite_existing:
+            applications_for_user = Application.objects.filter(user=agency_user_obj)
+            for application in applications_for_user:
+                application.assigned_to = staff_user_obj
+                application.save()
+
         return super().patch(request, *args, **kwargs)
+
+    @extend_schema(
+        summary='Delete an Assignment',
+        description='Deletes an existing assignment between staff and agencies.',
+        tags=['Assignments'],
+    )
+    def delete(self, request, *args, **kwargs):
+        """Delete an assignment."""
+        return super().delete(request, *args, **kwargs)
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return CreateAssignmentSerializer
+        return AssignmentSerializer
 
     @extend_schema(
         summary='Delete an Assignment',

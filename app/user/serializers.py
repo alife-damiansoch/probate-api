@@ -22,10 +22,15 @@ class LoanSerializer(serializers.ModelSerializer):
 # this serializer is only created to return extra info in the list user
 class ApplicationSerializer(serializers.ModelSerializer):
     loan = LoanSerializer(read_only=True)
+    country = serializers.SerializerMethodField()  # Add the custom field
 
     class Meta:
         model = Application
         fields = '__all__'
+
+    def get_country(self, obj):
+        # Access the related user's country
+        return obj.user.country if obj.user else None
 
 
 class TeamSerializer(serializers.ModelSerializer):
@@ -41,16 +46,19 @@ class AddressSerializer(serializers.ModelSerializer):
 
 
 class UserListSerializer(serializers.ModelSerializer):
-    """Serializer for listing users, returns only id and email fields"""
-    teams = TeamSerializer(many=True)
+    teams = serializers.SerializerMethodField()  # Use SerializerMethodField for custom behavior
     applications = serializers.SerializerMethodField()
 
     class Meta:
         model = get_user_model()
-        fields = ['id', 'email', 'name', 'teams', 'is_active', 'is_staff', 'is_superuser', 'applications']
-        read_only_fields = ['id', 'email', 'name', 'teams', 'is_active', 'is_staff', 'is_superuser', 'applications']
+        fields = ['id', 'email', 'name', 'teams', 'is_active', 'is_staff', 'is_superuser', 'applications', "country"]
+        read_only_fields = fields
 
-    def get_applications(self, user) -> list:
+    def get_teams(self, user):
+        """Serialize teams with the full TeamSerializer."""
+        return TeamSerializer(user.teams.all(), many=True).data
+
+    def get_applications(self, user):
         applications = Application.objects.filter(assigned_to=user)
         return ApplicationSerializer(applications, many=True).data
 
@@ -63,7 +71,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
         fields = ['id', 'email', 'password', 'name', 'phone_number', 'address', 'teams', 'is_active', 'is_staff',
-                  'is_superuser']
+                  'is_superuser', 'country']
         extra_kwargs = {'password': {'write_only': True, 'min_length': 5}}
         read_only_fields = ('id', 'is_active', 'is_staff', 'is_superuser', 'teams')
 

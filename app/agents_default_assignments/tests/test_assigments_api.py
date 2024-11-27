@@ -140,13 +140,17 @@ class PrivateAssignmentAPITestCase(APITestCase):
         """Test partially updating an existing assignment."""
         assignment = create_assignment(staff_user=self.staff_user, agency_user=self.agency_user)
 
-        payload = {'agency_user': {'id': self.agency_user.id}}
+        payload = {'staff_user_id': self.staff_user.id}
         url = get_assignment_detail_url(assignment.id)
         response = self.client.patch(url, payload, format='json')
 
+        if response.status_code != status.HTTP_200_OK:
+            print(f"Response status code: {response.status_code}")
+            print(f"Response data: {response.data}")
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         assignment.refresh_from_db()
-        self.assertEqual(assignment.agency_user, self.agency_user)
+        self.assertEqual(assignment.staff_user, self.staff_user)
 
     def test_delete_assignment_successful(self):
         """Test deleting an assignment."""

@@ -17,7 +17,7 @@ from rest_framework.test import APIClient, APITestCase
 from rest_framework.authtoken.models import Token
 
 from agents_loan.serializers import AgentApplicationSerializer
-from core.models import (Application, Deceased, Document, User, Event, Dispute, Estate, Applicant)
+from core.models import (Application, Deceased, Document, User, Event, Dispute, Estate, Applicant, Team)
 
 from agents_loan import serializers
 
@@ -91,7 +91,9 @@ class PrivateTestApplicationAPI(APITestCase):
             email='test@example.com',
             password='testpass123',
             is_staff=True,
+            country="IE"
         )
+        self.user.teams.add(Team.objects.create(name="ie_team"))
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.APPLICATIONS_URL = reverse('agents_loan:agent_application-list')
@@ -111,10 +113,12 @@ class PrivateTestApplicationAPI(APITestCase):
         user1 = get_user_model().objects.create_user(
             email='test1@example.com',
             password='testpass123',
+            country="IE"
         )
         user2 = get_user_model().objects.create_user(
             email='test2@example.com',
             password='testpass123',
+            country="IE"
         )
 
         app1 = create_application(user=self.user)
@@ -389,6 +393,10 @@ class PrivateTestApplicationAPI(APITestCase):
         response = self.client.delete(url)
 
         # Check response status code
+        if response.status_code != status.HTTP_204_NO_CONTENT:
+            print(f"Response status code: {response.status_code}")
+            print(f"Response data: {response.data}")
+
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         # Check that the application no longer exists after deletion
@@ -449,8 +457,10 @@ class ApplicationUpdateTests(APITestCase):
     """Testing individual field update for Applications"""
 
     def setUp(self):
+        self.team = Team.objects.create(name='ie_team')
         self.user = get_user_model().objects.create_user(email='test@example.com', password='testpassword',
-                                                         is_staff=True)
+                                                         is_staff=True, country="IE")
+        self.user.teams.add(self.team)
         self.client.force_authenticate(self.user)
 
         self.deceased = Deceased.objects.create(first_name='John', last_name='Doe')

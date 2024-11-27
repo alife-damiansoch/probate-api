@@ -299,6 +299,7 @@ class SignedDocumentUploadView(APIView):
                 'notification_id': notification.id,
                 'application_id': application.id,
                 'seen': notification.seen,
+                'country': application.user.country,
             }
         )
 

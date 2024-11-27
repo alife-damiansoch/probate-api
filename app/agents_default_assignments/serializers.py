@@ -1,14 +1,16 @@
 from rest_framework import serializers
 
 from core.models import Assignment, User
+from user.serializers import TeamSerializer
 
 
 class SimpleUserSerializer(serializers.ModelSerializer):
     """Serializer to handle user ID and read-only email."""
+    teams = TeamSerializer(many=True, read_only=True)  # Use the TeamSerializer
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'name', 'is_active']
+        fields = ['id', 'email', 'name', 'is_active', 'country', 'teams']
         read_only_fields = ['email']  # Ensure email is read-only
 
 

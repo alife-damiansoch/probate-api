@@ -1,4 +1,6 @@
+from django.db.models import Q
 from rest_framework import viewsets, mixins
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
@@ -46,4 +48,22 @@ class NotificationViewSet(mixins.UpdateModelMixin,
     def get_queryset(self):
         """Restrict notifications to the authenticated user."""
         user = self.request.user
-        return self.queryset.order_by('-id')
+        country_filters = []
+
+        # Determine the countries the user has access to
+        if user.teams.filter(name='ie_team').exists():
+            country_filters.append('IE')
+        if user.teams.filter(name='uk_team').exists():
+            country_filters.append('UK')
+
+        # If no country filters were added, raise an error
+        if not country_filters:
+            raise PermissionDenied("You must be assigned to at least one team to access this resource.")
+
+        # Filter applications based on the COUNTRY of the related user
+        # or applications is None, this is for deleted applications,
+        # they will be added for all users
+        queryset = self.queryset.filter(
+            Q(application__isnull=True) | Q(application__user__country__in=country_filters)
+        )
+        return queryset.order_by('-id')

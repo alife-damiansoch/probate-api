@@ -37,7 +37,16 @@ class CreateUserView(generics.CreateAPIView):
     serializer_class = UserSerializer
 
     def create(self, request, *args, **kwargs):
+        # Extract the Country header
+        country = request.headers.get('Country')
+        print(f"Country: {country}")
+
+        # Add the country to the request data if it exists
+        if country:
+            request.data['country'] = country.upper()
+        print(f"Request data: {request.data}")
         serializer = self.get_serializer(data=request.data)
+
         try:
             serializer.is_valid(raise_exception=True)
         except ValidationError as e:

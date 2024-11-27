@@ -25,7 +25,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework import status
 
-from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework.exceptions import ValidationError as DRFValidationError, PermissionDenied
 
 from .utils import check_committee_approval, notify_application_referred_back_to_agent
 
@@ -227,6 +227,21 @@ class LoanViewSet(viewsets.ModelViewSet):
         awaiting_approval_only = self.request.query_params.get('awaiting_approval_only', None)
         search_term = self.request.query_params.get('search_term', None)
         search_id = self.request.query_params.get('search_id', None)
+
+        user = self.request.user
+
+        # Get the user's teams and filter based on the country
+        country_filters = []
+        if user.teams.filter(name='ie_team').exists():
+            country_filters.append('IE')
+        if user.teams.filter(name='uk_team').exists():
+            country_filters.append('UK')
+
+        # Check if no country filters were added
+        if not country_filters:
+            raise PermissionDenied("You must be assigned to at least one team to access this resource.")
+
+        queryset = queryset.filter(application__user__country__in=country_filters)
 
         if search_id:
             try:
@@ -530,6 +545,22 @@ class LoanViewSet(viewsets.ModelViewSet):
         Search loans based on various model fields, supporting filtering and sorting.
         """
         queryset = self.queryset
+
+        user = request.user
+        country_filters = []
+
+        # Determine the countries the user has access to
+        if user.teams.filter(name='ie_team').exists():
+            country_filters.append('IE')
+        if user.teams.filter(name='uk_team').exists():
+            country_filters.append('UK')
+
+        # If no country filters were added, raise an error
+        if not country_filters:
+            raise PermissionDenied("You must be assigned to at least one team to access this resource.")
+
+        # Filter applications based on the COUNTRY of the related user
+        queryset = self.queryset.filter(application__user__country__in=country_filters)
 
         advancement_id = request.query_params.get('id')
 

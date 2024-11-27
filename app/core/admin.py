@@ -6,6 +6,7 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django import forms
+from django.forms import TextInput
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
@@ -41,7 +42,7 @@ class UserAdmin(BaseUserAdmin):
     """Define admin pages for users"""
 
     ordering = ["id"]
-    list_display = ["email", "name"]
+    list_display = ["email", "name", "country"]
     actions = ['delete_selected_with_tokens']
 
     filter_horizontal = ('teams',)  # This adds a more user-friendly interface for selecting teams
@@ -55,7 +56,7 @@ class UserAdmin(BaseUserAdmin):
     delete_selected_with_tokens.short_description = 'Delete selected users with related tokens'
 
     fieldsets = (
-        (None, {"fields": ("email", "password", "teams", "phone_number", "name", "address")}),
+        (None, {"fields": ("email", "password", "teams", "phone_number", "name", "address", "country")}),
         (
             _("Permissions"),
             {"fields": (
@@ -88,10 +89,27 @@ class UserAdmin(BaseUserAdmin):
                 "is_staff",
                 "is_superuser",
                 "phone_number",
-                "address"
+                "address",
+                "country"
             )
         }),
     )
+
+    def get_form(self, request, obj=None, **kwargs):
+        """Customize the form to completely disable the teams field for non-staff users."""
+        form = super().get_form(request, obj, **kwargs)
+
+        # Check if the teams field exists before making changes
+        if 'teams' in form.base_fields:
+            if obj and not obj.is_staff:
+                # Replace the widget with a non-interactive one
+                form.base_fields['teams'].widget = TextInput(attrs={
+                    # 'readonly': 'readonly',
+                    'disabled': 'disabled',
+                    'style': 'pointer-events: none; background-color: #e9ecef;',  # Optional styling for clarity
+                })
+
+        return form
 
     def get_inline_instances(self, request, obj=None):
         """Show the AssignedSolicitor inline only for non-staff users."""
@@ -481,11 +499,49 @@ class EmailLogAdmin(admin.ModelAdmin):
     ordering = ('-created_at',)
 
 
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'recipient_email', 'text_preview', 'application_id', 'seen', 'timestamp', 'created_by_email')
+    list_filter = ('seen', 'timestamp')  # Add filters for easier navigation
+    search_fields = (
+        'recipient__email', 'text', 'application__id')  # Enable searching by Application ID, recipient email, and text
+
+    def recipient_email(self, obj):
+        return obj.recipient.email if obj.recipient else 'No recipient'
+
+    recipient_email.short_description = 'Recipient Email'
+
+    def text_preview(self, obj):
+        return obj.text[:50]  # Show a preview of the text (first 50 characters)
+
+    text_preview.short_description = 'Text Preview'
+
+    def application_id(self, obj):
+        return obj.application.id if obj.application else 'No application'
+
+    application_id.short_description = 'Application ID'
+
+    def created_by_email(self, obj):
+        return obj.created_by.email if obj.created_by else 'No creator'
+
+    created_by_email.short_description = 'Created By'
+
+
+class TeamAdmin(admin.ModelAdmin):
+    list_display = ('name', 'note')
+
+    def note(self, obj):
+        return format_html(
+            "<i>Note: Teams following the <b>countryCode_team</b> naming format (e.g., <b>ie_team</b>, <b>uk_team</b>) are exclusively reserved for assigning agents to work with users from specific countries. This format should not be used for any other purposes.</i>"
+        )
+
+    note.short_description = "Important Information"
+
+
 admin.site.unregister(LogEntry)
 admin.site.register(LogEntry, CustomLogEntryAdmin)
 
 admin.site.register(models.User, UserAdmin)
-admin.site.register(models.Team)
+admin.site.register(models.Team, TeamAdmin)
 admin.site.register(models.Address)
 admin.site.register(models.Application, ApplicationAdmin)
 admin.site.register(models.Deceased)
@@ -496,7 +552,7 @@ admin.site.register(models.Loan, LoanAdmin)
 
 admin.site.register(models.Applicant)
 
-admin.site.register(models.Notification)
+admin.site.register(models.Notification, NotificationAdmin)
 admin.site.register(models.Solicitor)
 
 admin.site.register(Document, DocumentAdmin)

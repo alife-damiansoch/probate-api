@@ -79,6 +79,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(validators=[validate_irish_phone_number], max_length=255, default=None, null=True,
                                     blank=True, )
     address = models.ForeignKey(Address, on_delete=models.PROTECT, null=True, blank=True, default=None)
+    country = models.CharField(max_length=2, choices=[('IE', 'Ireland'), ('UK', 'United Kingdom')], null=True,
+                               blank=True)
 
     objects = UserManager()
 
@@ -568,8 +570,9 @@ class Notification(models.Model):
     )
 
     def __str__(self):
-        recipient_email = self.recipient.email if self.recipient else 'Application not assigned'
-        return f'{recipient_email}: {self.text}'
+        recipient_email = self.recipient.email if self.recipient else 'No recipient'
+        application = self.application.id if self.application else 'No application'
+        return f"Recipient: {recipient_email}, Text: {self.text[:20]}..., Application ID: {application}"
 
 
 class SignedDocumentLog(models.Model):

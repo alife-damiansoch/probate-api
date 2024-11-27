@@ -16,6 +16,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from corsheaders.defaults import default_headers
+
 TESTING = 'test' in sys.argv
 
 # Load environment variables from the .env file
@@ -95,6 +97,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.middleware.CountryMiddleware',
     'core.middleware.LogEventOnErrorMiddleware',
 ]
 
@@ -253,6 +256,12 @@ CHANNEL_LAYERS = {
 }
 
 CORS_ORIGIN_ALLOW_ALL = True  # If you want to allow all origins, or...
+# Specify the headers that are allowed, including the custom 'Country' header
+
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'Country',  # Adding the custom 'Country' header
+]
 
 # CORS_ALLOWED_ORIGINS = [
 #     "http://127.0.0.1", "http://127.0.0.1:3000", 'http://localhost:3000',

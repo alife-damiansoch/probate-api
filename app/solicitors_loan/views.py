@@ -276,6 +276,7 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                 'notification_id': notification.id,
                 'application_id': serializer.instance.id,
                 'seen': notification.seen,
+                'country': serializer.instance.user.country,
             }
         )
 
@@ -350,6 +351,7 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                                 'notification_id': notification.id,
                                 'application_id': serializer.instance.id,
                                 'seen': notification.seen,
+                                'country': serializer.instance.user.country,
                             }
                         )
                     except Exception as e:
@@ -426,7 +428,8 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                                 'notification_id': notification.id,
                                 'application_id': serializer.instance.id,
                                 'seen': notification.seen,
-                                'changes': changes
+                                'changes': changes,
+                                'country': serializer.instance.user.country,
                             }
                         )
         except Exception as e:
@@ -538,8 +541,10 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         request_body = self.request.data
         instance = None
+
         try:
             instance = self.get_object()
+            users_country = instance.user.country
             if instance.approved:
                 raise DRFValidationError("This operation is not allowed on approved applications")
             elif instance.is_rejected:
@@ -569,6 +574,7 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                         'notification_id': notification.id,
                         'application_id': None,
                         'seen': notification.seen,
+                        'country': users_country
                     }
                 )
                 return result
@@ -647,6 +653,7 @@ class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
                     'notification_id': notification.id,
                     'application_id': application.id,
                     'seen': notification.seen,
+                    'country': application.user.country,
                 }
             )
 

@@ -180,6 +180,21 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = self.queryset
 
+        user = self.request.user
+
+        # Get the user's teams and filter based on the country
+        country_filters = []
+        if user.teams.filter(name='ie_team').exists():
+            country_filters.append('IE')
+        if user.teams.filter(name='uk_team').exists():
+            country_filters.append('UK')
+
+            # Check if no country filters were added
+        if not country_filters:
+            raise PermissionDenied("You must be assigned to at least one team to access this resource.")
+
+        queryset = queryset.filter(user__country__in=country_filters)
+
         stat = self.request.query_params.get('status', None)
         assigned = self.request.query_params.get('assigned', None)
 
@@ -285,6 +300,23 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
         Returns the whole application data using AgentApplicationDetailSerializer.
         """
         queryset = self.queryset
+
+        # automatic filtering based on what team_country is request user
+        user = request.user
+        country_filters = []
+
+        # Determine the countries the user has access to
+        if user.teams.filter(name='ie_team').exists():
+            country_filters.append('IE')
+        if user.teams.filter(name='uk_team').exists():
+            country_filters.append('UK')
+
+        # If no country filters were added, raise an error
+        if not country_filters:
+            raise PermissionDenied("You must be assigned to at least one team to access this resource.")
+
+        # Filter applications based on the COUNTRY of the related user
+        queryset = queryset.filter(user__country__in=country_filters)
 
         # Filtering by application fields
         filter_params = {

@@ -85,13 +85,17 @@ class PrivateLoanAPI(APITestCase):
     """Test authenticated API tests"""
 
     def setUp(self):
+        team = Team.objects.create(name="ie_team")
         self.client = APIClient()
         self.LOANS_URL = reverse('loans:loan-list')
         self.user = get_user_model().objects.create_user(
             email='test@example.com',
             password='testpass',
             is_staff=True,
+            country="IE"
+
         )
+        self.user.teams.add(team)
         self.client.force_authenticate(user=self.user)
 
     def test_retrieve_loans(self):
@@ -113,6 +117,7 @@ class PrivateLoanAPI(APITestCase):
             email='test1@example.com',
             password='testpass',
             is_staff=True,
+            country="IE"
         )
         app1 = create_application(self.user)
         app2 = create_application(other_staff_user)
@@ -241,8 +246,10 @@ class PrivateLoanAPI(APITestCase):
             password='testpass',
             is_staff=True,
         )
-        team = Team.objects.create(name="committee_members")
-        committee_member.teams.set([team.id])  # Use .set() for many-to-many assignment
+
+        committee_member.teams.add(
+            Team.objects.create(name="committee_members"))  # Use .set() for many-to-many assignment
+        committee_member.teams.add(Team.objects.create(name="ie_team"))  # Use .set() for many-to-many assignment
         self.client.force_authenticate(user=committee_member)
 
         approve_url = reverse('loans:loan-approve-loan', args=[loan.id])
@@ -277,6 +284,7 @@ class PrivateLoanAPI(APITestCase):
         )
         team = Team.objects.create(name="committee_members")
         committee_member.teams.set([team.id])  # Use .set() for many-to-many assignment
+        committee_member.teams.add(Team.objects.create(name="ie_team"))
         self.client.force_authenticate(user=committee_member)
 
         approve_url = reverse('loans:loan-approve-loan', args=[loan.id])
@@ -421,6 +429,7 @@ class PrivateLoanAPI(APITestCase):
         )
         team = Team.objects.create(name="committee_members")
         committee_member.teams.set([team.id])  # Assign committee member to team
+        committee_member.teams.add(Team.objects.create(name="ie_team"))
         self.client.force_authenticate(user=committee_member)
 
         # Approve the loan
@@ -461,6 +470,7 @@ class PrivateLoanAPI(APITestCase):
         )
         team = Team.objects.create(name="committee_members")
         committee_member.teams.set([team.id])  # Assign committee member to team
+        committee_member.teams.add(Team.objects.create(name="ie_team"))
         self.client.force_authenticate(user=committee_member)
 
         # Reject the loan with a reason
@@ -494,6 +504,7 @@ class PrivateLoanAPI(APITestCase):
         )
         team = Team.objects.create(name="committee_members")
         committee_member.teams.set([team.id])  # Assign committee member to the team
+        committee_member.teams.add(Team.objects.create(name="ie_team"))
         self.client.force_authenticate(user=committee_member)
 
         # Refer back to agent with a comment
@@ -531,6 +542,7 @@ class PrivateLoanAPI(APITestCase):
         )
         team = Team.objects.create(name="committee_members")
         committee_member.teams.set([team.id])  # Assign committee member to the team
+        committee_member.teams.add(Team.objects.create(name="ie_team"))
         self.client.force_authenticate(user=committee_member)
 
         # Refer back without a comment
@@ -557,7 +569,9 @@ class PrivateLoanAPI(APITestCase):
             email='non_committee_member@example.com',
             password='testpass',
             is_staff=True,
+
         )
+        non_committee_member.teams.add(Team.objects.create(name="ie_team"))
         self.client.force_authenticate(user=non_committee_member)
 
         # Attempt to refer back to agent

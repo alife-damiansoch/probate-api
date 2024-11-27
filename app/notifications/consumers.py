@@ -26,6 +26,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'notification_id': event['notification_id'],
             'application_id': event['application_id'],
             'seen': event['seen'],
+            'country': event.get('country'),  # Include country in the payload
         }
 
         # Include 'changes' only if it exists in the event
@@ -33,7 +34,8 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             response_data['changes'] = event['changes']
 
         # Print the event for debugging purposes
-        print(event)
+        print("Event:", event)
+        print("Response data being sent:", response_data)
 
         # Send the response data back to the WebSocket
         await self.send(text_data=json.dumps(response_data))

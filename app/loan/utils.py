@@ -100,6 +100,7 @@ def notify_loan_approved(loan, request_user):
             'notification_id': notification.id,
             'application_id': loan.application.id,
             'seen': notification.seen,
+            'country': loan.application.user.country,
         }
     )
 
@@ -149,6 +150,7 @@ def notify_loan_rejected(loan, request_user):
             'notification_id': notification.id,
             'application_id': loan.application.id,
             'seen': notification.seen,
+            'country': loan.application.user.country,
         }
     )
 
@@ -198,5 +200,6 @@ def notify_application_referred_back_to_agent(application, request_user, comment
             'notification_id': notification.id,
             'application_id': application.id,
             'seen': notification.seen,
+            'country': application.user.country,
         }
     )

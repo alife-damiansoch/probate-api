@@ -121,6 +121,7 @@ class ExpenseViewSet(mixins.ListModelMixin,
                     'notification_id': notification.id,
                     'application_id': application_id,
                     'seen': notification.seen,
+                    'country': application.user.country,
                 }
             )
 
