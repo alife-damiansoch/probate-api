@@ -53,15 +53,17 @@ class AgentApplicationSerializer(serializers.ModelSerializer):
     last_updated_by_email = serializers.SerializerMethodField()
     applicants = AgentApplicantSerializer(
         many=True, required=True)
+    currency_sign = serializers.SerializerMethodField()
 
     class Meta:
         model = Application
         fields = ['id', 'amount', 'term', 'approved', 'is_rejected', 'rejected_date', 'rejected_reason',
                   'date_submitted', 'undertaking_ready', 'last_updated_by', 'applicants', 'solicitor',
-                  'loan_agreement_ready', 'user', 'assigned_to', 'assigned_to_email', 'loan', 'last_updated_by_email']
+                  'loan_agreement_ready', 'user', 'assigned_to', 'assigned_to_email', 'loan', 'last_updated_by_email',
+                  'currency_sign']
         read_only_fields = (
             'id', 'last_updated_by_email', 'date_submitted', 'user', 'assigned_to_email', 'loan', 'last_updated_by',
-            'applicants', 'solicitor')
+            'applicants', 'solicitor', 'currency_sign')
 
     @extend_schema_field(serializers.CharField)
     def get_assigned_to_email(self, obj):
@@ -75,6 +77,20 @@ class AgentApplicationSerializer(serializers.ModelSerializer):
         if obj.last_updated_by:
             return obj.last_updated_by.email
         return None
+
+    @extend_schema_field(serializers.CharField)
+    def get_currency_sign(self, obj):
+        """Returns the currency symbol based on the user's country."""
+        currency_mapping = {
+            "IE": "€",  # Euro for Ireland
+            "UK": "£",  # Pound for United Kingdom
+            # Add more countries and their currency symbols here
+        }
+
+        # Default to Euro if the country is not listed
+        if obj.user and obj.user.country:
+            return currency_mapping.get(obj.user.country, "€")
+        return "€"
 
 
 class AgentApplicationDetailSerializer(AgentApplicationSerializer):

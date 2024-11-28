@@ -69,6 +69,8 @@ class LoanSerializer(serializers.ModelSerializer):
     approved_by_email = serializers.SerializerMethodField()
     assigned_to_email = serializers.SerializerMethodField()
     committee_approvements_status = serializers.SerializerMethodField()
+    country = serializers.SerializerMethodField()
+    currency_sign = serializers.SerializerMethodField()
 
     class Meta:
         model = Loan
@@ -77,15 +79,38 @@ class LoanSerializer(serializers.ModelSerializer):
             'term_agreed', 'approved_date', 'is_settled', 'settled_date', 'maturity_date', 'approved_by_email',
             'last_updated_by_email', 'application', 'assigned_to_email', 'is_paid_out', 'paid_out_date',
             'pay_out_reference_number',
-            'committee_approvements_status', 'needs_committee_approval', 'is_committee_approved'
+            'committee_approvements_status', 'needs_committee_approval', 'is_committee_approved', 'country',
+            'currency_sign'
             # New fields added here
         ]
         read_only_fields = [
             'id', 'extension_fees_total', 'current_balance', 'maturity_date', 'approved_by_email',
             'last_updated_by_email', 'committee_approvements_status', 'needs_committee_approval',
-            'is_committee_approved'
+            'is_committee_approved', 'country', 'currency_sign'
         ]
         extra_kwargs = {"application": {'required': True}}
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_currency_sign(self, obj):
+        """Returns the currency symbol based on the application's user country."""
+        currency_mapping = {
+            "IE": "€",  # Euro for Ireland
+            "UK": "£",  # Pound for United Kingdom
+            # Add more countries and their currency symbols here
+        }
+
+        # Ensure application and user exist, then get the country
+        if obj.application and obj.application.user:
+            country = obj.application.user.country
+            return currency_mapping.get(country, "€")  # Default to Euro if country not found
+        return "€"
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_country(self, obj):
+        """Retrieve the country of the loan's associated application user."""
+        if obj.application and obj.application.user:
+            return obj.application.user.country
+        return None  # Return None if the application or user is not available
 
     @extend_schema_field(OpenApiTypes.NUMBER)
     def get_amount_paid(self, obj):
