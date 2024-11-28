@@ -3,11 +3,10 @@ Views for the user Api
 """
 import logging
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 from rest_framework import generics, permissions
-from rest_framework.authtoken.views import ObtainAuthToken
-from rest_framework.settings import api_settings
-from rest_framework.exceptions import ValidationError
+
+from rest_framework.exceptions import ValidationError, AuthenticationFailed, PermissionDenied
 from rest_framework.response import Response
 
 from rest_framework import status
@@ -102,6 +101,32 @@ logger = logging.getLogger(__name__)
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
+
+    def post(self, request, *args, **kwargs):
+        # Get the 'Country' header from the request
+        country_header = request.headers.get('Country')
+
+        # Extract email and password from the request data
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        # Authenticate the user using email and password
+        user = authenticate(request, username=email, password=password)
+
+        if user is None:
+            raise AuthenticationFailed("Invalid email or password.")
+
+        # Check if the user's country matches the 'Country' header
+        if user.country != country_header:
+            raise PermissionDenied(
+                f"Access denied: You are attempting to log in from the {country_header} site, "
+                f"but your account is registered for {user.country}. "
+                f"Please use the designated website for your registered country.")
+
+        # If validation passes, continue with the default token generation
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
 class ManageUserView(generics.RetrieveUpdateAPIView):
