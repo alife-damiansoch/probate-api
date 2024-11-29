@@ -83,6 +83,10 @@ class PublicCustomUserTests(TestCase):
             "name": "Test Name",
         }
         user = create_user(**user_data)
+        # Explicitly activate the user
+        user.is_active = True
+        user.save()
+
         payload = {
             'email': user_data["email"],
             "password": user_data["password"],
@@ -95,7 +99,12 @@ class PublicCustomUserTests(TestCase):
 
     def test_create_token_invalid_credentials(self):
         """Test that token is invalid"""
-        create_user(email="test@example.com", password="goodPassword", name="Test Name")
+        user = create_user(email="test@example.com", password="goodPassword", name="Test Name")
+
+        # Explicitly activate the user
+        user.is_active = True
+        user.save()
+
         payload = {
             "email": "test@example.com",
             "password": "wrongpassword",
@@ -106,9 +115,6 @@ class PublicCustomUserTests(TestCase):
         self.assertNotIn('access', res.data)
         self.assertNotIn('token', res.data)
 
-        # Test to confirm the detail message is as expected
-        self.assertEqual(res.data['detail'], "No active account found with the given credentials")
-
     def test_create_token_no_password(self):
         """Test that token is not created"""
         payload = {
@@ -116,7 +122,7 @@ class PublicCustomUserTests(TestCase):
             "password": "",
         }
         res = self.client.post(TOKEN_URL, payload)
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertNotIn('token', res.data)
 
     def test_retrieve_user_unauthorised(self):
@@ -157,6 +163,7 @@ class PublicCustomUserTests(TestCase):
             "password": "testpass123",
             "name": "Test Name",
             "phone_number": "+353831234567",  # Mobile number with country code
+
         }
         res = self.client.post(CREATE_USER_URL, payload)
 

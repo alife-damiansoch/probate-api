@@ -50,35 +50,46 @@ class CreateUserView(generics.CreateAPIView):
         country = request.headers.get('Country')
         print(f"Country: {country}")
 
-        # Add the country to the request data if it exists
-        if country:
-            request.data['country'] = country.upper()
-        # print(f"Request data: {request.data}")
+        # Make a mutable copy of request.data
+        data = request.data.copy()
 
-        # Ensure the user is inactive by default
-        request.data['is_active'] = False
+        # Add the country to the mutable data
+        if country:
+            data['country'] = country.upper()
+
+        # Set is_active to False for the activation process
+        data['is_active'] = False
 
         # Generate a unique activation token
-        request.data['activation_token'] = str(uuid4())
+        data['activation_token'] = str(uuid4())
 
-        serializer = self.get_serializer(data=request.data)
-
+        # Serialize the data
+        serializer = self.get_serializer(data=data)
         try:
             serializer.is_valid(raise_exception=True)
         except ValidationError as e:
-            errors = dict(e.detail)  # Replace 'e' with 'e.detail'
+            # Optional: Modify error messages if needed
+            errors = dict(e.detail)
             for key, value in errors.items():
                 if isinstance(value, list):
-                    for i, message in enumerate(value):
-                        sentences = [sent.strip() for sent in message.split('.')]
-                        value[i] = sentences
+                    value[:] = [msg.strip().split('.') for msg in value]
             raise ValidationError(errors)
+
+        # Save the user instance
         self.perform_create(serializer)
 
         # Send activation email after user creation
         user = serializer.instance
-        self.send_activation_email(user, request)
+        try:
+            self.send_activation_email(user, request)
+        except Exception as email_error:
+            print(f"Failed to send activation email: {email_error}")
+            return Response(
+                {"error": "User created, but activation email failed to send."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
+        # Return the response
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
