@@ -73,7 +73,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     """User in the system"""
     email = models.EmailField(unique=True, max_length=255)
     teams = models.ManyToManyField(Team, blank=True, related_name='users')  # Changed to ManyToManyField
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     name = models.CharField(max_length=255)
     phone_number = models.CharField(validators=[validate_irish_phone_number], max_length=255, default=None, null=True,
@@ -81,6 +81,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     address = models.ForeignKey(Address, on_delete=models.PROTECT, null=True, blank=True, default=None)
     country = models.CharField(max_length=2, choices=[('IE', 'Ireland'), ('UK', 'United Kingdom')], null=True,
                                blank=True)
+    activation_token = models.UUIDField(default=None, unique=True, null=True, blank=True)
 
     objects = UserManager()
 
@@ -88,6 +89,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.name}  -  {self.email}"
+
+    def save(self, *args, **kwargs):
+        # Automatically generate activation token for non-staff and inactive users if not set
+        if not self.is_staff and not self.is_active and not self.activation_token:
+            self.activation_token = uuid.uuid4()
+        super().save(*args, **kwargs)
 
 
 class Solicitor(models.Model):

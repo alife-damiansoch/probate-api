@@ -118,7 +118,8 @@ class CorsMiddleware(object):
             "/api/download/",
             "/api/user/",
             "/api/user/token/",
-            "/api/user/token/refresh/"
+            "/api/user/token/refresh/",
+            "api/use/activate/"
         ]
 
         restricted_origins_paths = [
@@ -153,6 +154,7 @@ class CountryMiddleware(MiddlewareMixin):
                 request.path.startswith('/admin/')
                 or request.path.startswith('/api/docs/')
                 or request.path.startswith('/api/schema/')
+                or request.path.startswith('/api/user/activate/')
         ):
             return self.get_response(request)
 

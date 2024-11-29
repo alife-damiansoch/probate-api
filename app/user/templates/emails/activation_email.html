@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border: 1px solid #dddddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .header {
+            background-color: #0044cc;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header img {
+            max-width: 150px;
+            margin-bottom: 10px;
+        }
+
+        .body {
+            padding: 20px;
+        }
+
+        .button {
+            display: inline-block;
+            background-color: #28a745;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 16px;
+        }
+
+        .footer {
+            background-color: #f1f1f1;
+            color: #666666;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        
+        <h1>Welcome to {{ company_name }}</h1>
+    </div>
+    <div class="body">
+        <p>Hi {{ user.first_name }},</p>
+        <p>Thank you for signing up with {{ company_name }}! To activate your account, please click the button
+            below:</p>
+        <p style="text-align: center;">
+            <a href="{{ activation_link }}" class="button">Activate Your Account</a>
+        </p>
+        <p>If the button above doesn't work, please click on the link sent to your email to activate your account.</p>
+        <p>If you have any questions, feel free to reach out to us at <a
+                href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
+        <p>Best regards,</p>
+        <p>The {{ company_name }} Team</p>
+    </div>
+    <div class="footer">
+        &copy; {{ company_name }} | <a href="mailto:{{ support_email }}">Contact Support</a>
+    </div>
+</div>
+</body>
+</html>

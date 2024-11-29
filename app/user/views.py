@@ -2,15 +2,25 @@
 Views for the user Api
 """
 import logging
+import os
+from uuid import uuid4
 
 from django.contrib.auth import get_user_model, authenticate
+from django.core.exceptions import ObjectDoesNotExist
+
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions
 
 from rest_framework.exceptions import ValidationError, AuthenticationFailed, PermissionDenied
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from rest_framework import status
+from rest_framework.views import APIView
 
+from communications.utils import send_email_f
 from core.models import User
 from user.serializers import (UserSerializer,
                               UserListSerializer, UpdatePasswordSerializer, MyTokenObtainPairSerializer
@@ -43,7 +53,14 @@ class CreateUserView(generics.CreateAPIView):
         # Add the country to the request data if it exists
         if country:
             request.data['country'] = country.upper()
-        print(f"Request data: {request.data}")
+        # print(f"Request data: {request.data}")
+
+        # Ensure the user is inactive by default
+        request.data['is_active'] = False
+
+        # Generate a unique activation token
+        request.data['activation_token'] = str(uuid4())
+
         serializer = self.get_serializer(data=request.data)
 
         try:
@@ -57,8 +74,41 @@ class CreateUserView(generics.CreateAPIView):
                         value[i] = sentences
             raise ValidationError(errors)
         self.perform_create(serializer)
+
+        # Send activation email after user creation
+        user = serializer.instance
+        self.send_activation_email(user, request)
+
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def send_activation_email(self, user, request):
+        """Send an activation email to the user"""
+        # Use 'Frontend-Host' header if available, otherwise fallback to 'Host'
+        frontend_host = request.headers.get('Frontend-Host', request.headers.get('Host', 'defaultdomain.com'))
+        activation_link = f"{frontend_host}/activate/{user.activation_token}"
+
+        # Email details
+        subject = f"Activate Your Account - {os.getenv('COMPANY_NAME', 'Default Company Name')}"
+        context = {
+            "user": user,
+            "activation_link": activation_link,
+            "company_name": os.getenv('COMPANY_NAME', 'Default Company Name'),
+            "support_email": os.getenv('DEFAULT_FROM_EMAIL', 'Default Company Email'),
+        }
+
+        # Render HTML email content
+        html_message = render_to_string('emails/activation_email.html', context)
+
+        # Send email
+        send_email_f(
+            sender="noreply@alife.ie",
+            recipient=user.email,
+            subject=subject,
+            message=html_message,
+            solicitor_firm=user,
+            use_info_email=True
+        )
 
 
 class UpdatePasswordView(generics.UpdateAPIView):
@@ -180,3 +230,53 @@ class RetrieveUserView(generics.RetrieveAPIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticated, IsStaff,)
     queryset = get_user_model().objects.all()
+
+
+class ActivateUserView(APIView):
+    """Endpoint for activating user accounts."""
+    authentication_classes = []  # Disable JWT Authentication for this view
+    permission_classes = [AllowAny]  # Ensure unauthenticated users can access this
+
+    @extend_schema(
+        summary="Activate User Account",
+        description="Activate a user account using the activation token.",
+        request={"activation_token": str},
+        responses={
+            200: {"description": "Account activated successfully."},
+            400: {"description": "Invalid or missing activation token."},
+            404: {"description": "Activation token is invalid or user does not exist."},
+        },
+        methods=["POST"],  # Specify HTTP method explicitly
+    )
+    def post(self, request, *args, **kwargs):
+        activation_token = request.data.get('activation_token')
+        if not activation_token:
+            return Response(
+                {"detail": "Activation token is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        print(activation_token)
+        try:
+            # Find the user with the matching activation token
+            user = User.objects.get(activation_token=activation_token)
+
+            if user.is_active:
+                return Response(
+                    {"detail": "Account is already activated."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                # Activate the user account
+                user.is_active = True
+                user.save()
+
+            return Response(
+                {"detail": "Account activated successfully."},
+                status=status.HTTP_200_OK
+            )
+
+        except ObjectDoesNotExist:
+            return Response(
+                {"detail": "Activation token is invalid or user does not exist."},
+                status=status.HTTP_404_NOT_FOUND
+            )

@@ -71,8 +71,12 @@ class UserAdmin(BaseUserAdmin):
                 "last_login",
             )}
         ),
+        (
+            "Activation",
+            {"fields": ("activation_token",)},  # Add activation token field
+        ),
     )
-    readonly_fields = ["last_login"]
+    readonly_fields = ["last_login", "activation_token"]  # Make activation_token read-only
 
     search_fields = ['email', ]
 
@@ -104,7 +108,6 @@ class UserAdmin(BaseUserAdmin):
             if obj and not obj.is_staff:
                 # Replace the widget with a non-interactive one
                 form.base_fields['teams'].widget = TextInput(attrs={
-                    # 'readonly': 'readonly',
                     'disabled': 'disabled',
                     'style': 'pointer-events: none; background-color: #e9ecef;',  # Optional styling for clarity
                 })

@@ -245,6 +245,7 @@ SPECTACULAR_SETTINGS = {
         'displayRequestDuration': True,
         'docExpansion': 'list'
     },
+   
 }
 
 ASGI_APPLICATION = 'app.routing.application'
@@ -260,7 +261,7 @@ CORS_ORIGIN_ALLOW_ALL = True  # If you want to allow all origins, or...
 
 
 CORS_ALLOW_HEADERS = list(default_headers) + [
-    'Country',  # Adding the custom 'Country' header
+    'Country', 'Frontend-Host'  # Adding the custom 'Country' header
 ]
 
 # CORS_ALLOWED_ORIGINS = [

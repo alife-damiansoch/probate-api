@@ -5,7 +5,8 @@ import uuid
 import imaplib
 import email
 import re
-from email.utils import parseaddr
+from email.mime.image import MIMEImage
+from email.utils import parseaddr, make_msgid
 
 import aiofiles
 from aioimaplib import aioimaplib

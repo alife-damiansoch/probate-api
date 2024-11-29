@@ -71,9 +71,9 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
         fields = ['id', 'email', 'password', 'name', 'phone_number', 'address', 'teams', 'is_active', 'is_staff',
-                  'is_superuser', 'country']
+                  'is_superuser', 'country', 'activation_token']
         extra_kwargs = {'password': {'write_only': True, 'min_length': 5}}
-        read_only_fields = ('id', 'is_active', 'is_staff', 'is_superuser', 'teams')
+        read_only_fields = ('id', 'is_active', 'is_staff', 'is_superuser', 'teams',)
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
