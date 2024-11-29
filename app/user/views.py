@@ -178,7 +178,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
             raise AuthenticationFailed("Invalid email or password.")
 
         # Check if the user's country matches the 'Country' header
-        if user.country != country_header:
+        if (not user.is_staff and not user.is_superuser) and user.country != country_header:
             raise PermissionDenied(
                 f"Access denied: You are attempting to log in from the {country_header} site, "
                 f"but your account is registered for {user.country}. "
