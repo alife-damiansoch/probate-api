@@ -239,7 +239,7 @@ class PrivateTestApplicationAPI(APITestCase):
             self.assertEqual(applicant.title, applicant_data['title'])
             self.assertEqual(applicant.first_name, applicant_data['first_name'])
             self.assertEqual(applicant.last_name, applicant_data['last_name'])
-            self.assertEqual(applicant.pps_number, applicant_data['pps_number'])
+            self.assertEqual(applicant.decrypted_pps, applicant_data['pps_number'])
 
         # Check all estates
         for i in range(len(data['estates'])):

@@ -1,7 +1,7 @@
 """
 Django admin customization.
 """
-
+from cryptography.fernet import Fernet
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.contrib.auth import get_user_model
@@ -17,6 +17,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
 
+from app import settings
 from core import models
 from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog, \
     AssociatedEmail, UserEmailLog, CommitteeApproval, Team
@@ -560,6 +561,41 @@ class TeamAdmin(admin.ModelAdmin):
     note.short_description = "Important Information"
 
 
+class ApplicantAdmin(admin.ModelAdmin):
+    list_display = ('first_name', 'last_name', 'application', 'decrypted_pps_display')
+    search_fields = ('first_name', 'last_name', 'application__id')  # Standard search fields
+
+    def decrypted_pps_display(self, obj):
+        """Display the decrypted PPS number in the admin list view."""
+        try:
+            return obj.decrypted_pps
+        except Exception:
+            return "Error decrypting"
+
+    decrypted_pps_display.short_description = "Decrypted PPS"
+
+    def get_search_results(self, request, queryset, search_term):
+        """Customize search to include decrypted PPS."""
+        # Start with the default search behavior
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+
+        # Add custom filtering for decrypted PPS
+        matching_ids = []
+        for applicant in models.Applicant.objects.all():
+            try:
+                # Check if decrypted PPS matches the search term
+                if search_term in (applicant.decrypted_pps or ''):
+                    matching_ids.append(applicant.id)
+            except Exception:
+                continue  # Ignore errors during decryption
+
+        # Include the matching applicants in the queryset
+        if matching_ids:
+            queryset |= models.Applicant.objects.filter(id__in=matching_ids)
+
+        return queryset, use_distinct
+
+
 admin.site.unregister(LogEntry)
 admin.site.register(LogEntry, CustomLogEntryAdmin)
 
@@ -573,7 +609,7 @@ admin.site.register(models.Dispute)
 admin.site.register(models.Event, EventsAdmin)
 admin.site.register(models.Loan, LoanAdmin)
 
-admin.site.register(models.Applicant)
+admin.site.register(models.Applicant, ApplicantAdmin)
 
 admin.site.register(models.Notification, NotificationAdmin)
 admin.site.register(models.Solicitor)

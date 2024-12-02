@@ -51,6 +51,11 @@ COMMITTEE_MEMBERS_COUNT_REQUIRED_FOR_APPROVAL = int(os.getenv("COMMITTEE_MEMBERS
 if TESTING:
     COMMITTEE_MEMBERS_COUNT_REQUIRED_FOR_APPROVAL = 1
 
+# Encryption key for PPS number
+PPS_ENCRYPTION_KEY = os.getenv("PPS_ENCRYPTION_KEY")
+if not PPS_ENCRYPTION_KEY:
+    raise ValueError("PPS_ENCRYPTION_KEY must be set in the environment.")
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -245,7 +250,7 @@ SPECTACULAR_SETTINGS = {
         'displayRequestDuration': True,
         'docExpansion': 'list'
     },
-   
+
 }
 
 ASGI_APPLICATION = 'app.routing.application'
