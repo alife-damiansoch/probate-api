@@ -26,7 +26,6 @@ class SimpleUserSerializer(serializers.ModelSerializer):
         return Loan.objects.filter(
             application__user=obj,
             is_settled=False,
-            is_paid_out=False
         ).filter(
             Q(is_committee_approved=True) | Q(is_committee_approved__isnull=True)
         ).count()
