@@ -3,6 +3,7 @@ Django admin customization.
 """
 
 from django.contrib import admin
+from django.contrib.admin import SimpleListFilter
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django import forms
@@ -18,7 +19,7 @@ from django.urls import reverse
 
 from core import models
 from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog, \
-    AssociatedEmail, UserEmailLog, CommitteeApproval
+    AssociatedEmail, UserEmailLog, CommitteeApproval, Team
 
 from rest_framework.authtoken.models import Token
 
@@ -38,6 +39,22 @@ class AssignedSolicitorInline(admin.TabularInline):
         return qs.select_related('user')
 
 
+class TeamFilter(SimpleListFilter):
+    title = 'team'  # The title displayed in the admin filter sidebar
+    parameter_name = 'team'  # The query parameter used in the URL
+
+    def lookups(self, request, model_admin):
+        """Return a list of tuples (value, display_name) for filter options."""
+        teams = Team.objects.all()
+        return [(team.id, team.name) for team in teams]
+
+    def queryset(self, request, queryset):
+        """Filter the queryset based on the selected value."""
+        if self.value():
+            return queryset.filter(teams__id=self.value())
+        return queryset
+
+
 class UserAdmin(BaseUserAdmin):
     """Define admin pages for users"""
 
@@ -46,6 +63,9 @@ class UserAdmin(BaseUserAdmin):
     actions = ['delete_selected_with_tokens']
 
     filter_horizontal = ('teams',)  # This adds a more user-friendly interface for selecting teams
+
+    # Add your custom filter for teams here
+    list_filter = ['is_staff', 'is_superuser', 'is_active', TeamFilter]
 
     def delete_selected_with_tokens(self, request, queryset):
         for obj in queryset:
