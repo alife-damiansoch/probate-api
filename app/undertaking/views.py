@@ -2,6 +2,7 @@ import datetime
 import os
 import zipfile
 
+from django.forms import model_to_dict
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -239,7 +240,7 @@ def create_pdf_for_applicant(application, applicant, company_name, company_addre
     """
     # Get individual applicant details
     applicant_name = f"{applicant.first_name} {applicant.last_name}"
-    applicant_pps = applicant.pps_number if hasattr(applicant, 'pps_number') else "N/A"
+    applicant_pps = applicant.decrypted_pps if hasattr(applicant, 'decrypted_pps') else "N/A"
 
     # Calculate the advancement details based on application data and fee
     advancement_amount = application.amount  # Assuming 'amount' field in Application model

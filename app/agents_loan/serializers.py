@@ -33,9 +33,33 @@ class AgentDisputeSerializer(serializers.ModelSerializer):
 
 
 class AgentApplicantSerializer(serializers.ModelSerializer):
+    # Override the pps_number field to accept plain text from the frontend
+    pps_number = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = Applicant
         fields = ['title', 'first_name', 'last_name', 'pps_number']
+
+    def get_pps_number(self, obj):
+        """Return the decrypted PPS number for GET requests."""
+        return obj.decrypted_pps
+
+    def to_representation(self, instance):
+        """Decrypt PPS number when sending data to the frontend."""
+        ret = super().to_representation(instance)
+        ret['pps_number'] = instance.decrypted_pps
+        return ret
+
+    def create(self, validated_data):
+        """Handle creating a new Applicant."""
+        return Applicant.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        """Handle updating an Applicant."""
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
 
 
 class AgentEstateSerializer(serializers.ModelSerializer):

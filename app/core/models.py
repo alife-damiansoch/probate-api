@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from cryptography.fernet import Fernet, InvalidToken
 from dateutil.relativedelta import relativedelta
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
@@ -260,16 +261,36 @@ class Applicant(models.Model):
     title = models.CharField(max_length=5, choices=TITLE_CHOICES)
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
-    pps_number = models.CharField(max_length=13, error_messages={
-        'max_length': 'Ensure that PPS field has no more than 9 characters',
-    })
+    pps_number = models.BinaryField(null=True, blank=True)
     application = models.ForeignKey(
-        Application, on_delete=models.CASCADE, related_name='applicants')
+        'Application', on_delete=models.CASCADE, related_name='applicants')
 
-    # Each applicant can be associated with at most one application
+    @property
+    def decrypted_pps(self):
+        """Decrypt and return the PPS number."""
+        if not self.pps_number:
+            return None
+        cipher = Fernet(settings.PPS_ENCRYPTION_KEY)
+        encrypted_pps = (
+            self.pps_number.tobytes()
+            if isinstance(self.pps_number, memoryview)
+            else self.pps_number
+        )
+        return cipher.decrypt(encrypted_pps).decode()
+
+    def encrypt_pps(self, pps):
+        """Encrypt the given PPS number."""
+        cipher = Fernet(settings.PPS_ENCRYPTION_KEY)
+        return cipher.encrypt(pps.encode())
+
+    def save(self, *args, **kwargs):
+        """Ensure encryption happens before saving."""
+        if self.pps_number and isinstance(self.pps_number, str):  # Encrypt if it's plain text
+            self.pps_number = self.encrypt_pps(self.pps_number)
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f'{self.first_name} {self.last_name}'
+        return f"{self.first_name} {self.last_name}"
 
 
 class Estate(models.Model):
