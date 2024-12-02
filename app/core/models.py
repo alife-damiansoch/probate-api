@@ -70,6 +70,12 @@ class Address(models.Model):
         return f'{self.line1}, {self.town_city}, {self.county}, {self.eircode}'
 
 
+COUNTRY_CHOICES = [
+    ('IE', 'Ireland (Euro)', '€'),
+    ('UK', 'United Kingdom (Pound)', '£'),
+]
+
+
 class User(AbstractBaseUser, PermissionsMixin):
     """User in the system"""
     email = models.EmailField(unique=True, max_length=255)
@@ -80,8 +86,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(validators=[validate_irish_phone_number], max_length=255, default=None, null=True,
                                     blank=True, )
     address = models.ForeignKey(Address, on_delete=models.PROTECT, null=True, blank=True, default=None)
-    country = models.CharField(max_length=2, choices=[('IE', 'Ireland'), ('UK', 'United Kingdom')], null=True,
-                               blank=True)
+    country = models.CharField(
+        max_length=2,
+        choices=[(code, name) for code, name, _ in COUNTRY_CHOICES],  # Map choices for Django display
+        null=True,
+        blank=True
+    )
     activation_token = models.UUIDField(default=None, unique=True, null=True, blank=True)
 
     objects = UserManager()
@@ -90,6 +100,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.name}  -  {self.email}"
+
+    def get_currency(self):
+        for code, name, currency in COUNTRY_CHOICES:
+            if self.country == code:
+                return currency
+        return None
 
     def save(self, *args, **kwargs):
         # Automatically generate activation token for non-staff and inactive users if not set

@@ -106,7 +106,10 @@ def generate_undertaking_pdf(request):
             'current_date': datetime.date.today().strftime("%B %d, %Y"),  # Format the current date
             'company_name': company_name,
             'company_address': company_address,
+            'currency_sign': application.user.get_currency()
         }
+
+        print(context)
 
         # Render the HTML template with context data
         html_string = render_to_string('undertaking/undertaking_template.html', context)
@@ -269,6 +272,7 @@ def create_pdf_for_applicant(application, applicant, company_name, company_addre
         'interest_rate': interest_rate,
         'cost_per_100': cost_per_100,
         'current_year': datetime.date.today().year,
+        'currency_sign': application.user.get_currency(),
         # date
         'today_date': datetime.datetime.now().strftime("%d/%m/%Y"),
         'current_year ': datetime.datetime.now().strftime("%Y")

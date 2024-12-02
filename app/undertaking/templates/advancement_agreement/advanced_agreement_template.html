@@ -93,7 +93,7 @@
         </tr>
         <tr>
             <th>Amount you're borrowing</th>
-            <td>€{{ advancement_amount }}</td>
+            <td>{{ currency_sign }}{{ advancement_amount }}</td>
         </tr>
         <tr>
             <th>Advancement term</th>
@@ -101,13 +101,13 @@
         </tr>
         <tr>
             <th>Repaying</th>
-            <td>1 payment of €{{ total_amount_payable }}</td>
+            <td>1 payment of {{ currency_sign }}{{ total_amount_payable }}</td>
         </tr>
         <tr>
-            <th>Total Amount Payable: €{{ total_amount_payable }} made up of:</th>
+            <th>Total Amount Payable: {{ currency_sign }}{{ total_amount_payable }} made up of:</th>
             <td>
-                (a) advancement amount: €{{ advancement_amount }} <br>
-                (b) total interest of: €{{ total_interest }}
+                (a) advancement amount: {{ currency_sign }}{{ advancement_amount }} <br>
+                (b) total interest of: {{ currency_sign }}{{ total_interest }}
             </td>
         </tr>
         <tr>
@@ -119,8 +119,8 @@
             <td>{{ interest_rate }}% per annum (fixed)</td>
         </tr>
         <tr>
-            <th>Cost per €100 borrowed</th>
-            <td>€{{ cost_per_100 }}</td>
+            <th>Cost per {{ currency_sign }}100 borrowed</th>
+            <td>{{ currency_sign }}{{ cost_per_100 }}</td>
         </tr>
     </table>
 </div>
@@ -156,7 +156,8 @@
         giving details of this Agreement. If you withdraw, you must repay us the outstanding advancement amount
         including
         accrued interest in full by sending a cheque to the address above. You must pay us no later than 30 days after
-        giving notice of withdrawal. The amount of interest payable per day is €2.82 if you borrow €2,500.00.</p>
+        giving notice of withdrawal. The amount of interest payable per day is {{ currency_sign }}2.82 if you
+        borrow {{ currency_sign }}2,500.00.</p>
 </div>
 
 <div class="section">
@@ -207,7 +208,8 @@
 <div class="section">
     <h3>Central Credit Register Notice:</h3>
     <p>Under the Credit Reporting Act 2013, lenders are required to provide personal and credit information for credit
-        applications and credit agreements of €500 and above to the Central Credit Register. This information will be
+        applications and credit agreements of {{ currency_sign }}500 and above to the Central Credit Register. This
+        information will be
         held on the Central Credit Register and may be used by other lenders when making decisions on your credit
         applications and credit agreements.</p>
     <p>{{ company_name }} (trading as "{{ company_name }}") is regulated by The Central Bank of Ireland, New Wapping
