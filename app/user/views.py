@@ -6,11 +6,12 @@ import os
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model, authenticate
+
 from django.core.exceptions import ObjectDoesNotExist
 
 from django.template.loader import render_to_string
-from django.utils.html import strip_tags
-from drf_spectacular.utils import extend_schema
+
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import generics, permissions
 
 from rest_framework.exceptions import ValidationError, AuthenticationFailed, PermissionDenied
@@ -20,15 +21,22 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
 
+from app import settings
 from communications.utils import send_email_f
 from core.models import User
 from user.serializers import (UserSerializer,
-                              UserListSerializer, UpdatePasswordSerializer, MyTokenObtainPairSerializer
+                              UserListSerializer, UpdatePasswordSerializer, MyTokenObtainPairSerializer,
+                              ResetPasswordSerializer, ForgotPasswordSerializer
                               )
 from .permissions import IsStaff
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.encoding import force_bytes, force_str
+from django.shortcuts import get_object_or_404
 
 
 class UserList(generics.ListAPIView):
@@ -291,3 +299,123 @@ class ActivateUserView(APIView):
                 {"detail": "Activation token is invalid or user does not exist."},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+
+class ForgotPasswordView(APIView):
+    """
+    Handle sending a password reset email
+    """
+    authentication_classes = []  # Disable JWT Authentication for this view
+    permission_classes = [AllowAny]  # Ensure unauthenticated users can access this
+
+    @extend_schema(
+        summary="Request Password Reset",
+        description="Send a password reset link to the user's registered email address.",
+        request=ForgotPasswordSerializer,
+        responses={
+            200: {"description": "Password reset link sent to the user's email."},
+            400: {"description": "Invalid request or missing email field."},
+        },
+        methods=["POST"],
+    )
+    def post(self, request):
+        serializer = ForgotPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+
+        try:
+            user = get_object_or_404(User, email=email)
+            token_generator = PasswordResetTokenGenerator()
+            token = token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+            # Use Frontend-Host header or fallback to a default
+            frontend_host = request.headers.get('Frontend-Host', '')
+            print(request.headers)
+            reset_link = f"{frontend_host}/reset-password/{uid}/{token}/"
+
+            # Use send_email_f to send the reset email
+            context = {
+                "reset_link": reset_link,
+                "user_name": user.name if user.name else user.email,
+            }
+
+            # Render email content
+            message = render_to_string("emails/reset_password_email.html", context)
+            send_email_f(
+                sender="noreply@alife.ie",
+                recipient=email,
+                subject="Reset Your Password",
+                message=message,
+                use_info_email=True,
+            )
+
+            return Response({"detail": "Password reset link sent."}, status=status.HTTP_200_OK)
+
+        except User.DoesNotExist:
+            # Avoid revealing if the email is invalid to prevent enumeration attacks
+            return Response({"detail": "Password reset link sent."}, status=status.HTTP_200_OK)
+
+
+class ResetPasswordView(APIView):
+    """
+    Handle password reset using token and uid
+    """
+    authentication_classes = []  # Disable JWT Authentication for this view
+    permission_classes = [AllowAny]  # Ensure unauthenticated users can access this
+
+    @extend_schema(
+        summary="Reset Password",
+        description="Reset the user's password using the token and uid from the reset link.",
+        request=ResetPasswordSerializer,
+        responses={
+            200: {"description": "Password reset successfully."},
+            400: {"description": "Invalid link, token, or missing password field."},
+        },
+        parameters=[
+            OpenApiParameter(
+                name="uidb64",
+                description="Base64-encoded user ID.",
+                required=True,
+                type=str,
+                location=OpenApiParameter.PATH,
+            ),
+            OpenApiParameter(
+                name="token",
+                description="Password reset token.",
+                required=True,
+                type=str,
+                location=OpenApiParameter.PATH,
+            ),
+        ],
+        methods=["POST"],
+    )
+    def post(self, request, uidb64: str, token: str):
+        serializer = ResetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_password = serializer.validated_data['password']
+
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({"detail": "Invalid link."}, status=status.HTTP_400_BAD_REQUEST)
+
+        token_generator = PasswordResetTokenGenerator()
+        if not token_generator.check_token(user, token):
+            return Response({"detail": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+
+        # Optional: Send a confirmation email
+        message = render_to_string("emails/reset_password_confirmation.html", {"user_name": user.name or user.email})
+        send_email_f(
+            sender="noreply@alife.ie",
+            recipient=user.email,
+            subject="Password Reset Successful",
+            message=message,
+            use_info_email=True,
+        )
+
+        return Response({"detail": "Password reset successfully."}, status=status.HTTP_200_OK)
