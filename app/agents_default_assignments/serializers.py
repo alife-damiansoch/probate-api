@@ -28,8 +28,8 @@ class SimpleUserSerializer(serializers.ModelSerializer):
             is_settled=False  # Always ensure `is_settled` is False
         ).filter(
             Q(needs_committee_approval=False) |  # Include loans where committee approval is not needed
-            (Q(needs_committee_approval=True) & Q(is_committee_approved__in=[True, None]))
-            # Include loans needing approval only if approved or null
+            Q(needs_committee_approval=True, is_committee_approved__isnull=True) |  # Explicitly check for NULL
+            Q(needs_committee_approval=True, is_committee_approved=True)  # Or check for True
         )
 
         # Print all loan IDs for debugging purposes
