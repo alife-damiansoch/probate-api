@@ -266,11 +266,20 @@ class LoanAdmin(admin.ModelAdmin):
     )
     ordering = ["id"]
     inlines = [TransactionInline, LoanExtensionInline]
+
+    # List Display
     list_display = [
         "id", "application", "amount_agreed", "term_agreed", "approved_by", "last_updated_by",
-        "is_paid_out", "needs_committee_approval", "is_committee_approved",  # Added new fields to list_display
+        "is_paid_out", "needs_committee_approval", "is_committee_approved", "is_settled",
     ]
 
+    # Search and Filter
+    search_fields = ["application__id"]  # Enable searching by application.id
+    list_filter = [
+        "is_settled", "needs_committee_approval", "is_committee_approved", "is_paid_out",
+    ]  # Add filtering options for the specified fields
+
+    # Save methods
     def save_model(self, request, obj, form, change):
         if not obj.pk:  # If object is being created
             obj.approved_by = request.user
