@@ -23,14 +23,19 @@ class SimpleUserSerializer(serializers.ModelSerializer):
         return Application.objects.filter(user=obj, is_rejected=False, approved=False).count()
 
     def get_advancements_owed_len(self, obj):
-        return Loan.objects.filter(
+        loans = Loan.objects.filter(
             application__user=obj,  # Filter by the user
             is_settled=False  # Always ensure `is_settled` is False
         ).filter(
             Q(needs_committee_approval=False) |  # Include loans where committee approval is not needed
             (Q(needs_committee_approval=True) & Q(is_committee_approved__in=[True, None]))
             # Include loans needing approval only if approved or null
-        ).count()
+        )
+
+        # Print all loan IDs for debugging purposes
+        print(f"Loan IDs for user {obj}: {[loan.id for loan in loans]}")
+
+        return loans.count()
 
 
 class AssignmentSerializer(serializers.ModelSerializer):
