@@ -145,7 +145,8 @@ class CorsMiddleware(object):
 
 class CountryMiddleware(MiddlewareMixin):
     """
-    Middleware to enforce the presence of a 'Country' header in all requests.
+    Middleware to enforce the presence of a 'Country' header in all requests,
+    while automatically adding it for Swagger requests based on the Referer.
     """
 
     def __call__(self, request):
@@ -155,16 +156,25 @@ class CountryMiddleware(MiddlewareMixin):
                 or request.path.startswith('/api/docs/')
                 or request.path.startswith('/api/schema/')
                 or request.path.startswith('/api/user/activate/')
+                or request.path.startswith('/api/user/reset-password/')
         ):
             return self.get_response(request)
+
+        # Check if the request originates from Swagger (Referer contains '/api/docs/')
+        referer = request.headers.get('Referer', '')
+        is_swagger_request = '/api/docs/' in referer
 
         # Check if the 'Country' header is provided
         country = request.headers.get('Country')
         if not country:
-            if getattr(settings, 'TESTING', False):
-                # Automatically add the Country header during tests
-                request.META['HTTP_COUNTRY'] = 'IE'  # Add the header in the request.META
+            if is_swagger_request:
+                # Automatically add 'Country: IE' for Swagger requests
+                request.META['HTTP_COUNTRY'] = 'IE'
                 country = 'IE'  # Ensure country is set for further processing
+            elif getattr(settings, 'TESTING', False):
+                # Automatically add 'Country: IE' during tests
+                request.META['HTTP_COUNTRY'] = 'IE'
+                country = 'IE'
             else:
                 # Return a 400 Bad Request response if the 'Country' header is missing
                 return JsonResponse(
@@ -177,3 +187,38 @@ class CountryMiddleware(MiddlewareMixin):
 
         response = self.get_response(request)
         return response
+# class CountryMiddleware(MiddlewareMixin):
+#     """
+#     Middleware to enforce the presence of a 'Country' header in all requests.
+#     """
+#
+#     def __call__(self, request):
+#         # Skip validation for admin and API documentation endpoints
+#         if (
+#                 request.path.startswith('/admin/')
+#                 or request.path.startswith('/api/docs/')
+#                 or request.path.startswith('/api/schema/')
+#                 or request.path.startswith('/api/user/activate/')
+#         ):
+#             return self.get_response(request)
+#
+#         # Check if the 'Country' header is provided
+#         country = request.headers.get('Country')
+#
+#         if not country:
+#             if getattr(settings, 'TESTING', False):
+#                 # Automatically add the Country header during tests
+#                 request.META['HTTP_COUNTRY'] = 'IE'  # Add the header in the request.META
+#                 country = 'IE'  # Ensure country is set for further processing
+#             else:
+#                 # Return a 400 Bad Request response if the 'Country' header is missing
+#                 return JsonResponse(
+#                     {'error': 'Country header is required.'},
+#                     status=400,
+#                 )
+#
+#         # Set the country on the request object for further processing
+#         request.country = country
+#
+#         response = self.get_response(request)
+#         return response

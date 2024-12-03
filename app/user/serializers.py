@@ -201,3 +201,13 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Include additional user data in the response
         data.update({'user': self.user.email})
         return data
+
+
+# Serializer for Forgot Password Request
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+# Serializer for Reset Password Request
+class ResetPasswordSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True, min_length=8)
