@@ -28,7 +28,7 @@ class SimpleUserSerializer(serializers.ModelSerializer):
             is_settled=False  # Always ensure `is_settled` is False
         ).filter(
             Q(needs_committee_approval=False) |  # Include loans where committee approval is not needed
-            Q(needs_committee_approval=True, is_committee_approved__in=[True, None])
+            (Q(needs_committee_approval=True) & Q(is_committee_approved__in=[True, None]))
             # Include loans needing approval only if approved or null
         ).count()
 
