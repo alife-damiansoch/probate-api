@@ -269,8 +269,9 @@ class LoanAdmin(admin.ModelAdmin):
 
     # List Display
     list_display = [
-        "id", "application", "amount_agreed", "term_agreed", "approved_by", "last_updated_by",
-        "is_paid_out", "needs_committee_approval", "is_committee_approved", "is_settled",
+        "id", "application_id", "amount_agreed", "term_agreed", "get_approved_by_email",
+        "get_last_updated_by_email", "is_paid_out", "needs_committee_approval",
+        "is_committee_approved", "is_settled",
     ]
 
     # Search and Filter
@@ -278,6 +279,18 @@ class LoanAdmin(admin.ModelAdmin):
     list_filter = [
         "is_settled", "needs_committee_approval", "is_committee_approved", "is_paid_out",
     ]  # Add filtering options for the specified fields
+
+    # Custom method to display approved_by.email
+    def get_approved_by_email(self, obj):
+        return obj.approved_by.email if obj.approved_by else None
+
+    get_approved_by_email.short_description = "Approved By Email"
+
+    # Custom method to display last_updated_by.email
+    def get_last_updated_by_email(self, obj):
+        return obj.last_updated_by.email if obj.last_updated_by else None
+
+    get_last_updated_by_email.short_description = "Last Updated By Email"
 
     # Save methods
     def save_model(self, request, obj, form, change):
