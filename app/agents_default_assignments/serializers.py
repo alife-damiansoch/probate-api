@@ -24,10 +24,12 @@ class SimpleUserSerializer(serializers.ModelSerializer):
 
     def get_advancements_owed_len(self, obj):
         return Loan.objects.filter(
-            application__user=obj,
-            is_settled=False,
+            application__user=obj,  # Filter by the user
+            is_settled=False  # Always ensure `is_settled` is False
         ).filter(
-            Q(is_committee_approved=True) | Q(is_committee_approved__isnull=True)
+            Q(needs_committee_approval=False) |  # Include loans where committee approval is not needed
+            Q(needs_committee_approval=True, is_committee_approved__in=[True, None])
+            # Include loans needing approval only if approved or null
         ).count()
 
 
