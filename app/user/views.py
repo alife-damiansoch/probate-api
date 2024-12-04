@@ -160,11 +160,6 @@ class UpdatePasswordView(generics.UpdateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# class CreateTokenView(ObtainAuthToken):
-#     """Create a new auth token"""
-#     serializer_class = AuthTokenSerializer
-#     renderer_classes = api_settings.DEFAULT_RENDERER_CLASSES
-
 logger = logging.getLogger(__name__)
 
 

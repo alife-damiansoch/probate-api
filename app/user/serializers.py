@@ -3,6 +3,7 @@
 from rest_framework import serializers
 from django.contrib.auth import (get_user_model, authenticate, )
 from django.utils.translation import gettext as _
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from core.models import Team, Address, User, Application, Loan, AssociatedEmail
@@ -10,6 +11,8 @@ from core.models import Team, Address, User, Application, Loan, AssociatedEmail
 import re
 
 from django.core.exceptions import ValidationError
+
+from user.utils import validate_user_password
 
 
 # this serializer is only created to return extra info in the list user
@@ -72,8 +75,18 @@ class UserSerializer(serializers.ModelSerializer):
         model = get_user_model()
         fields = ['id', 'email', 'password', 'name', 'phone_number', 'address', 'teams', 'is_active', 'is_staff',
                   'is_superuser', 'country', 'activation_token']
-        extra_kwargs = {'password': {'write_only': True, 'min_length': 5}}
+        extra_kwargs = {'password': {'write_only': True}}
         read_only_fields = ('id', 'is_active', 'is_staff', 'is_superuser', 'teams',)
+
+    def validate_password(self, value):
+        """
+        Validate password using the utility function.
+        """
+        try:
+            validate_user_password(value, user=self.instance)  # Pass the user instance for similarity checks
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.messages)  # Convert to DRF's ValidationError
+        return value
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
@@ -92,6 +105,13 @@ class UserSerializer(serializers.ModelSerializer):
         if phone_number and not phone_number.startswith('+'):
             phone_number = '+353' + phone_number.lstrip('0')
         validated_data['phone_number'] = phone_number
+
+        # Validate the password before creating the user
+        if password:
+            try:
+                validate_user_password(password)  # Use Django's validation utility
+            except DjangoValidationError as e:
+                raise serializers.ValidationError({"password": e.messages})  # Convert to DRF's ValidationError
 
         user = User.objects.create(address=address, **validated_data)
 
@@ -163,28 +183,20 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UpdatePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True, min_length=5)
-    new_password = serializers.CharField(required=True, min_length=5)
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
 
+    def validate_new_password(self, value):
+        """
+        Validate the new password using Django's password validation.
+        """
+        user = self.context['request'].user  # Get the currently authenticated user
+        try:
+            validate_user_password(value, user=user)  # Pass the user for similarity checks
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.messages)  # Convert to DRF ValidationError
+        return value
 
-# class AuthTokenSerializer(serializers.Serializer):
-#     """Serializer for the User auth token"""
-#     email = serializers.EmailField()
-#     password = serializers.CharField(
-#         style={'input_type': 'password'},
-#         trim_whitespace=False
-#     )
-#
-#     def validate(self, attrs):
-#         """Validate and authenticate the user."""
-#         email = attrs.get('email')
-#         password = attrs.get('password')
-#         user = authenticate(request=self.context.get('request'), username=email, password=password)
-#         if not user:
-#             msg = _('Unable to authenticate with provided credentials')
-#             raise serializers.ValidationError(msg, code='authentication')
-#         attrs['user'] = user
-#         return attrs
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
@@ -210,4 +222,14 @@ class ForgotPasswordSerializer(serializers.Serializer):
 
 # Serializer for Reset Password Request
 class ResetPasswordSerializer(serializers.Serializer):
-    password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(write_only=True)
+
+    def validate_password(self, value):
+        """
+        Validate the password using Django's built-in validators.
+        """
+        try:
+            validate_user_password(value)  # Validate the password
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.messages)  # Convert errors to DRF ValidationError
+        return value
