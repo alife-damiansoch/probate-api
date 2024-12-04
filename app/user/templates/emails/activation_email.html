@@ -59,7 +59,7 @@
 <body>
 <div class="email-container">
     <div class="header">
-        
+
         <h1>Welcome to {{ company_name }}</h1>
     </div>
     <div class="body">
@@ -69,7 +69,8 @@
         <p style="text-align: center;">
             <a href="{{ activation_link }}" class="button">Activate Your Account</a>
         </p>
-        <p>If the button above doesn't work, please click on the link sent to your email to activate your account.</p>
+        <p>If the button above doesn't work, please click on the link: <a href="{{ activation_link }}">Activate Your
+            Account</a>.</p>
         <p>If you have any questions, feel free to reach out to us at <a
                 href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
         <p>Best regards,</p>

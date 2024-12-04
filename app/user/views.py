@@ -325,6 +325,15 @@ class ForgotPasswordView(APIView):
 
         try:
             user = get_object_or_404(User, email=email)
+
+            # Forbid staff and superuser accounts without making anu users aware that those are valid accounts
+            if user.is_staff or user.is_superuser:
+                # Return the same generic response as for invalid emails
+                return Response(
+                    {"detail": "If the account exists, a password reset link has been sent to the email."},
+                    status=status.HTTP_200_OK,
+                )
+
             token_generator = PasswordResetTokenGenerator()
             token = token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
@@ -338,6 +347,8 @@ class ForgotPasswordView(APIView):
             context = {
                 "reset_link": reset_link,
                 "user_name": user.name if user.name else user.email,
+                "company_name": os.getenv('COMPANY_NAME', 'Default Company Name'),
+                "support_email": os.getenv('DEFAULT_FROM_EMAIL', 'Default Company Email'),
             }
 
             # Render email content
@@ -409,7 +420,10 @@ class ResetPasswordView(APIView):
         user.save()
 
         # Optional: Send a confirmation email
-        message = render_to_string("emails/reset_password_confirmation.html", {"user_name": user.name or user.email})
+        message = render_to_string("emails/reset_password_confirmation.html",
+                                   {"user_name": user.name or user.email,
+                                    "company_name": os.getenv('COMPANY_NAME', 'Default Company Name'),
+                                    "support_email": os.getenv('DEFAULT_FROM_EMAIL', 'Default Company Email'), })
         send_email_f(
             sender="noreply@alife.ie",
             recipient=user.email,
