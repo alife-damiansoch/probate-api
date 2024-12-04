@@ -446,7 +446,8 @@ class LoanViewSet(viewsets.ModelViewSet):
             )
 
             # Send email to all committee members that the loan was referred back
-            success = loan.notify_committee_members(message=logged_comment.text)
+            success = loan.notify_committee_members(message=logged_comment.text,
+                                                    subject="Application referred back to the agent assigned")
 
             if success:
                 # Perform the necessary actions if emails are sent successfully

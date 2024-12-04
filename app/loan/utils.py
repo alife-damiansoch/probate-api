@@ -49,10 +49,17 @@ def check_committee_approval(loan, request_user):
             loan.is_committee_approved = True
             loan.save(update_fields=['is_committee_approved'])
             notify_loan_approved(loan, request_user)
+            loan.notify_committee_members(
+                message="The advancement has been successfully approved by the required members of the committee. The status of the advancement has now been updated to APPROVED.",
+                subject="Advancement Approval Notification")
         else:
             loan.is_committee_approved = False
             loan.save(update_fields=['is_committee_approved'])
             notify_loan_rejected(loan, request_user)
+            loan.notify_committee_members(
+                message="The advancement has been rejected by the committee. The status of the advancement has now been updated to REJECTED.",
+                subject="Advancement Rejection Notification"
+            )
 
 
 def notify_loan_approved(loan, request_user):
@@ -81,6 +88,7 @@ def notify_loan_approved(loan, request_user):
       - Assumes the existence of a `Notification` model with fields `recipient`, `text`, `seen`, `created_by`, and `application`.
       - Requires a configured channel layer for broadcasting WebSocket messages.
       """
+
     # send notification to users
     notification = Notification.objects.create(
         recipient=loan.application.assigned_to,

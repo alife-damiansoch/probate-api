@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border: 1px solid #dddddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .header {
+            background-color: #0044cc;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+        }
+
+        .body {
+            padding: 20px;
+        }
+
+
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <h1>{{ subject }}</h1>
+    </div>
+    <div class="body">
+        <p>Hi {{ member }} ,</p>
+        <p>{{ message }}</p>
+        <ul>
+            <li><strong>Application ID:</strong> {{ application.id }}</li>
+            <li><strong>Applicant Name:</strong> {{ application.user.name }}</li>
+            <li><strong>Requested Amount:</strong> {{ application.amount }}</li>
+        </ul>
+
+        <p>Thank you for your prompt attention.</p>
+        <p>Best regards,</p>
+        <p>The {{ company_name }} Team</p>
+    </div>
+
+</div>
+</body>
+</html>

@@ -10,6 +10,7 @@ from django.contrib.auth.models import (
     BaseUserManager,
     PermissionsMixin
 )
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 from auditlog.registry import auditlog
@@ -409,7 +410,8 @@ class Loan(models.Model):
             # Notify committee members if approval is needed and this is a new instance
             if is_new and self.needs_committee_approval:
                 self.notify_committee_members(
-                    message=f'Advancement: {self.id}, application:{self.application.id} needs committee approval')
+                    message=f'Advancement: {self.id}, application:{self.application.id} needs committee approval',
+                    subject="Committee Approval Required")
 
             # Auto-approve the related application if not already approved
             if self.application and not self.application.approved:
@@ -512,18 +514,27 @@ class Loan(models.Model):
         applicant = self.application.applicants.first()
         return str(applicant) if applicant else 'No applicants'
 
-    def notify_committee_members(self, message):
+    def notify_committee_members(self, message, subject):
 
         from communications.utils import send_email_f  # importing it here because of the circular import
         committee_members = User.objects.filter(teams__name='committee_members')
 
         notification_message = ""
         for member in committee_members:
+            # Render the HTML email template
+            email_content = render_to_string("emails/committee_notification.html", {
+                "member": member.name.strip() if member.name and member.name.strip() else member.email,
+                "application": self.application,
+                "subject": subject,
+                "message": message,
+
+            })
+
             res = send_email_f(
                 sender=settings.DEFAULT_FROM_EMAIL,
                 recipient=member.email,
                 subject=f'Committee Approval notification',
-                message=message,
+                message=email_content,
                 application=self.application,
                 solicitor_firm=self.application.user,
 
