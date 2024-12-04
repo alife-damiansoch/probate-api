@@ -34,8 +34,8 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             response_data['changes'] = event['changes']
 
         # Print the event for debugging purposes
-        print("Event:", event)
-        print("Response data being sent:", response_data)
+        # print("Event:", event)
+        # print("Response data being sent:", response_data)
 
         # Send the response data back to the WebSocket
         await self.send(text_data=json.dumps(response_data))

@@ -33,7 +33,7 @@ class SimpleUserSerializer(serializers.ModelSerializer):
         )
 
         # Print all loan IDs for debugging purposes
-        print(f"Loan IDs for user {obj}: {[loan.id for loan in loans]}")
+        # print(f"Loan IDs for user {obj}: {[loan.id for loan in loans]}")
 
         return loans.count()
 

@@ -35,18 +35,38 @@ class PublicCustomUserTests(TestCase):
         payload = {
 
             "email": "test@example.com",
-            "password": "testpass123",
+            "password": "Testpass123!",
             "name": "Test Name",
         }
         res = self.client.post(CREATE_USER_URL, payload)
 
-        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            res.status_code,
+            status.HTTP_201_CREATED,
+            msg=f"Unexpected status code: {res.status_code}, Response content: {res.content.decode()}"
+        )
 
         user = get_user_model().objects.get(email=payload["email"])
 
         self.assertTrue(user.check_password(payload["password"]))
         self.assertEqual(user.name, payload["name"])
         self.assertNotIn('password', res.data)
+
+    def test_create_valid_user_fails_password_validation(self):
+        """Test creating user with valid payload is successful"""
+        payload = {
+
+            "email": "test@example.com",
+            "password": "testpass123",
+            "name": "Test Name",
+        }
+        res = self.client.post(CREATE_USER_URL, payload)
+
+        self.assertEqual(
+            res.status_code,
+            status.HTTP_400_BAD_REQUEST,
+            msg=f"Unexpected status code: {res.status_code}, Response content: {res.content.decode()}"
+        )
 
     def test_user_exists(self):
         """Test creating a user that already exists"""

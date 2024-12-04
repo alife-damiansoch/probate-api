@@ -283,8 +283,8 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
                 print(f"Email Subject: {subject}")
 
                 # Print all headers for debugging
-                for header, value in msg.items():
-                    print(f"{header}: {value}")
+                # for header, value in msg.items():
+                #     print(f"{header}: {value}")
 
                 # Extract sender and recipient information
                 sender = parseaddr(msg.get("From"))[1]
@@ -299,8 +299,8 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
                     recipient = imap_user
 
                 # Log details
-                print(f"Sender: {sender}")
-                print(f"Recipient: {recipient}")
+                # print(f"Sender: {sender}")
+                # print(f"Recipient: {recipient}")
 
                 message = ""
                 html_content = ""
@@ -331,7 +331,7 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
 
                             attachments.append(file_path)
                             original_filenames.append(filename)
-                            print(f"Attachment saved at: {file_path}")
+                            # print(f"Attachment saved at: {file_path}")
 
                 else:
                     message = msg.get_payload(decode=True).decode('utf-8', errors='replace')
@@ -349,7 +349,7 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
                     original_filenames=original_filenames,
                     seen=False
                 )
-                print(f"Email from {imap_user} logged successfully.")
+                # print(f"Email from {imap_user} logged successfully.")
 
             except Exception as e:
                 print(f"Error processing email with ID {email_id}: {e}")

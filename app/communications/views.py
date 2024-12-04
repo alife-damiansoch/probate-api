@@ -241,7 +241,6 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         serializer = SendEmailSerializerByApplicationId(data=request.data)
 
         if not serializer.is_valid():
-            print("Error here")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Extract data from the serializer
@@ -251,7 +250,7 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         attachments = serializer.validated_data.get('attachments', [])
         use_info_email = serializer.validated_data.get('use_info_email', False)
 
-        print(use_info_email)
+        # print(use_info_email)
 
         try:
             # Retrieve the application based on the ID
@@ -502,7 +501,7 @@ class ReplyToEmailViewSet(viewsets.GenericViewSet):
         attachments = serializer.validated_data.get('attachments', [])
         use_info_email = serializer.validated_data.get('use_info_email', False)
 
-        print(use_info_email)
+        # print(use_info_email)
 
         # Use request.user.email as the sender
         sender = request.user.email

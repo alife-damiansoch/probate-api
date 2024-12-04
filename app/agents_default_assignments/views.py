@@ -50,7 +50,7 @@ class AssignmentListCreateView(generics.ListCreateAPIView):
         # For example, you can pass it to the serializer or handle custom behavior
         if overwrite_existing:
             # Logic to overwrite existing application assignments
-            print("Overwriting existing application assignments.")
+            # print("Overwriting existing application assignments.")
             agency_user_id = request.data.get('agency_user_id', None)
             staff_user_id = request.data.get('staff_user_id', None)
             if agency_user_id and staff_user_id:

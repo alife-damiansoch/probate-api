@@ -110,7 +110,7 @@ def generate_undertaking_pdf(request):
             'currency_sign': application.user.get_currency()
         }
 
-        print(context)
+        # print(context)
 
         # Render the HTML template with context data
         html_string = render_to_string('undertaking/undertaking_template.html', context)

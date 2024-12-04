@@ -56,7 +56,7 @@ class CreateUserView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         # Extract the Country header
         country = request.headers.get('Country')
-        print(f"Country: {country}")
+        # print(f"Country: {country}")
 
         # Make a mutable copy of request.data
         data = request.data.copy()
@@ -269,7 +269,7 @@ class ActivateUserView(APIView):
                 {"detail": "Activation token is required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        print(activation_token)
+        # print(activation_token)
         try:
             # Find the user with the matching activation token
             user = User.objects.get(activation_token=activation_token)
@@ -335,7 +335,7 @@ class ForgotPasswordView(APIView):
 
             # Use Frontend-Host header or fallback to a default
             frontend_host = request.headers.get('Frontend-Host', '')
-            print(request.headers)
+            # print(request.headers)
             reset_link = f"{frontend_host}/reset-password/{uid}/{token}/"
 
             # Use send_email_f to send the reset email
