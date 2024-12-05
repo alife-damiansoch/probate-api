@@ -48,7 +48,9 @@
         <p>{{ message }}</p>
         <ul>
             <li><strong>Application ID:</strong> {{ application.id }}</li>
-            <li><strong>Applicant Name:</strong> {{ application.user.name }}</li>
+            <li><strong>Applicant
+                Name:</strong> {{ application.user.title }} {{ application.user.first_name }} {{ application.user.last_name }}
+            </li>
             <li><strong>Requested Amount:</strong> {{ application.amount }}</li>
         </ul>
 

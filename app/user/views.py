@@ -10,23 +10,24 @@ from django.contrib.auth import get_user_model, authenticate
 from django.core.exceptions import ObjectDoesNotExist
 
 from django.template.loader import render_to_string
+from django.utils.crypto import get_random_string
+from django.utils.timezone import now
 
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import generics, permissions
 
-from rest_framework.exceptions import ValidationError, AuthenticationFailed, PermissionDenied
+from rest_framework.exceptions import ValidationError, AuthenticationFailed, PermissionDenied, APIException
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from rest_framework import status
 from rest_framework.views import APIView
 
-from app import settings
 from communications.utils import send_email_f
-from core.models import User
+from core.models import User, OTP
 from user.serializers import (UserSerializer,
                               UserListSerializer, UpdatePasswordSerializer, MyTokenObtainPairSerializer,
-                              ResetPasswordSerializer, ForgotPasswordSerializer
+                              ResetPasswordSerializer, ForgotPasswordSerializer, CheckCredentialsSerializer
                               )
 from .permissions import IsStaff
 
@@ -173,6 +174,13 @@ class MyTokenObtainPairView(TokenObtainPairView):
         # Extract email and password from the request data
         email = request.data.get('email')
         password = request.data.get('password')
+        otp = request.data.get("otp")
+
+        print(email)
+
+        # Convert OTP list to a string if provided as a list
+        if isinstance(otp, list):
+            otp = ''.join(otp)  # Convert ['8', '9', '4', '5', '1', '2'] -> '894512'
 
         # Authenticate the user using email and password
         user = authenticate(request, username=email, password=password)
@@ -187,10 +195,32 @@ class MyTokenObtainPairView(TokenObtainPairView):
                 f"but your account is registered for {user.country}. "
                 f"Please use the designated website for your registered country.")
 
+        # Validate the OTP
+        if not self.validate_otp(email, otp):
+            raise AuthenticationFailed("Invalid verification code.")
+
         # If validation passes, continue with the default token generation
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+    def validate_otp(self, email, otp):
+        """
+        Validate the OTP for the given email.
+        Replace this with your actual OTP validation logic (e.g., check against a database or cache).
+        """
+        # Example logic: Fetch OTP from database or cache and compare
+        try:
+            otp_record = OTP.objects.get(email=email)
+            if otp_record.code == otp:
+                # Optional: Check if OTP is still valid
+                if not otp_record.is_valid():
+                    raise APIException("Verification code has expired.")
+                return True
+            else:
+                return False
+        except OTP.DoesNotExist:
+            raise APIException("No verification code found for the provided email.")
 
 
 class ManageUserView(generics.RetrieveUpdateAPIView):
@@ -361,6 +391,67 @@ class ForgotPasswordView(APIView):
         except User.DoesNotExist:
             # Avoid revealing if the email is invalid to prevent enumeration attacks
             return Response({"detail": "Password reset link sent."}, status=status.HTTP_200_OK)
+
+
+class CheckCredentialsView(APIView):
+    """
+    Handle checking user credentials and sending OTP
+    """
+    authentication_classes = []  # Disable JWT Authentication for this view
+    permission_classes = [AllowAny]  # Ensure unauthenticated users can access this
+
+    @extend_schema(
+        summary="Check Credentials and Send OTP",
+        description=(
+                "Validates the user's email and password. If valid, generates a new OTP, "
+                "saves it to the database, and sends it to the user's email address."
+        ),
+        request=CheckCredentialsSerializer,
+        responses={
+            200: {"description": "OTP sent successfully. The user must verify the OTP."},
+            400: {"description": "Invalid credentials provided."},
+        },
+        methods=["POST"],  # Explicitly specify HTTP method
+    )
+    def post(self, request):
+        serializer = CheckCredentialsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data['email']
+        password = serializer.validated_data['password']
+
+        user = authenticate(email=email, password=password)
+
+        if user:
+            # Generate a new OTP
+            otp = get_random_string(length=6, allowed_chars='0123456789')
+
+            # Create or update the OTP in the database
+            OTP.objects.update_or_create(
+                email=email,
+                defaults={'code': otp, 'created_at': now()}
+            )
+
+            # Render HTML email template
+            html_message = render_to_string('emails/otp_email_template.html', {
+                'user_name': user.name or email,  # Fallback to email if first_name is not available
+                'otp': otp,
+                "company_name": os.getenv('COMPANY_NAME', 'Default Company Name'),
+                "support_email": os.getenv('DEFAULT_FROM_EMAIL', 'Default Company Email'),
+            })
+
+            # Send the OTP via email
+            send_email_f(
+                sender="noreply@alife.ie",
+                recipient=email,
+                subject="Your OTP has been sent.",
+                message=html_message,
+                solicitor_firm=user
+            )
+
+            return Response({'otp_required': True}, status=status.HTTP_200_OK)
+
+        return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ResetPasswordView(APIView):

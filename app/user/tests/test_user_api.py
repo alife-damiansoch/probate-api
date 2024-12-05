@@ -1,16 +1,18 @@
 """
 Test for the user API
 """
+import json
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils.crypto import get_random_string
 
 from rest_framework.test import APIClient
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from core.models import Team
+from core.models import Team, OTP
 
 CREATE_USER_URL = reverse("user:create")
 
@@ -95,8 +97,8 @@ class PublicCustomUserTests(TestCase):
 
         self.assertFalse(user_exists)
 
-    def test_create_token(self):
-        """Test creating a new token"""
+    def test_create_token_with_otp(self):
+        """Test creating a new token with OTP verification"""
         user_data = {
             "email": "test@example.com",
             "password": "testpass123",
@@ -107,13 +109,25 @@ class PublicCustomUserTests(TestCase):
         user.is_active = True
         user.save()
 
+        # Simulate OTP creation
+        otp_code = get_random_string(length=6, allowed_chars='0123456789')
+        OTP.objects.create(email=user_data['email'], code=otp_code)
+
+        # Verify OTP exists in the database
+        otp_record = OTP.objects.get(email=user_data['email'])
+        self.assertEqual(otp_record.code, otp_code)
+
+        # Use the valid OTP to request the token
         payload = {
             'email': user_data["email"],
             "password": user_data["password"],
-            "name": user_data["name"],
+            "otp": list(otp_code),  # Simulate sending OTP as a list
         }
-        res = self.client.post(TOKEN_URL, payload)
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        res = self.client.post(TOKEN_URL, data=json.dumps(payload), content_type="application/json")
+
+        # Validate response
+        self.assertEqual(res.status_code, status.HTTP_200_OK, msg=f"Failed with message {res.content.decode()}")
         self.assertIn('refresh', res.data)
         self.assertIn('access', res.data)
 

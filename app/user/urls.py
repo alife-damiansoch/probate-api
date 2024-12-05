@@ -22,4 +22,7 @@ urlpatterns = [
     # Add the forgot password and reset password URLs
     path('forgot-password/', views.ForgotPasswordView.as_view(), name='forgot-password'),
     path('reset-password/<uidb64>/<token>/', views.ResetPasswordView.as_view(), name='reset-password'),
+    # Add Check Credentials URL
+    path('check-credentials/', views.CheckCredentialsView.as_view(), name='check-credentials'),
+
 ]

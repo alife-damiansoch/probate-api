@@ -21,7 +21,8 @@ import uuid
 
 from django.core.exceptions import ValidationError
 
-from django.utils.functional import cached_property
+from django.utils.timezone import now
+from datetime import timedelta
 
 from core.utils import validate_eircode, validate_irish_phone_number, get_application_document_file_path
 
@@ -114,6 +115,16 @@ class User(AbstractBaseUser, PermissionsMixin):
         if not self.is_staff and not self.is_active and not self.activation_token:
             self.activation_token = uuid.uuid4()
         super().save(*args, **kwargs)
+
+
+class OTP(models.Model):
+    email = models.EmailField(unique=True)  # Ensure one OTP per email
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_valid(self):
+        """Check if the OTP is still valid (e.g., expires in 5 minutes)."""
+        return now() < self.created_at + timedelta(minutes=5)
 
 
 class Solicitor(models.Model):

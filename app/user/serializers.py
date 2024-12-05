@@ -233,3 +233,8 @@ class ResetPasswordSerializer(serializers.Serializer):
         except DjangoValidationError as e:
             raise serializers.ValidationError(e.messages)  # Convert errors to DRF ValidationError
         return value
+
+
+class CheckCredentialsSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField()
