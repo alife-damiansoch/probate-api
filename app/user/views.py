@@ -3,6 +3,11 @@ Views for the user Api
 """
 import logging
 import os
+import io
+
+import pyotp
+from drf_spectacular.types import OpenApiTypes
+from qrcode.main import QRCode
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model, authenticate
@@ -24,10 +29,11 @@ from rest_framework import status
 from rest_framework.views import APIView
 
 from communications.utils import send_email_f
-from core.models import User, OTP
+from core.models import User, OTP, AuthenticatorSecret
 from user.serializers import (UserSerializer,
                               UserListSerializer, UpdatePasswordSerializer, MyTokenObtainPairSerializer,
-                              ResetPasswordSerializer, ForgotPasswordSerializer, CheckCredentialsSerializer
+                              ResetPasswordSerializer, ForgotPasswordSerializer, CheckCredentialsSerializer,
+                              UpdateAuthMethodSerializer
                               )
 from .permissions import IsStaff
 
@@ -171,16 +177,16 @@ class MyTokenObtainPairView(TokenObtainPairView):
         # Get the 'Country' header from the request
         country_header = request.headers.get('Country')
 
-        # Extract email and password from the request data
+        # Extract email, password, and code (OTP or Authenticator)
         email = request.data.get('email')
         password = request.data.get('password')
-        otp = request.data.get("otp")
+        code = request.data.get("otp")  # 'otp' field is used for both OTP and Authenticator code
 
         print(email)
 
         # Convert OTP list to a string if provided as a list
-        if isinstance(otp, list):
-            otp = ''.join(otp)  # Convert ['8', '9', '4', '5', '1', '2'] -> '894512'
+        if isinstance(code, list):
+            code = ''.join(code)  # Convert ['8', '9', '4', '5', '1', '2'] -> '894512'
 
         # Authenticate the user using email and password
         user = authenticate(request, username=email, password=password)
@@ -193,11 +199,18 @@ class MyTokenObtainPairView(TokenObtainPairView):
             raise PermissionDenied(
                 f"Access denied: You are attempting to log in from the {country_header} site, "
                 f"but your account is registered for {user.country}. "
-                f"Please use the designated website for your registered country.")
+                f"Please use the designated website for your registered country."
+            )
 
-        # Validate the OTP
-        if not self.validate_otp(email, otp):
-            raise AuthenticationFailed("Invalid verification code.")
+        # Validate the code based on the user's preferred authentication method
+        if user.preferred_auth_method == 'otp':
+            if not self.validate_otp(email, code):
+                raise AuthenticationFailed("Invalid verification code.")
+        elif user.preferred_auth_method == 'authenticator':
+            if not self.validate_authenticator_code(user, code):
+                raise AuthenticationFailed("Invalid authenticator code.")
+        else:
+            raise AuthenticationFailed("Unsupported authentication method.")
 
         # If validation passes, continue with the default token generation
         serializer = self.get_serializer(data=request.data)
@@ -207,9 +220,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
     def validate_otp(self, email, otp):
         """
         Validate the OTP for the given email.
-        Replace this with your actual OTP validation logic (e.g., check against a database or cache).
         """
-        # Example logic: Fetch OTP from database or cache and compare
         try:
             otp_record = OTP.objects.get(email=email)
             if otp_record.code == otp:
@@ -221,6 +232,18 @@ class MyTokenObtainPairView(TokenObtainPairView):
                 return False
         except OTP.DoesNotExist:
             raise APIException("No verification code found for the provided email.")
+
+    def validate_authenticator_code(self, user, code):
+        """
+        Validate the code from the Authenticator app.
+        """
+        try:
+            # Fetch the authenticator secret for the user
+            authenticator = AuthenticatorSecret.objects.get(user=user)
+            totp = pyotp.TOTP(authenticator.secret)
+            return totp.verify(code)  # Verify the code with the secret
+        except AuthenticatorSecret.DoesNotExist:
+            raise APIException("Authenticator is not set up for this user.")
 
 
 class ManageUserView(generics.RetrieveUpdateAPIView):
@@ -393,25 +416,68 @@ class ForgotPasswordView(APIView):
             return Response({"detail": "Password reset link sent."}, status=status.HTTP_200_OK)
 
 
+def generate_authenticator_secret(user, secret):
+    AuthenticatorSecret.objects.create(user=user, secret=secret)
+
+    totp = pyotp.TOTP(secret)
+    provisioning_url = totp.provisioning_uri(name=user.email,
+                                             issuer_name=os.getenv('COMPANY_NAME', 'Default Company Name'))
+    qr = QRCode(box_size=10, border=5)
+    qr.add_data(provisioning_url)
+    qr.make(fit=True)
+
+    # Convert QR code to an image
+    qr_image = io.BytesIO()
+    qr_code_image = qr.make_image(fill_color="black", back_color="white",
+                                  kind="PNG")  # Use the `kind` property
+    qr_code_image.save(qr_image)
+    qr_image.seek(0)
+    qr_code_binary = qr_image.read()
+    return qr_code_binary
+
+
+def generate_otp_and_send_email(email, user):
+    otp = get_random_string(length=6, allowed_chars='0123456789')
+    OTP.objects.update_or_create(
+        email=email,
+        defaults={'code': otp, 'created_at': now()}
+    )
+
+    html_message = render_to_string('emails/otp_email_template.html', {
+        'user_name': user.name or email,
+        'otp': otp,
+        "company_name": os.getenv('COMPANY_NAME', 'Default Company Name'),
+        "support_email": os.getenv('DEFAULT_FROM_EMAIL', 'Default Company Email'),
+    })
+
+    send_email_f(
+        sender="noreply@alife.ie",
+        recipient=email,
+        subject="Your OTP has been sent.",
+        message=html_message,
+        solicitor_firm=user
+    )
+
+
 class CheckCredentialsView(APIView):
     """
-    Handle checking user credentials and sending OTP
+    Handle checking user credentials and sending OTP or setting up Authenticator App
     """
     authentication_classes = []  # Disable JWT Authentication for this view
     permission_classes = [AllowAny]  # Ensure unauthenticated users can access this
 
     @extend_schema(
-        summary="Check Credentials and Send OTP",
+        summary="Check Credentials and Handle OTP or Authenticator Setup",
         description=(
-                "Validates the user's email and password. If valid, generates a new OTP, "
-                "saves it to the database, and sends it to the user's email address."
+                "Validates the user's email and password. Handles OTP generation and "
+                "sending or provides Authenticator App setup/validation."
         ),
         request=CheckCredentialsSerializer,
         responses={
-            200: {"description": "OTP sent successfully. The user must verify the OTP."},
+            200: {"description": "OTP sent successfully or Authenticator setup returned."},
             400: {"description": "Invalid credentials provided."},
         },
-        methods=["POST"],  # Explicitly specify HTTP method
+        methods=["POST"],
     )
     def post(self, request):
         serializer = CheckCredentialsSerializer(data=request.data)
@@ -420,38 +486,136 @@ class CheckCredentialsView(APIView):
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
 
+        # Authenticate the user
         user = authenticate(email=email, password=password)
+        if not user:
+            raise AuthenticationFailed("Invalid email or password.")
 
-        if user:
-            # Generate a new OTP
-            otp = get_random_string(length=6, allowed_chars='0123456789')
+        # Handle OTP
+        if user.preferred_auth_method == 'otp':
+            generate_otp_and_send_email(email, user)
+            return Response({'auth_method': 'otp', 'otp_required': True}, status=status.HTTP_200_OK)
 
-            # Create or update the OTP in the database
-            OTP.objects.update_or_create(
-                email=email,
-                defaults={'code': otp, 'created_at': now()}
+        # Handle Authenticator App
+        elif user.preferred_auth_method == 'authenticator':
+            # Check if the authenticator secret already exists
+            authenticator = AuthenticatorSecret.objects.filter(user=user).first()
+            if not authenticator:
+                # Generate a new secret for the user
+                secret = pyotp.random_base32()
+                qr_code_binary = generate_authenticator_secret(user, secret)
+
+                return Response({
+                    'auth_method': 'authenticator',
+                    'manual_key': secret,
+                    'qr_code': qr_code_binary.decode('latin1'),  # Return QR code as a binary string
+                }, status=status.HTTP_200_OK)
+            else:
+                # If the authenticator is already set up, prompt for a 6-digit code
+                return Response({'auth_method': 'authenticator', 'authenticator_required': True},
+                                status=status.HTTP_200_OK)
+
+        return Response({'error': 'Unsupported authentication method.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UpdateAuthMethodView(APIView):
+    """
+    Allows updating the preferred authentication method (OTP or Authenticator).
+    """
+    authentication_classes = []  # Disable JWT Authentication for this view
+    permission_classes = []  # Allow unauthenticated access
+
+    @extend_schema(
+        summary="Update Preferred Authentication Method",
+        description=(
+                "Allows a user to update their preferred authentication method to either OTP or Authenticator App. "
+                "Checks for existing OTPs or Authenticator setup and sets up as required."
+        ),
+        request=UpdateAuthMethodSerializer,
+        responses={
+            200: {"description": "Preferred authentication method updated successfully."},
+            400: {"description": "Invalid email or unsupported authentication method."},
+        },
+        methods=["POST"],
+    )
+    def post(self, request):
+        serializer = UpdateAuthMethodSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data['email']
+        preferred_auth_method = serializer.validated_data['preferred_auth_method']
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "User with this email does not exist."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-            # Render HTML email template
-            html_message = render_to_string('emails/otp_email_template.html', {
-                'user_name': user.name or email,  # Fallback to email if first_name is not available
-                'otp': otp,
-                "company_name": os.getenv('COMPANY_NAME', 'Default Company Name'),
-                "support_email": os.getenv('DEFAULT_FROM_EMAIL', 'Default Company Email'),
-            })
+        if preferred_auth_method == 'otp':
+            # Handle OTP switching
+            try:
+                otp_record = OTP.objects.get(email=email)
+                if not otp_record.is_valid():
+                    # Generate a new OTP and send it
+                    generate_otp_and_send_email(email, user)
+            except OTP.DoesNotExist:
+                # If no OTP exists, create and send it
+                otp = get_random_string(length=6, allowed_chars='0123456789')
+                OTP.objects.create(email=email, code=otp, created_at=now())
 
-            # Send the OTP via email
-            send_email_f(
-                sender="noreply@alife.ie",
-                recipient=email,
-                subject="Your OTP has been sent.",
-                message=html_message,
-                solicitor_firm=user
+                html_message = render_to_string('emails/otp_email_template.html', {
+                    'user_name': user.name or email,
+                    'otp': otp,
+                    "company_name": os.getenv('COMPANY_NAME', 'Default Company Name'),
+                    "support_email": os.getenv('DEFAULT_FROM_EMAIL', 'Default Company Email'),
+                })
+
+                send_email_f(
+                    sender="noreply@alife.ie",
+                    recipient=email,
+                    subject="Your OTP has been sent.",
+                    message=html_message,
+                    solicitor_firm=user
+                )
+            user.preferred_auth_method = 'otp'
+            user.save()
+            return Response(
+                {"auth_method": "otp", "message": "OTP method selected and email sent if necessary."},
+                status=status.HTTP_200_OK,
             )
 
-            return Response({'otp_required': True}, status=status.HTTP_200_OK)
+        elif preferred_auth_method == 'authenticator':
+            # Handle Authenticator switching
+            authenticator = AuthenticatorSecret.objects.filter(user=user).first()
+            if not authenticator:
+                # Generate a new secret
+                secret = pyotp.random_base32()
+                qr_code_binary = generate_authenticator_secret(user, secret)
 
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+                user.preferred_auth_method = 'authenticator'
+                user.save()
+
+                return Response({
+                    "auth_method": "authenticator",
+                    "manual_key": secret,
+                    "qr_code": qr_code_binary.decode('latin1'),
+                    "message": "Authenticator setup created successfully.",
+                }, status=status.HTTP_200_OK)
+
+            # Authenticator already set up
+            user.preferred_auth_method = 'authenticator'
+            user.save()
+            return Response(
+                {"auth_method": "authenticator", "message": "Authenticator method selected."},
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {"error": "Unsupported authentication method."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 class ResetPasswordView(APIView):

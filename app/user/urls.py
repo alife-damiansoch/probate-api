@@ -24,5 +24,6 @@ urlpatterns = [
     path('reset-password/<uidb64>/<token>/', views.ResetPasswordView.as_view(), name='reset-password'),
     # Add Check Credentials URL
     path('check-credentials/', views.CheckCredentialsView.as_view(), name='check-credentials'),
+    path('update-auth-method/', views.UpdateAuthMethodView.as_view(), name='update-auth-method'),
 
 ]

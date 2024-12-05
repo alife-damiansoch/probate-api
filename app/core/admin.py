@@ -20,7 +20,7 @@ from django.urls import reverse
 from app import settings
 from core import models
 from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog, \
-    AssociatedEmail, UserEmailLog, CommitteeApproval, Team
+    AssociatedEmail, UserEmailLog, CommitteeApproval, Team, OTP, AuthenticatorSecret
 
 from rest_framework.authtoken.models import Token
 
@@ -60,24 +60,28 @@ class UserAdmin(BaseUserAdmin):
     """Define admin pages for users"""
 
     ordering = ["id"]
-    list_display = ["email", "name", "country"]
+    list_display = ["email", "name", "country", "preferred_auth_method"]  # Added preferred_auth_method
     actions = ['delete_selected_with_tokens']
 
-    filter_horizontal = ('teams',)  # This adds a more user-friendly interface for selecting teams
+    filter_horizontal = ('teams',)  # User-friendly interface for selecting teams
 
-    # Add your custom filter for teams here
+    # Custom filters
     list_filter = ['is_staff', 'is_superuser', 'is_active', TeamFilter]
 
     def delete_selected_with_tokens(self, request, queryset):
         for obj in queryset:
             # Delete related tokens of the user
-            Token.objects.filter(user=obj).delete()  # delete relevant tokens here
+            Token.objects.filter(user=obj).delete()
             obj.delete()
 
     delete_selected_with_tokens.short_description = 'Delete selected users with related tokens'
 
+    # Add the preferred_auth_method field to fieldsets
     fieldsets = (
-        (None, {"fields": ("email", "password", "teams", "phone_number", "name", "address", "country")}),
+        (None, {
+            "fields": (
+                "email", "password", "teams", "phone_number", "name", "address", "country", "preferred_auth_method")
+        }),
         (
             _("Permissions"),
             {"fields": (
@@ -101,6 +105,7 @@ class UserAdmin(BaseUserAdmin):
 
     search_fields = ['email', ]
 
+    # Add preferred_auth_method to the add_fieldsets
     add_fieldsets = (
         (None, {
             "classes": ("wide",),
@@ -115,7 +120,8 @@ class UserAdmin(BaseUserAdmin):
                 "is_superuser",
                 "phone_number",
                 "address",
-                "country"
+                "country",
+                "preferred_auth_method",
             )
         }),
     )
@@ -680,3 +686,28 @@ class CommitteeApprovalAdmin(admin.ModelAdmin):
         if not obj.approved and not obj.rejection_reason:
             self.message_user(request, "Please provide a rejection reason when rejecting.", level='error')
         super().save_model(request, obj, form, change)
+
+
+@admin.register(OTP)
+class OTPAdmin(admin.ModelAdmin):
+    list_display = ('email', 'code', 'created_at', 'is_valid')  # Columns to display
+    readonly_fields = ('code',)  # Make OTP code read-only
+    search_fields = ('email',)  # Search by email
+
+    def is_valid(self, obj):
+        return obj.is_valid()
+
+    is_valid.boolean = True  # Display as a boolean icon
+    is_valid.short_description = "Valid?"  # Custom column header
+
+
+@admin.register(AuthenticatorSecret)
+class AuthenticatorSecretAdmin(admin.ModelAdmin):
+    list_display = ('user', 'user_email', 'created_at')  # Columns to display
+    readonly_fields = ('secret',)  # Make secret read-only
+    search_fields = ('user__email',)  # Search by user's email
+
+    def user_email(self, obj):
+        return obj.user.email  # Display user's email
+
+    user_email.short_description = "User Email"  # Custom column header

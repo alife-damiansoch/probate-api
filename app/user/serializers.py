@@ -238,3 +238,14 @@ class ResetPasswordSerializer(serializers.Serializer):
 class CheckCredentialsSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
+
+
+class UpdateAuthMethodSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    preferred_auth_method = serializers.ChoiceField(choices=User.AUTH_METHOD_CHOICES)
+
+    def validate_email(self, value):
+        # Ensure the user exists
+        if not User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("User with this email does not exist.")
+        return value

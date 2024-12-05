@@ -18,3 +18,5 @@ requests==2.32.3
 APScheduler==3.10.4
 aiofiles==24.1.0
 aioimaplib==1.1.0
+qrcode[pil]==7.4.2
+pyotp==2.9.0

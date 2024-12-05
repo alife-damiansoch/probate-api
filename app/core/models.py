@@ -81,6 +81,10 @@ COUNTRY_CHOICES = [
 
 class User(AbstractBaseUser, PermissionsMixin):
     """User in the system"""
+    AUTH_METHOD_CHOICES = [
+        ('otp', 'OTP via Email'),
+        ('authenticator', 'Authenticator App'),
+    ]
     email = models.EmailField(unique=True, max_length=255)
     teams = models.ManyToManyField(Team, blank=True, related_name='users')  # Changed to ManyToManyField
     is_active = models.BooleanField(default=False)
@@ -96,6 +100,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         blank=True
     )
     activation_token = models.UUIDField(default=None, unique=True, null=True, blank=True)
+    preferred_auth_method = models.CharField(
+        max_length=20,
+        choices=AUTH_METHOD_CHOICES,
+        default='otp',
+        verbose_name='Preferred Authentication Method',
+    )
 
     objects = UserManager()
 
@@ -117,6 +127,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         super().save(*args, **kwargs)
 
 
+# this is for One Time password email verification
 class OTP(models.Model):
     email = models.EmailField(unique=True)  # Ensure one OTP per email
     code = models.CharField(max_length=6)
@@ -125,6 +136,17 @@ class OTP(models.Model):
     def is_valid(self):
         """Check if the OTP is still valid (e.g., expires in 5 minutes)."""
         return now() < self.created_at + timedelta(minutes=5)
+
+
+#     This is for Authenticator app verification
+class AuthenticatorSecret(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='authenticator_secret'
+    )
+    secret = models.CharField(max_length=32)  # Base32 secret for TOTP
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class Solicitor(models.Model):
