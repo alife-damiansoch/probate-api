@@ -146,6 +146,7 @@ class AuthenticatorSecret(models.Model):
         related_name='authenticator_secret'
     )
     secret = models.CharField(max_length=32)  # Base32 secret for TOTP
+    is_active = models.BooleanField(default=False)  # Track if the secret is active
     created_at = models.DateTimeField(auto_now_add=True)
 
 

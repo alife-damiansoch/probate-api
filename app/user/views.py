@@ -421,19 +421,26 @@ class ForgotPasswordView(APIView):
 
 
 def generate_authenticator_secret(user, secret):
-    AuthenticatorSecret.objects.create(user=user, secret=secret)
+    """
+    Generates or updates an authenticator secret for a user and returns the QR code binary data.
+    """
+    authenticator, created = AuthenticatorSecret.objects.update_or_create(
+        user=user,
+        defaults={'secret': secret, 'is_active': False}
+    )
 
     totp = pyotp.TOTP(secret)
-    provisioning_url = totp.provisioning_uri(name=user.email,
-                                             issuer_name=os.getenv('COMPANY_NAME', 'Default Company Name'))
+    provisioning_url = totp.provisioning_uri(
+        name=user.email,
+        issuer_name=os.getenv('COMPANY_NAME', 'Default Company Name')
+    )
     qr = QRCode(box_size=10, border=5)
     qr.add_data(provisioning_url)
     qr.make(fit=True)
 
     # Convert QR code to an image
     qr_image = io.BytesIO()
-    qr_code_image = qr.make_image(fill_color="black", back_color="white",
-                                  kind="PNG")  # Use the `kind` property
+    qr_code_image = qr.make_image(fill_color="black", back_color="white", kind="PNG")  # Use the `kind` property
     qr_code_image.save(qr_image)
     qr_image.seek(0)
     qr_code_binary = qr_image.read()
@@ -530,7 +537,7 @@ class UpdateAuthMethodView(APIView):
     Allows updating the preferred authentication method (OTP or Authenticator).
     """
     authentication_classes = []  # Disable JWT Authentication for this view
-    permission_classes = []  # Allow unauthenticated access
+    permission_classes = [AllowAny]  # Ensure unauthenticated users can access this
 
     @extend_schema(
         summary="Update Preferred Authentication Method",
@@ -596,7 +603,7 @@ class UpdateAuthMethodView(APIView):
         elif preferred_auth_method == 'authenticator':
             # Handle Authenticator switching
             authenticator = AuthenticatorSecret.objects.filter(user=user).first()
-            if not authenticator:
+            if not authenticator or not authenticator.is_active:
                 # Generate a new secret
                 secret = pyotp.random_base32()
                 qr_code_binary = generate_authenticator_secret(user, secret)
@@ -690,3 +697,55 @@ class ResetPasswordView(APIView):
         )
 
         return Response({"detail": "Password reset successfully."}, status=status.HTTP_200_OK)
+
+
+class VerifyAuthenticatorCodeView(APIView):
+    """
+    Verify the code from the authenticator app and activate the secret.
+    """
+    authentication_classes = []  # Disable JWT Authentication for this view
+    permission_classes = [AllowAny]  # Ensure unauthenticated users can access this
+
+    @extend_schema(
+        summary="Verify Authenticator Code",
+        description=(
+                "Validates the 6-digit code entered by the user from their authenticator app. "
+                "If the code is correct, the authenticator secret is activated and set as the preferred method."
+        ),
+        request={
+            "type": "object",
+            "properties": {
+                "email": {"type": "string", "format": "email", "description": "User's email address."},
+                "code": {"type": "string", "maxLength": 6, "description": "6-digit code from the authenticator app."},
+            },
+            "required": ["email", "code"],
+        },
+        responses={
+            200: {"description": "Authenticator app successfully activated."},
+            400: {"description": "Invalid verification code."},
+            404: {"description": "User not found or no inactive authenticator secret found."},
+        },
+        methods=["POST"],  # Explicitly specify HTTP method
+    )
+    def post(self, request):
+        email = request.data.get('email')
+        code = request.data.get('code')
+
+        try:
+            user = User.objects.get(email=email)
+            authenticator = AuthenticatorSecret.objects.get(user=user, is_active=False)  # Only check inactive secrets
+            totp = pyotp.TOTP(authenticator.secret)
+
+            if totp.verify(code):
+                authenticator.is_active = True  # Mark as active
+                authenticator.save()
+                user.preferred_auth_method = 'authenticator'  # Set as preferred method
+                user.save()
+                return Response({"message": "Authenticator app successfully activated."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Invalid verification code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+        except AuthenticatorSecret.DoesNotExist:
+            return Response({"error": "No inactive authenticator secret found."}, status=status.HTTP_404_NOT_FOUND)
