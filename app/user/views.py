@@ -180,9 +180,8 @@ class MyTokenObtainPairView(TokenObtainPairView):
         # Extract email, password, and code (OTP or Authenticator)
         email = request.data.get('email')
         password = request.data.get('password')
-        code = request.data.get("otp")  # 'otp' field is used for both OTP and Authenticator code
 
-        print(email)
+        code = request.data.get("otp")  # 'otp' field is used for both OTP and Authenticator code
 
         # Convert OTP list to a string if provided as a list
         if isinstance(code, list):
@@ -194,6 +193,21 @@ class MyTokenObtainPairView(TokenObtainPairView):
         if user is None:
             raise AuthenticationFailed("Invalid email or password.")
 
+        if not user.is_staff and not user.is_superuser and not code:
+            raise AuthenticationFailed("Request blocked")
+
+        if not user.is_staff and not user.is_superuser:
+
+            # Validate the code based on the user's preferred authentication method
+            if user.preferred_auth_method == 'otp':
+                if not self.validate_otp(email, code):
+                    raise AuthenticationFailed("Invalid verification code.")
+            elif user.preferred_auth_method == 'authenticator':
+                if not self.validate_authenticator_code(user, code):
+                    raise AuthenticationFailed("Invalid authenticator code.")
+            else:
+                raise AuthenticationFailed("Unsupported authentication method.")
+
         # Check if the user's country matches the 'Country' header
         if (not user.is_staff and not user.is_superuser) and user.country != country_header:
             raise PermissionDenied(
@@ -201,16 +215,6 @@ class MyTokenObtainPairView(TokenObtainPairView):
                 f"but your account is registered for {user.country}. "
                 f"Please use the designated website for your registered country."
             )
-
-        # Validate the code based on the user's preferred authentication method
-        if user.preferred_auth_method == 'otp':
-            if not self.validate_otp(email, code):
-                raise AuthenticationFailed("Invalid verification code.")
-        elif user.preferred_auth_method == 'authenticator':
-            if not self.validate_authenticator_code(user, code):
-                raise AuthenticationFailed("Invalid authenticator code.")
-        else:
-            raise AuthenticationFailed("Unsupported authentication method.")
 
         # If validation passes, continue with the default token generation
         serializer = self.get_serializer(data=request.data)
@@ -490,6 +494,9 @@ class CheckCredentialsView(APIView):
         user = authenticate(email=email, password=password)
         if not user:
             raise AuthenticationFailed("Invalid email or password.")
+
+        if user.is_staff:
+            raise AuthenticationFailed("Not permitted")
 
         # Handle OTP
         if user.preferred_auth_method == 'otp':
