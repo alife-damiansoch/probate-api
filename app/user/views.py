@@ -45,6 +45,8 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import force_bytes, force_str
 from django.shortcuts import get_object_or_404
 
+from .utils import validate_otp, validate_authenticator_code
+
 
 class UserList(generics.ListAPIView):
     """View for listing all users in the system.
@@ -200,10 +202,10 @@ class MyTokenObtainPairView(TokenObtainPairView):
 
             # Validate the code based on the user's preferred authentication method
             if user.preferred_auth_method == 'otp':
-                if not self.validate_otp(email, code):
+                if not validate_otp(email, code):
                     raise AuthenticationFailed("Invalid verification code.")
             elif user.preferred_auth_method == 'authenticator':
-                if not self.validate_authenticator_code(user, code):
+                if not validate_authenticator_code(user, code):
                     raise AuthenticationFailed("Invalid authenticator code.")
             else:
                 raise AuthenticationFailed("Unsupported authentication method.")
@@ -220,34 +222,6 @@ class MyTokenObtainPairView(TokenObtainPairView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
-
-    def validate_otp(self, email, otp):
-        """
-        Validate the OTP for the given email.
-        """
-        try:
-            otp_record = OTP.objects.get(email=email)
-            if otp_record.code == otp:
-                # Optional: Check if OTP is still valid
-                if not otp_record.is_valid():
-                    raise APIException("Verification code has expired.")
-                return True
-            else:
-                return False
-        except OTP.DoesNotExist:
-            raise APIException("No verification code found for the provided email.")
-
-    def validate_authenticator_code(self, user, code):
-        """
-        Validate the code from the Authenticator app.
-        """
-        try:
-            # Fetch the authenticator secret for the user
-            authenticator = AuthenticatorSecret.objects.get(user=user)
-            totp = pyotp.TOTP(authenticator.secret)
-            return totp.verify(code)  # Verify the code with the secret
-        except AuthenticatorSecret.DoesNotExist:
-            raise APIException("Authenticator is not set up for this user.")
 
 
 class ManageUserView(generics.RetrieveUpdateAPIView):
@@ -514,7 +488,7 @@ class CheckCredentialsView(APIView):
         elif user.preferred_auth_method == 'authenticator':
             # Check if the authenticator secret already exists
             authenticator = AuthenticatorSecret.objects.filter(user=user).first()
-            if not authenticator:
+            if not authenticator or authenticator.is_active == False:
                 # Generate a new secret for the user
                 secret = pyotp.random_base32()
                 qr_code_binary = generate_authenticator_secret(user, secret)
@@ -522,7 +496,8 @@ class CheckCredentialsView(APIView):
                 return Response({
                     'auth_method': 'authenticator',
                     'manual_key': secret,
-                    'qr_code': qr_code_binary.decode('latin1'),  # Return QR code as a binary string
+                    'qr_code': qr_code_binary.decode('latin1', ),  # Return QR code as a binary string
+                    'authenticator_required': True
                 }, status=status.HTTP_200_OK)
             else:
                 # If the authenticator is already set up, prompt for a 6-digit code
@@ -553,6 +528,7 @@ class UpdateAuthMethodView(APIView):
         methods=["POST"],
     )
     def post(self, request):
+        
         serializer = UpdateAuthMethodSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -604,6 +580,10 @@ class UpdateAuthMethodView(APIView):
             # Handle Authenticator switching
             authenticator = AuthenticatorSecret.objects.filter(user=user).first()
             if not authenticator or not authenticator.is_active:
+                # generate and email OTP for user verification
+                otp_record = OTP.objects.get(email=email)
+
+                generate_otp_and_send_email(email, user)
                 # Generate a new secret
                 secret = pyotp.random_base32()
                 qr_code_binary = generate_authenticator_secret(user, secret)
@@ -630,6 +610,76 @@ class UpdateAuthMethodView(APIView):
             {"error": "Unsupported authentication method."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+    @extend_schema(
+        summary="Check Current Authentication Status",
+        description=(
+                "Checks the current status of the user's preferred authentication method. "
+                "Returns whether the authenticator is active, along with QR code and manual key if applicable."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="email",
+                description="User's email address.",
+                required=True,
+                type=str,
+                location=OpenApiParameter.QUERY,
+            )
+        ],
+        responses={
+            200: {
+                "description": "Current authentication status retrieved successfully.",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "auth_method": "authenticator",
+                            "is_active": False,
+                            "manual_key": "ABCDEF123456",
+                            "qr_code": "base64encodedimage",
+                            "message": "Authenticator setup needs activation.",
+                        }
+                    }
+                },
+            },
+            400: {"description": "Missing or invalid email parameter."},
+            404: {"description": "User not found."},
+        },
+        methods=["GET"],
+    )
+    def get(self, request):
+        email = request.query_params.get("email")
+        if not email:
+            return Response({"error": "Email parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email=email)
+            if user.preferred_auth_method == "authenticator":
+                authenticator = AuthenticatorSecret.objects.filter(user=user).first()
+                if authenticator and not authenticator.is_active:
+                    totp = pyotp.TOTP(authenticator.secret)
+                    qr_code_binary = generate_authenticator_secret(user, authenticator.secret)
+                    return Response({
+                        "auth_method": "authenticator",
+                        "is_active": False,
+                        "manual_key": authenticator.secret,
+                        "qr_code": qr_code_binary.decode('latin1'),
+                        "message": "Authenticator setup needs activation.",
+                    }, status=status.HTTP_200_OK)
+
+                return Response({
+                    "auth_method": "authenticator",
+                    "is_active": True,
+                    "message": "Authenticator is active.",
+                }, status=status.HTTP_200_OK)
+
+            return Response({
+                "auth_method": user.preferred_auth_method,
+                "is_active": True,
+                "message": f"{user.preferred_auth_method.capitalize()} method is active.",
+            }, status=status.HTTP_200_OK)
+
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
 class ResetPasswordView(APIView):
@@ -731,6 +781,10 @@ class VerifyAuthenticatorCodeView(APIView):
         email = request.data.get('email')
         code = request.data.get('code')
 
+        # Convert OTP list to a string if provided as a list
+        if isinstance(code, list):
+            code = ''.join(code)  # Convert ['8', '9', '4', '5', '1', '2'] -> '894512'
+
         try:
             user = User.objects.get(email=email)
             authenticator = AuthenticatorSecret.objects.get(user=user, is_active=False)  # Only check inactive secrets
@@ -749,3 +803,45 @@ class VerifyAuthenticatorCodeView(APIView):
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
         except AuthenticatorSecret.DoesNotExist:
             return Response({"error": "No inactive authenticator secret found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ValidateOtpView(APIView):
+    """
+    API endpoint to validate an OTP for a given email.
+    """
+    authentication_classes = []  # Disable authentication for this endpoint
+    permission_classes = []  # Allow unauthenticated users
+
+    @extend_schema(
+        summary="Validate OTP",
+        description="Validates a one-time password (OTP) for a given email address.",
+        request={
+            "type": "object",
+            "properties": {
+                "email": {"type": "string", "format": "email", "description": "User's email address."},
+                "otp": {"type": "string", "description": "One-time password to validate."},
+            },
+            "required": ["email", "otp"],
+        },
+        responses={
+            200: {"description": "OTP is valid."},
+            400: {"description": "Invalid OTP or expired."},
+        },
+    )
+    def post(self, request):
+        email = request.data.get('email')
+        otp = request.data.get('otp')
+        # Convert OTP list to a string if provided as a list
+        if isinstance(otp, list):
+            otp = ''.join(otp)  # Convert ['8', '9', '4', '5', '1', '2'] -> '894512'
+
+        if not email or not otp:
+            return Response({"error": "Email and OTP are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            if validate_otp(email, otp):
+                return Response({"message": "OTP is valid."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+        except APIException as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
