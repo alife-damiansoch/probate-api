@@ -313,6 +313,8 @@ class ActivateUserView(APIView):
             else:
                 # Activate the user account
                 user.is_active = True
+                # Clear the activation token
+                user.activation_token = None
                 user.save()
 
             return Response(
@@ -528,7 +530,7 @@ class UpdateAuthMethodView(APIView):
         methods=["POST"],
     )
     def post(self, request):
-        
+
         serializer = UpdateAuthMethodSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 

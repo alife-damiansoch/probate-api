@@ -27,7 +27,7 @@ def validate_user_password(password, user=None):
 
 def validate_otp(email, otp):
     """
-    Validate the OTP for the given email.
+    Validate the OTP for the given email and remove it if successfully validated.
     """
     try:
         otp_record = OTP.objects.get(email=email)
@@ -35,6 +35,9 @@ def validate_otp(email, otp):
             # Optional: Check if OTP is still valid
             if not otp_record.is_valid():
                 raise APIException("Verification code has expired.")
+
+            # OTP is valid, remove the record
+            otp_record.delete()
             return True
         else:
             return False

@@ -143,11 +143,14 @@ DATABASES = {
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
-   
+
     {
         'NAME': 'app.validators.MixedCharacterValidator',  # Replace with the actual path
     },
 ]
+
+# Password Reset Token Expiry
+PASSWORD_RESET_TIMEOUT = 3600  # 1 hour (time in seconds)
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.2/topics/i18n/
