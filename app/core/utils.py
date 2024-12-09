@@ -62,8 +62,8 @@ def validate_eircode(value):
 
     # Regular expression for the routing key
     rk_regex = r'^[ACDEFHKNPRTVWXY][0-9][0-9W]$'
-    # Regular expression for unique identifier (explicitly excludes invalid characters)
-    ui_regex = r'^[ACDEFHKNPRTVWX0-9]{4}$'
+    # Regular expression for unique identifier
+    ui_regex = r'^[A-Z0-9]{4}$'
 
     routing_key = value[:3]
     unique_identifier = value[3:]
