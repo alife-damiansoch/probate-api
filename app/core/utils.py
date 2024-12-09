@@ -51,25 +51,32 @@ def validate_eircode(value):
      - The function splits the Eircode into a routing key and a unique identifier, using regular expressions to validate each part.
      - If the routing key or unique identifier is invalid, an error message indicating the issue is raised.
      """
-    value = value.upper()  # Convert to uppercase
-    """Check if the given value is a valid Eircode"""
-    # Regular expression for the routing key (general rule)
+    value = value.strip().upper()  # Trim whitespace and convert to uppercase
+
+    # Check length
+    if len(value) != 7:
+        raise ValidationError(
+            f'{value} must be exactly 7 characters long.',
+            params={'value': value},
+        )
+
+    # Regular expression for the routing key
     rk_regex = r'^[ACDEFHKNPRTVWXY][0-9][0-9W]$'
-    # Regular expression for unique identifier
+    # Regular expression for unique identifier (explicitly excludes invalid characters)
     ui_regex = r'^[ACDEFHKNPRTVWXY0-9]{4}$'
 
-    routing_key = value[:3]  # First 3 characters
-    unique_identifier = value[3:]  # Last 4 characters
+    routing_key = value[:3]
+    unique_identifier = value[3:]
 
     if not re.match(rk_regex, routing_key):
         raise ValidationError(
-            f'{value} is not a valid Eircode, invalid routing key',
+            f'{value} is not a valid Eircode. Invalid routing key: {routing_key}.',
             params={'value': value},
         )
 
     if not re.match(ui_regex, unique_identifier):
         raise ValidationError(
-            f'{value} is not a valid Eircode, invalid unique identifier',
+            f'{value} is not a valid Eircode. Invalid unique identifier: {unique_identifier}.',
             params={'value': value},
         )
 
