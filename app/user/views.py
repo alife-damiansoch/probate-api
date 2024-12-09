@@ -473,8 +473,25 @@ class CheckCredentialsView(APIView):
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
 
+        # Check if the user exists
+        try:
+            user = User.objects.get(email=email)
+            if not user.is_active:
+                return Response(
+                    {"detail": "Your account is inactive.",
+                     "detail2": " Please activate your account before logging in."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except ObjectDoesNotExist:
+            # Optional: Provide a message if the email is not registered
+            return Response(
+                {"detail": "Invalid email or password."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Authenticate the user
         user = authenticate(email=email, password=password)
+
         if not user:
             raise AuthenticationFailed("Invalid email or password.")
 
