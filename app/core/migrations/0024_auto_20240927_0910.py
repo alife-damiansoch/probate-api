@@ -7,7 +7,6 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('core', '0023_alter_application_solicitor'),
     ]
@@ -16,12 +15,12 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='solicitor',
             name='own_phone_number',
-            field=models.CharField(blank=True, max_length=20, null=True, validators=[core.models.validate_irish_phone_number]),
+            field=models.CharField(blank=True, max_length=20, null=True, validators=[]),
         ),
         migrations.AlterField(
             model_name='user',
             name='phone_number',
-            field=models.CharField(blank=True, default=None, max_length=255, null=True, validators=[core.models.validate_irish_phone_number]),
+            field=models.CharField(blank=True, default=None, max_length=255, null=True, validators=[]),
         ),
         migrations.CreateModel(
             name='SignedDocumentLog',
@@ -31,8 +30,11 @@ class Migration(migrations.Migration):
                 ('ip_address', models.GenericIPAddressField(blank=True, null=True)),
                 ('signature_hash', models.CharField(max_length=64)),
                 ('file_path', models.FileField(upload_to='signed_documents/')),
-                ('application', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='signed_documents', to='core.application')),
-                ('user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='signed_documents', to=settings.AUTH_USER_MODEL)),
+                ('application',
+                 models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='signed_documents',
+                                   to='core.application')),
+                ('user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT,
+                                           related_name='signed_documents', to=settings.AUTH_USER_MODEL)),
             ],
         ),
     ]

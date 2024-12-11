@@ -24,7 +24,7 @@ from django.core.exceptions import ValidationError
 from django.utils.timezone import now
 from datetime import timedelta
 
-from core.utils import validate_eircode, validate_irish_phone_number, get_application_document_file_path
+from core.utils import get_application_document_file_path
 
 
 # helper function to get file name for the documents uploaded
@@ -66,8 +66,8 @@ class Address(models.Model):
     line1 = models.CharField(max_length=255)
     line2 = models.CharField(max_length=255, blank=True)
     town_city = models.CharField(max_length=50)
-    county = models.CharField(max_length=50)
-    eircode = models.CharField(max_length=7, validators=[validate_eircode])
+    county = models.CharField(max_length=50, blank=True, null=True)
+    eircode = models.CharField(max_length=12)
 
     def __str__(self):
         return f'{self.line1}, {self.town_city}, {self.county}, {self.eircode}'
@@ -90,7 +90,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     name = models.CharField(max_length=255)
-    phone_number = models.CharField(validators=[validate_irish_phone_number], max_length=255, default=None, null=True,
+    phone_number = models.CharField(max_length=255, default=None, null=True,
                                     blank=True, )
     address = models.ForeignKey(Address, on_delete=models.PROTECT, null=True, blank=True, default=None)
     country = models.CharField(
@@ -161,7 +161,7 @@ class Solicitor(models.Model):
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
     own_email = models.EmailField(max_length=255, null=True, blank=True, unique=True)  # Optional email field
-    own_phone_number = models.CharField(validators=[validate_irish_phone_number], max_length=20, null=True,
+    own_phone_number = models.CharField(max_length=20, null=True,
                                         blank=True)  # Optional phone number field
 
     def __str__(self):

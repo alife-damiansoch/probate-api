@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('core', '0004_auto_20240628_0954'),
     ]
@@ -14,11 +13,12 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='address',
             name='eircode',
-            field=models.CharField(max_length=7, validators=[core.models.validate_eircode]),
+            field=models.CharField(max_length=7, validators=[]),
         ),
         migrations.AlterField(
             model_name='applicant',
             name='pps_number',
-            field=models.CharField(error_messages={'max_length': 'Ensure that PPS field has no more than 9 characters'}, max_length=13),
+            field=models.CharField(error_messages={'max_length': 'Ensure that PPS field has no more than 9 characters'},
+                                   max_length=13),
         ),
     ]

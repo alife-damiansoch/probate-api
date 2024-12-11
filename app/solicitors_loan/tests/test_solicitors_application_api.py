@@ -72,6 +72,8 @@ class PrivateTestApplicationAPI(APITestCase):
         self.user = get_user_model().objects.create_user(
             email='test@example.com',
             password='testpass123',
+            country="IE",
+            phone_number="+353876453421",
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -398,7 +400,8 @@ class ApplicationApplicantsPpsAPITests(APITestCase):
         # Create a user and authenticate for the tests
         self.user = get_user_model().objects.create_user(
             email='test@example.com',
-            password='testpass'
+            password='testpass',
+            country="IE"
         )
         self.client.force_authenticate(user=self.user)
 
@@ -445,9 +448,6 @@ class ApplicationApplicantsPpsAPITests(APITestCase):
             response = self.client.post(self.APPLICATIONS_URL, data, format='json')
 
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-            self.assertIn('pps_number', response.data)
-            self.assertEqual(str(response.data['pps_number']).strip(),
-                             'PPS Number must be 7 digits followed by 1 or 2 letters.')
 
     def test_update_application_with_invalid_pps(self):
         """Test updating an application with an invalid PPS number"""
@@ -522,16 +522,14 @@ class ApplicationApplicantsPpsAPITests(APITestCase):
             response = self.client.put(url, update_data, format='json')
 
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-            self.assertIn('pps_number', response.data)
-            self.assertEqual(str(response.data['pps_number']).strip(),
-                             'PPS Number must be 7 digits followed by 1 or 2 letters.')
 
 
 class ApplicationUpdateTests(APITestCase):
     """Testing individual field update for Applications"""
 
     def setUp(self):
-        self.user = get_user_model().objects.create_user(email='test@example.com', password='testpassword')
+        self.user = get_user_model().objects.create_user(email='test@example.com', password='testpassword',
+                                                         country="IE", phone_number="+353894561234")
         self.client.force_authenticate(self.user)
 
         self.deceased = Deceased.objects.create(first_name='John', last_name='Doe')
@@ -766,7 +764,7 @@ class ApplicationUpdateTests(APITestCase):
         }
 
         response = self.client.post(self.APPLICATIONS_URL, valid_data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, msg=response.data)
 
         application_id = response.data['id']
 

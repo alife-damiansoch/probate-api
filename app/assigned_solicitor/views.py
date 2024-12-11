@@ -6,6 +6,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+
+from core.Validators.phone_numbers_validators import PhoneNumberValidator
 from core.models import Solicitor
 from .serializers import AssignedSolicitorSerializer
 from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter
@@ -87,6 +89,12 @@ class AssignedSolicitorViewSet(viewsets.ModelViewSet):
         if self.request.user.is_staff:
             raise PermissionDenied("Staff users are not allowed to create new solicitors.")
 
+        if serializer.validated_data.get("own_phone_number"):
+            phone_number = serializer.validated_data.get("own_phone_number")
+
+            country = self.request.user.country
+            PhoneNumberValidator.validate(phone_number, country)
+
         # Ensure the user is set to the currently authenticated user when creating a new solicitor
         if serializer.validated_data.get('own_email') == "":
             serializer.validated_data['own_email'] = None
@@ -96,6 +104,10 @@ class AssignedSolicitorViewSet(viewsets.ModelViewSet):
         """Override perform_update to handle own_email uniqueness properly."""
         if serializer.validated_data.get('own_email') == "":
             serializer.validated_data['own_email'] = None
+        if serializer.validated_data.get("own_phone_number"):
+            phone_number = serializer.validated_data.get("own_phone_number")
+            country = self.request.user.country
+            PhoneNumberValidator.validate(phone_number, country)
         serializer.save()
 
     def perform_destroy(self, instance):

@@ -34,6 +34,8 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from core.models import Document
 
+from core.Validators.id_validators import ApplicantsValidator
+
 
 @extend_schema_view(
     list=extend_schema(
@@ -399,39 +401,41 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
             return serializers.AgentApplicationSerializer
         return self.serializer_class
 
-    def validate_applicants(self, applicants_data):
-        """Validate the PPS numbers of the applicants."""
-        pps_regex = re.compile(r'^\d{7}[A-Z]{1,2}$')
-        for applicant in applicants_data:
-            pps_number = applicant.get('pps_number')
-            pps_number = pps_number.upper()
-            if not pps_regex.match(pps_number):
-                raise DRFValidationError({
-                    'pps_number': 'PPS Number must be 7 digits followed by 1 or 2 letters.'
-                })
+    # def validate_applicants(self, applicants_data):
+    #     """Validate the PPS numbers of the applicants."""
+    #     pps_regex = re.compile(r'^\d{7}[A-Z]{1,2}$')
+    #     for applicant in applicants_data:
+    #         pps_number = applicant.get('pps_number')
+    #         pps_number = pps_number.upper()
+    #         if not pps_regex.match(pps_number):
+    #             raise DRFValidationError({
+    #                 'pps_number': 'PPS Number must be 7 digits followed by 1 or 2 letters.'
+    #             })
 
-    @transaction.atomic
-    def perform_create(self, serializer):
-        request_body = self.request.data
-        applicants_data = request_body.get('applicants', [])
-        self.validate_applicants(applicants_data)
-        """Create a new application."""
-        try:
-            serializer.save(user=self.request.user)
-            log_event(self.request, request_body, serializer.instance, response_status=201)
-        except Exception as e:  # Catch any type of exception
-            log_event(self.request, request_body, application=serializer.instance)
-            raise e  # Re-raise the caught exception
+    # @transaction.atomic
+    # def perform_create(self, serializer):
+    #     request_body = self.request.data
+    #     applicants_data = request_body.get('applicants', [])
+    #     self.validate_applicants(applicants_data)
+    #     """Create a new application."""
+    #     try:
+    #         serializer.save(user=self.request.user)
+    #         log_event(self.request, request_body, serializer.instance, response_status=201)
+    #     except Exception as e:  # Catch any type of exception
+    #         log_event(self.request, request_body, application=serializer.instance)
+    #         raise e  # Re-raise the caught exception
 
     @transaction.atomic
     def perform_update(self, serializer):
         """when updating an application."""
         request_body = self.request.data
         applicants_data = request_body.get('applicants', [])
-        self.validate_applicants(applicants_data)
-
         try:
             instance = self.get_object()
+
+            # print(instance)
+
+            ApplicantsValidator.validate(applicants_data, instance.user)
 
             # Check if the only key in the request data is 'assigned_to'
             if len(request_body) == 1 and 'assigned_to' in request_body:

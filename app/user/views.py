@@ -29,6 +29,8 @@ from rest_framework import status
 from rest_framework.views import APIView
 
 from communications.utils import send_email_f
+from core.Validators.phone_numbers_validators import PhoneNumberValidator
+from core.Validators.postcode_validators import PostcodeValidator
 from core.models import User, OTP, AuthenticatorSecret
 from user.serializers import (UserSerializer,
                               UserListSerializer, UpdatePasswordSerializer, MyTokenObtainPairSerializer,
@@ -46,6 +48,8 @@ from django.utils.encoding import force_bytes, force_str
 from django.shortcuts import get_object_or_404
 
 from .utils import validate_otp, validate_authenticator_code
+
+from rest_framework.exceptions import ValidationError as DRFValidationError
 
 
 class UserList(generics.ListAPIView):
@@ -73,6 +77,31 @@ class CreateUserView(generics.CreateAPIView):
         # Add the country to the mutable data
         if country:
             data['country'] = country.upper()
+
+        # Validate eircode
+        # Check if address is provided
+        address = data.get('address')
+        if not address:
+            raise ValidationError({"address": "Address is required."})
+
+        # Check if eircode is provided in the address
+        eircode = address.get('eircode')
+        if not eircode:
+            raise ValidationError({"eircode": "Eircode is required in the address."})
+
+        try:
+            PostcodeValidator.validate(eircode.strip(), country.upper())
+        except ValidationError as e:
+            raise e
+
+        # validate phone number
+        phone_number = data['phone_number']
+        try:
+            # Validate phone number
+            PhoneNumberValidator.validate(phone_number, country)
+        except ValidationError as e:
+            # DRF automatically formats this error as a plain string or JSON response
+            raise e
 
         # Set is_active to False for the activation process
         data['is_active'] = False
@@ -239,7 +268,39 @@ class ManageUserView(generics.RetrieveUpdateAPIView):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         try:
+
             serializer.is_valid(raise_exception=True)
+            # validate phone number
+            phone_number = request.data['phone_number']
+            # print(instance)
+            country = instance.country
+
+            # Validate eircode
+            # Check if address is provided
+            address = request.data['address']
+            print(address, country)
+            if not address:
+                raise ValidationError({"address": "Address is required."})
+
+            # Check if eircode is provided in the address
+            eircode = address.get('eircode')
+            if not eircode:
+                raise ValidationError({"eircode": "Eircode is required in the address."})
+
+            try:
+                PostcodeValidator.validate(eircode.strip(), country.upper())
+            except DRFValidationError as e:
+                # Handle DRFValidationError properly
+                if isinstance(e.detail, list):  # Check if the detail is a list
+                    raise DRFValidationError({"eircode": e.detail[0]})
+                raise e
+
+            try:
+                # Validate phone number
+                PhoneNumberValidator.validate(phone_number, country)
+            except ValidationError as e:
+                # DRF automatically formats this error as a plain string or JSON response
+                raise e
         except ValidationError as e:
             errors = dict(e.detail)  # Replace 'e' with 'e.detail'
             for key, value in errors.items():

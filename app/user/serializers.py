@@ -101,11 +101,6 @@ class UserSerializer(serializers.ModelSerializer):
 
         validated_data.pop('teams')
 
-        phone_number = validated_data.pop('phone_number', None)
-        if phone_number and not phone_number.startswith('+'):
-            phone_number = '+353' + phone_number.lstrip('0')
-        validated_data['phone_number'] = phone_number
-
         # Validate the password before creating the user
         if password:
             try:
@@ -168,18 +163,6 @@ class UserSerializer(serializers.ModelSerializer):
         user = super().update(instance, validated_data)
 
         return user
-
-    def validate_phone_number(self, value):
-        """Validate Irish phone numbers."""
-        pattern = r"^((0((1)|[2-9]\d))\d{5,7}|(083|085|086|087|089)\d{7})$"
-        if not re.match(pattern, value):
-            raise ValidationError(
-                "Invalid Irish phone number. "
-                "Mobile numbers must follow the format 083/085/086/087/089 followed by 7 digits. "
-                "Landline numbers must start with area codes 01 to 095 followed by 5 to 7 digits. "
-                "Please do not include the country code (+353)."
-            )
-        return value
 
 
 class UpdatePasswordSerializer(serializers.Serializer):

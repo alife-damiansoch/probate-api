@@ -136,7 +136,15 @@ DATABASES = {
         'NAME': os.environ.get('DB_NAME'),
         'USER': os.environ.get('DB_USER'),
         'PASSWORD': os.environ.get('DB_PASS')
-    }
+    },
+    'test_db': {  # Define your test database
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'your_test_db',
+        'USER': 'postgres',
+        'PASSWORD': os.environ.get('DB_PASS'),
+        'HOST': 'localhost',
+        'PORT': '5432',
+    },
 }
 
 # Password validation

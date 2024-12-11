@@ -80,31 +80,30 @@ def validate_eircode(value):
             params={'value': value},
         )
 
-
-def validate_irish_phone_number(value):
-    """
-       Validates an Irish phone number format.
-
-       This function checks if the given phone number matches the standard Irish phone number format, which allows:
-       1. A leading `+353` country code or a leading `0` for domestic numbers.
-       2. Irish phone numbers beginning with area codes `1`, `2`, `4`, `6`, `7`, or `9`.
-       3. Between 7 and 9 additional digits following the area code.
-
-       Parameters:
-       - value (str): The phone number to validate, provided as a string.
-
-       Raises:
-       - ValidationError: If the phone number does not match the required Irish format.
-
-       Example:
-       - Valid inputs: "+353123456789", "012345678"
-       - Invalid input: Raises a ValidationError with a message prompting correct format.
-
-       Notes:
-       - Irish phone numbers should be in the format `+353999999999` or `0999999999`.
-       """
-    pattern = r'^(?:\+353|0)[124679]?\d{7,9}$'
-    if not re.match(pattern, value):
-        raise ValidationError(
-            f"{value} is not a valid Irish phone number. Please enter phone number in the format: '+353999999999' or '0999999999'",
-        )
+# def validate_irish_phone_number(value):
+#     """
+#        Validates an Irish phone number format.
+#
+#        This function checks if the given phone number matches the standard Irish phone number format, which allows:
+#        1. A leading `+353` country code or a leading `0` for domestic numbers.
+#        2. Irish phone numbers beginning with area codes `1`, `2`, `4`, `6`, `7`, or `9`.
+#        3. Between 7 and 9 additional digits following the area code.
+#
+#        Parameters:
+#        - value (str): The phone number to validate, provided as a string.
+#
+#        Raises:
+#        - ValidationError: If the phone number does not match the required Irish format.
+#
+#        Example:
+#        - Valid inputs: "+353123456789", "012345678"
+#        - Invalid input: Raises a ValidationError with a message prompting correct format.
+#
+#        Notes:
+#        - Irish phone numbers should be in the format `+353999999999` or `0999999999`.
+#        """
+#     pattern = r'^(?:\+353|0)[124679]?\d{7,9}$'
+#     if not re.match(pattern, value):
+#         raise ValidationError(
+#             f"{value} is not a valid Irish phone number. Please enter phone number in the format: '+353999999999' or '0999999999'",
+#         )

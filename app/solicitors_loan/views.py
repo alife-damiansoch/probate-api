@@ -26,6 +26,7 @@ from app.utils import log_event
 from core.models import Document, Notification, Solicitor, Assignment
 from solicitors_loan import serializers
 from core import models
+from core.Validators.id_validators import ApplicantsValidator
 from solicitors_loan.permissions import IsNonStaff
 
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
@@ -217,17 +218,6 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
             return serializers.SolicitorApplicationSerializer
         return self.serializer_class
 
-    def validate_applicants(self, applicants_data):
-        """Validate the PPS numbers of the applicants."""
-        pps_regex = re.compile(r'^\d{7}[A-Z]{1,2}$')
-        for applicant in applicants_data:
-            pps_number = applicant.get('pps_number')
-            pps_number = pps_number.upper()
-            if not pps_regex.match(pps_number):
-                raise DRFValidationError({
-                    'pps_number': 'PPS Number must be 7 digits followed by 1 or 2 letters.'
-                })
-
     @transaction.atomic
     def perform_create(self, serializer):
         """Create a new application."""
@@ -235,8 +225,9 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
 
         # check and assign applicants
         applicants_data = request_body.get('applicants', [])
+        user = self.request.user
 
-        self.validate_applicants(applicants_data)
+        ApplicantsValidator.validate(applicants_data, user)
 
         try:
             serializer.save(user=self.request.user)
@@ -293,7 +284,8 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
         if estates_data is None:
             estates_data = []
 
-        self.validate_applicants(applicants_data)
+        user = self.request.user
+        ApplicantsValidator.validate(applicants_data, user)
 
         try:
             instance = self.get_object()  # Get the current instance
@@ -383,29 +375,34 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                                                                    'id']:  # Ignore non-field attributes and primary key
                             updated_value = updated_data[field]
                             if original_value != updated_value:
-                                changes.append(f"{field} changed from {original_value} to {updated_value}")
+                                changes.append(f"{field} changed")  # Only mention the field name
 
                     # Compare original and updated applicants data
                     applicants_changes = self.compare_applicants(original_applicants, updated_applicants)
-                    changes.extend(applicants_changes)
+                    if applicants_changes:
+                        changes.append("Applicant data updated")
 
                     # Compare original and updated estates data
                     estates_changes = self.compare_estates(original_estates, updated_estates)
-                    changes.extend(estates_changes)
+                    if estates_changes:
+                        changes.append("Estate data updated")
 
                     # Check for changes in deceased fields
                     if original_deceased and updated_deceased:
                         deceased_changes = self.compare_deceased(original_deceased, updated_deceased)
-                        changes.extend(deceased_changes)
+                        if deceased_changes:
+                            changes.append("Deceased data updated")
 
                     # Check for changes in dispute fields
                     if original_dispute and updated_dispute:
                         dispute_changes = self.compare_dispute(original_dispute, updated_dispute)
-                        changes.extend(dispute_changes)
+                        if dispute_changes:
+                            changes.append("Dispute data updated")
 
                     # Create a change message only if there are actual changes
                     if changes:
                         change_message = "; ".join(changes)
+                        # print(f"message: {change_message}")
 
                         # Broadcast the notification
                         assigned_to_user = serializer.instance.assigned_to

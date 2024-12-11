@@ -12,13 +12,17 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from core.models import Team, OTP
+from core.models import Team, OTP, Address
 
 CREATE_USER_URL = reverse("user:create")
 
 TOKEN_URL = reverse("user:token")
 
 ME_URL = reverse("user:me")
+
+headers = {
+    "HTTP_COUNTRY": "IE",  # Custom header for country
+}
 
 
 def create_user(**params):
@@ -34,13 +38,21 @@ class PublicCustomUserTests(TestCase):
 
     def test_create_valid_user_success(self):
         """Test creating user with valid payload is successful"""
+
         payload = {
 
             "email": "test@example.com",
             "password": "Testpass123!",
             "name": "Test Name",
+            "phone_number": "+353861111111",
+            "address": {
+                "line1": "test street",
+                "town_city": "test town",
+                "eircode": "D24n1n3"
+            },
         }
-        res = self.client.post(CREATE_USER_URL, payload)
+
+        res = self.client.post(CREATE_USER_URL, payload, format="json", **headers)
 
         self.assertEqual(
             res.status_code,
@@ -61,8 +73,9 @@ class PublicCustomUserTests(TestCase):
             "email": "test@example.com",
             "password": "testpass123",
             "name": "Test Name",
+            "phone_number": "+353861111111",
         }
-        res = self.client.post(CREATE_USER_URL, payload)
+        res = self.client.post(CREATE_USER_URL, payload, **headers)
 
         self.assertEqual(
             res.status_code,
@@ -76,9 +89,10 @@ class PublicCustomUserTests(TestCase):
             "email": "test@example.com",
             "password": "testpass123",
             "name": "Test Name",
+            "phone_number": "+353861111111",
         }
         create_user(**payload)
-        res = self.client.post(CREATE_USER_URL, payload)
+        res = self.client.post(CREATE_USER_URL, payload, **headers)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -88,8 +102,9 @@ class PublicCustomUserTests(TestCase):
             "email": "test@example.com",
             "password": "pw",
             "name": "Test Name",
+            "phone_number": "+353861111111",
         }
-        res = self.client.post(CREATE_USER_URL, payload)
+        res = self.client.post(CREATE_USER_URL, payload, **headers)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -143,7 +158,7 @@ class PublicCustomUserTests(TestCase):
             "email": "test@example.com",
             "password": "wrongpassword",
         }
-        res = self.client.post(TOKEN_URL, payload)
+        res = self.client.post(TOKEN_URL, payload, **headers)
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertNotIn('refresh', res.data)
         self.assertNotIn('access', res.data)
@@ -155,7 +170,7 @@ class PublicCustomUserTests(TestCase):
             "email": "test@example.com",
             "password": "",
         }
-        res = self.client.post(TOKEN_URL, payload)
+        res = self.client.post(TOKEN_URL, payload, **headers)
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertNotIn('token', res.data)
 
@@ -173,7 +188,7 @@ class PublicCustomUserTests(TestCase):
             "name": "Test Name",
             "phone_number": "1234567890",  # Invalid number format
         }
-        res = self.client.post(CREATE_USER_URL, payload)
+        res = self.client.post(CREATE_USER_URL, payload, **headers)
 
         self.assertEqual(res.status_code,
                          status.HTTP_400_BAD_REQUEST)  # Expect Bad request error due to invalid phone number
@@ -186,7 +201,7 @@ class PublicCustomUserTests(TestCase):
             "name": "Test Name",
             "phone_number": "+12021234567",  # US number format
         }
-        res = self.client.post(CREATE_USER_URL, payload)
+        res = self.client.post(CREATE_USER_URL, payload, **headers)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)  # Expect bad request due to foreign country code
 
@@ -199,7 +214,7 @@ class PublicCustomUserTests(TestCase):
             "phone_number": "+353831234567",  # Mobile number with country code
 
         }
-        res = self.client.post(CREATE_USER_URL, payload)
+        res = self.client.post(CREATE_USER_URL, payload, **headers)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)  # Expect bad request due to country code
 
@@ -218,14 +233,14 @@ class PublicCustomUserTests(TestCase):
                 "eircode": "X1YZ12W"  # Invalid Eircode format
             }
         }
-        res = self.client.post(CREATE_USER_URL, payload, format='json')
+        res = self.client.post(CREATE_USER_URL, payload, format='json', **headers)
 
         self.assertEqual(res.status_code,
                          status.HTTP_400_BAD_REQUEST)  # Expect Bad request error due to invalid Eircode
 
         # Test another invalid Eircode
         payload['address']['eircode'] = "12YZX"  # another Invalid Eircode format
-        res = self.client.post(CREATE_USER_URL, payload, format='json')
+        res = self.client.post(CREATE_USER_URL, payload, format='json', **headers)
 
         self.assertEqual(res.status_code,
                          status.HTTP_400_BAD_REQUEST)  # Expect Bad request error due to invalid Eircode
