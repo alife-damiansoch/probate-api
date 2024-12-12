@@ -200,7 +200,8 @@ class ApplicationAdmin(admin.ModelAdmin):
         (None,
          {"fields": ("amount", "term", "user", "solicitor", "deceased", "dispute", "assigned_to", "last_updated_by",)}),
         (_("Details"), {"fields": (
-            "approved", "is_rejected", "rejected_reason", "rejected_date", "undertaking_ready", "loan_agreement_ready",
+            "is_new", "approved", "is_rejected", "rejected_reason", "rejected_date", "undertaking_ready",
+            "loan_agreement_ready",
             "value_of_the_estate_after_expenses")}),
     )
 
