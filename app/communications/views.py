@@ -222,10 +222,9 @@ class SendEmailViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         # Fetch emails from both EmailLog and UserEmailLog for the specified solicitor firm
         try:
             email_log_emails = EmailLog.objects.filter(solicitor_firm_id=firm_id)
-            user_email_log_emails = UserEmailLog.objects.filter(solicitor_firm_id=firm_id)
 
             # Combine the two querysets and sort by 'created_at'
-            combined_emails = email_log_emails.union(user_email_log_emails).order_by('created_at')
+            combined_emails = email_log_emails.union(email_log_emails).order_by('created_at')
         except Solicitor.DoesNotExist:
             return Response({"error": "Firm ID not found."}, status=400)
 

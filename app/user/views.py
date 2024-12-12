@@ -164,7 +164,8 @@ class CreateUserView(generics.CreateAPIView):
             subject=subject,
             message=html_message,
             solicitor_firm=user,
-            use_info_email=True
+            use_info_email=True,
+            save_in_email_log=False
         )
 
 
@@ -448,6 +449,7 @@ class ForgotPasswordView(APIView):
                 subject="Reset Your Password",
                 message=message,
                 use_info_email=True,
+                save_in_email_log=False
             )
 
             return Response({"detail": "Password reset link sent."}, status=status.HTTP_200_OK)
@@ -503,7 +505,8 @@ def generate_otp_and_send_email(email, user):
         recipient=email,
         subject="Your OTP has been sent.",
         message=html_message,
-        solicitor_firm=user
+        solicitor_firm=user,
+        save_in_email_log=False
     )
 
 
@@ -647,7 +650,8 @@ class UpdateAuthMethodView(APIView):
                     recipient=email,
                     subject="Your OTP has been sent.",
                     message=html_message,
-                    solicitor_firm=user
+                    solicitor_firm=user,
+                    save_in_email_log=False
                 )
             user.preferred_auth_method = 'otp'
             user.save()
@@ -824,6 +828,7 @@ class ResetPasswordView(APIView):
             subject="Password Reset Successful",
             message=message,
             use_info_email=True,
+            save_in_email_log=False
         )
 
         return Response({"detail": "Password reset successfully."}, status=status.HTTP_200_OK)

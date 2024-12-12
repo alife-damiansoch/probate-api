@@ -20,7 +20,8 @@ from email.header import decode_header
 from django.conf import settings
 from django.db import transaction
 
-from core.models import EmailLog, Application, Solicitor, User, AssociatedEmail, Notification, Assignment, UserEmailLog
+from core.models import EmailLog, Application, Solicitor, User, AssociatedEmail, Notification, Assignment, \
+    UserEmailLog
 from django.core.mail.backends.smtp import EmailBackend
 from django.core.mail import EmailMultiAlternatives
 
@@ -74,7 +75,7 @@ def find_user_by_email(sender):
 
 
 def send_email_f(sender, recipient, subject, message, attachments=None, application=None, solicitor_firm=None,
-                 email_model=EmailLog, use_info_email=False):
+                 email_model=EmailLog, use_info_email=False, save_in_email_log=True):
     """
       Sends an email with optional attachments and logs the email in the specified email model.
 
@@ -133,21 +134,37 @@ def send_email_f(sender, recipient, subject, message, attachments=None, applicat
         # Wrap both the email log saving and email sending in a single transaction
         with transaction.atomic():
             # Save the email log in the database first
-            email_log_entry = email_model.objects.create(
-                sender=sender,
-                recipient=recipient,
-                subject=subject,
-                message=message,
-                attachments=attachment_paths,
-                application=application,
-                solicitor_firm=solicitor_firm,
-                seen=True,
-                message_id=str(uuid.uuid4()),  # Generate a unique Message-ID for the log
-                original_filenames=original_filenames if attachments else [],
-                is_sent=True,
-                send_from=settings.DEFAULT_FROM_EMAIL if use_info_email else sender,
-            )
-            # print(f"Email successfully logged in the database.")
+            if save_in_email_log:
+                email_log_entry = email_model.objects.create(
+                    sender=sender,
+                    recipient=recipient,
+                    subject=subject,
+                    message=message,
+                    attachments=attachment_paths,
+                    application=application,
+                    solicitor_firm=solicitor_firm,
+                    seen=True,
+                    message_id=str(uuid.uuid4()),  # Generate a unique Message-ID for the log
+                    original_filenames=original_filenames if attachments else [],
+                    is_sent=True,
+                    send_from=settings.DEFAULT_FROM_EMAIL if use_info_email else sender,
+                )
+                # print(f"Email successfully logged in the database.")
+            else:
+                email_log_entry = UserEmailLog.objects.create(
+                    sender=sender,
+                    recipient=recipient,
+                    subject=subject,
+                    message=message,
+                    attachments=attachment_paths,
+                    application=application,
+                    solicitor_firm=solicitor_firm,
+                    seen=True,
+                    message_id=str(uuid.uuid4()),  # Generate a unique Message-ID for the log
+                    original_filenames=original_filenames if attachments else [],
+                    is_sent=True,
+                    send_from=settings.DEFAULT_FROM_EMAIL if use_info_email else sender,
+                )
 
             # getting the sending user name to add it the the email
             # Assuming `sender` contains the email address of the user sending the email
