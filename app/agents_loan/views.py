@@ -628,3 +628,60 @@ class DownloadFileView(APIView):
 
         except Document.DoesNotExist:
             return HttpResponseNotFound("File not found.")
+
+
+class NewApplicationViewSet(viewsets.ViewSet):
+    """
+    A ViewSet for managing new applications.
+    """
+
+    # Add authentication and permission classes
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="List IDs of new applications",
+        description="Returns a list of application IDs where `is_new=True`.",
+        tags=["agent_application"],
+        responses={
+            200: {
+                "description": "A list of new application IDs.",
+                "examples": {"new_application_ids": [1, 2, 3]},
+            },
+            403: {"description": "Forbidden - Authentication credentials not provided."},
+        },
+    )
+    @action(detail=False, methods=['get'], url_path='list')
+    def list_new(self, request):
+        """
+        List IDs of applications where `is_new=True`.
+        """
+        new_applications = models.Application.objects.filter(
+            is_new=True
+        ).values('id', 'assigned_to__email')
+        return Response({"new_application_ids": list(new_applications)}, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Mark an application as seen",
+        description="Sets the `is_new` field to `False` for the specified application ID.",
+        tags=["agent_application"],
+        responses={
+            200: {
+                "description": "The application has been marked as seen.",
+                "examples": {"message": "Application 1 marked as seen."},
+            },
+            404: {"description": "Application with the given ID does not exist."},
+        },
+    )
+    @action(detail=True, methods=['patch'], url_path='mark-seen')
+    def mark_seen(self, request, pk=None):
+        """
+        Mark an application as not new (`is_new=False`) based on the provided ID.
+        """
+        try:
+            application = models.Application.objects.get(pk=pk)
+            application.is_new = False
+            application.save()
+            return Response({"message": f"Application {pk} marked as seen."}, status=status.HTTP_200_OK)
+        except models.Application.DoesNotExist:
+            return Response({"error": f"Application with ID {pk} does not exist."}, status=status.HTTP_404_NOT_FOUND)

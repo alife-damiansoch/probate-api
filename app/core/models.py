@@ -236,6 +236,7 @@ class Application(models.Model):
     solicitor = models.ForeignKey(
         Solicitor, on_delete=models.PROTECT, null=True, blank=True, related_name='applications'
     )
+    is_new = models.BooleanField(default=True)  # Indicates if this is a new application
 
     class Meta:
         indexes = [
