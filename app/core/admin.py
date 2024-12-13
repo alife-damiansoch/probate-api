@@ -60,7 +60,7 @@ class UserAdmin(BaseUserAdmin):
     """Define admin pages for users"""
 
     ordering = ["id"]
-    list_display = ["email", "name", "country", "preferred_auth_method"]  # Added preferred_auth_method
+    list_display = ["email", "name", "country", "preferred_auth_method", "get_teams"]  # Added preferred_auth_method
     actions = ['delete_selected_with_tokens']
 
     filter_horizontal = ('teams',)  # User-friendly interface for selecting teams
@@ -140,6 +140,14 @@ class UserAdmin(BaseUserAdmin):
                 })
 
         return form
+
+    def get_teams(self, obj):
+        """
+        Retrieve and format the teams for display in the admin list.
+        """
+        return ", ".join([team.name for team in obj.teams.all()])
+
+    get_teams.short_description = "Teams"  # Set column header in admin
 
     def get_inline_instances(self, request, obj=None):
         """Show the AssignedSolicitor inline only for non-staff users."""

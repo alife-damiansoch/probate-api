@@ -656,10 +656,18 @@ class NewApplicationViewSet(viewsets.ViewSet):
         """
         List IDs of applications where `is_new=True`.
         """
+        country_teams = self.request.user.teams.all().filter(name__endswith='_team')
+        # Extract the part of the name before '_team'
+        filtered_team_names = [team.name.rsplit('_team', 1)[0].upper() for team in country_teams]
+
         new_applications = models.Application.objects.filter(
             is_new=True
-        ).values('id', 'assigned_to__email')
-        return Response({"new_application_ids": list(new_applications)}, status=status.HTTP_200_OK)
+        ).values('id', 'assigned_to__email', "user__country")
+
+        new_applications_for_agent_teams = new_applications.filter(user__country__in=filtered_team_names)
+        print(new_applications_for_agent_teams)
+
+        return Response({"new_application_ids": list(new_applications_for_agent_teams)}, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Mark an application as seen",
