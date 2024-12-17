@@ -135,7 +135,8 @@ DATABASES = {
         'HOST': os.environ.get('DB_HOST'),
         'NAME': os.environ.get('DB_NAME'),
         'USER': os.environ.get('DB_USER'),
-        'PASSWORD': os.environ.get('DB_PASS')
+        'PASSWORD': os.environ.get('DB_PASS'),
+        'PORT': '5432',  # Add the port explicitly
     },
     'test_db': {  # Define your test database
         'ENGINE': 'django.db.backends.postgresql',
@@ -144,6 +145,7 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASS'),
         'HOST': 'localhost',
         'PORT': '5432',
+
     },
 }
 
