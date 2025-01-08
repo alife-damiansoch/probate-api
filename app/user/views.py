@@ -254,6 +254,40 @@ class MyTokenObtainPairView(TokenObtainPairView):
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
+class MobileTokenObtainPairViewForSolicitors(TokenObtainPairView):
+    serializer_class = MyTokenObtainPairSerializer
+
+    def post(self, request, *args, **kwargs):
+        # Get the 'Country' header from the request
+        country_header = request.headers.get('Country')
+
+        # Extract email and password
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        # Authenticate the user using email and password
+        user = authenticate(request, username=email, password=password)
+
+        if user is None:
+            raise AuthenticationFailed("Invalid email or password.")
+
+        if user.is_staff or user.is_superuser:
+            raise AuthenticationFailed("Request blocked")
+
+        # Check if the user's country matches the 'Country' header
+        if (not user.is_staff and not user.is_superuser) and user.country != country_header:
+            raise PermissionDenied(
+                f"Access denied: You are attempting to log in from the {country_header} site, "
+                f"but your account is registered for {user.country}. "
+                f"Please use the designated website for your registered country."
+            )
+
+        # If validation passes, continue with the default token generation
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+
 class ManageUserView(generics.RetrieveUpdateAPIView):
     """Manage the authenticated user"""
     serializer_class = UserSerializer

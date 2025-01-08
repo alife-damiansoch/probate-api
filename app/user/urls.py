@@ -4,7 +4,7 @@ Urls mapping for a User api
 
 from django.urls import path
 from user import views
-from user.views import MyTokenObtainPairView, ValidateOtpView
+from user.views import MyTokenObtainPairView, ValidateOtpView, MobileTokenObtainPairViewForSolicitors
 from rest_framework_simplejwt.views import TokenRefreshView
 
 app_name = 'user'
@@ -13,6 +13,7 @@ urlpatterns = [
     path('create/', views.CreateUserView.as_view(), name='create'),
     path('activate/', views.ActivateUserView.as_view(), name='activate-user'),
     path('token/', MyTokenObtainPairView.as_view(), name='token'),
+    path('token_mobile/', MobileTokenObtainPairViewForSolicitors.as_view(), name='token_mobile'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('me/', views.ManageUserView.as_view(), name='me'),
     path('', views.UserList.as_view(), name='list'),
