@@ -187,6 +187,8 @@ class CountryMiddleware(MiddlewareMixin):
 
         response = self.get_response(request)
         return response
+
+
 # class CountryMiddleware(MiddlewareMixin):
 #     """
 #     Middleware to enforce the presence of a 'Country' header in all requests.
@@ -222,3 +224,16 @@ class CountryMiddleware(MiddlewareMixin):
 #
 #         response = self.get_response(request)
 #         return response
+
+# middleware.py
+class LogHeadersMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Log all incoming headers
+        print("Request Headers:", dict(request.headers))
+
+        # Continue processing the request
+        response = self.get_response(request)
+        return response

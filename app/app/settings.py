@@ -104,6 +104,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.CountryMiddleware',
     'core.middleware.LogEventOnErrorMiddleware',
+    'core.middleware.LogHeadersMiddleware'
 ]
 
 ROOT_URLCONF = 'app.urls'
