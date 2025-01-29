@@ -37,7 +37,13 @@ COMPANY_ADDRESS = os.getenv('COMPANY_ADDRESS', 'Default Company Address')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.getenv('DEBUG', 0)))
 
-ALLOWED_HOSTS = list(filter(None, os.getenv('ALLOWED_HOSTS', '').split(',')))
+# Check for Azure's auto-created WEBSITE_HOSTNAME
+website_hostname = os.getenv('WEBSITE_HOSTNAME')
+
+if website_hostname:
+    ALLOWED_HOSTS = [website_hostname]
+else:
+    ALLOWED_HOSTS = list(filter(None, os.getenv('ALLOWED_HOSTS', '').split(',')))
 
 # Incoming Email Settings (IMAP)
 IMAP_SERVER = os.getenv('IMAP_SERVER')
@@ -210,8 +216,8 @@ if not DEBUG:  # in production
     AZURE_STORAGE_CONNECTION_STRING = os.getenv('AZURE_STORAGE_CONNECTION_STRING', 'your-default-connection-string')
     AZURE_CONTAINER = os.getenv('AZURE_CONTAINER', 'your-default-container-name')
 
-    DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
-    STATICFILES_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+    DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureBlobStorage'
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
     MEDIA_URL = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/"
     STATIC_URL = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/"
