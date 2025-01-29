@@ -231,7 +231,7 @@ if not DEBUG:  # in production
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
     MEDIA_URL = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/"
-    STATIC_URL = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/"
+    STATIC_URL = "/static/"  # Static files served via WhiteNoise
     # Set ATTACHMENTS_DIR to point to Azure Blob Storage container path
     ATTACHMENTS_DIR = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/attachments/"
 
