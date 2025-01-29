@@ -10,6 +10,7 @@ class Command(BaseCommand):
         "DJANGO_SECRET_KEY",
         "PPS_ENCRYPTION_KEY",
         "ALLOWED_HOSTS",
+        "ADDITIONAL_CORS_ORIGINS",
         "SECRET_KEY",
         "DEBUG",
         "AZURE_STORAGE_CONNECTION_STRING",

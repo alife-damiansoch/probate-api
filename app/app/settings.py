@@ -42,8 +42,18 @@ website_hostname = os.getenv('WEBSITE_HOSTNAME')
 
 if website_hostname:
     ALLOWED_HOSTS = [website_hostname]
+    CSRF_TRUSTED_ORIGINS = [f"https://{website_hostname}"]
 else:
     ALLOWED_HOSTS = list(filter(None, os.getenv('ALLOWED_HOSTS', '').split(',')))
+
+# CORS Configuration
+if DEBUG:
+    CORS_ORIGIN_ALLOW_ALL = True
+    CORS_ALLOWED_ORIGINS = []
+else:
+    ADDITIONAL_CORS_ORIGINS = os.getenv('ADDITIONAL_CORS_ORIGINS', '').split(',')
+    CORS_ALLOWED_ORIGINS = [f"https://{website_hostname}"] + [origin for origin in ADDITIONAL_CORS_ORIGINS if origin]
+    CORS_ORIGIN_ALLOW_ALL = False
 
 # Incoming Email Settings (IMAP)
 IMAP_SERVER = os.getenv('IMAP_SERVER')
@@ -297,14 +307,9 @@ CHANNEL_LAYERS = {
     },
 }
 
-CORS_ORIGIN_ALLOW_ALL = True  # If you want to allow all origins, or...
 # Specify the headers that are allowed, including the custom 'Country' header
 
 
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'Country', 'Frontend-Host'  # Adding the custom 'Country' header
 ]
-
-# CORS_ALLOWED_ORIGINS = [
-#     "http://127.0.0.1", "http://127.0.0.1:3000", 'http://localhost:3000',
-# ]
