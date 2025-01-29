@@ -227,8 +227,15 @@ if not DEBUG:  # in production
     AZURE_STORAGE_CONNECTION_STRING = os.getenv('AZURE_STORAGE_CONNECTION_STRING', 'your-default-connection-string')
     AZURE_CONTAINER = os.getenv('AZURE_CONTAINER', 'your-default-container-name')
 
-    DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureBlobStorage'
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    # Configure storage using Django 4.2+ STORAGES setting
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.azure_storage.AzureBlobStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
 
     MEDIA_URL = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/"
     STATIC_URL = "/static/"  # Static files served via WhiteNoise
