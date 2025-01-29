@@ -130,25 +130,48 @@ WSGI_APPLICATION = 'app.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'HOST': os.environ.get('DB_HOST'),
-        'NAME': os.environ.get('DB_NAME'),
-        'USER': os.environ.get('DB_USER'),
-        'PASSWORD': os.environ.get('DB_PASS'),
-        'PORT': '5432',  # Add the port explicitly
-    },
-    'test_db': {  # Define your test database
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'your_test_db',
-        'USER': 'postgres',
-        'PASSWORD': os.environ.get('DB_PASS'),
-        'HOST': 'localhost',
-        'PORT': '5432',
+# Retrieve the connection string from Azure environment variables
+CONNECTION = os.getenv('AZURE_POSTGRESQL_CONNECTIONSTRING', '')
 
-    },
-}
+if CONNECTION:
+    # Convert the space-separated key=value string into a dictionary
+    CONNECTION_STR = {pair.split('=')[0]: pair.split('=')[1] for pair in CONNECTION.split(' ')}
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": CONNECTION_STR.get("dbname"),
+            "HOST": CONNECTION_STR.get("host"),
+            "USER": CONNECTION_STR.get("user"),
+            "PASSWORD": CONNECTION_STR.get("password"),
+            "PORT": CONNECTION_STR.get("port", "5432"),  # Default PostgreSQL port
+            "OPTIONS": {
+                "sslmode": CONNECTION_STR.get("sslmode", "require"),
+            },
+        }
+    }
+else:
+    print("⚠️ AZURE_POSTGRESQL_CONNECTIONSTRING is not set!")
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'HOST': os.environ.get('DB_HOST'),
+            'NAME': os.environ.get('DB_NAME'),
+            'USER': os.environ.get('DB_USER'),
+            'PASSWORD': os.environ.get('DB_PASS'),
+            'PORT': '5432',  # Add the port explicitly
+        },
+        'test_db': {  # Define your test database
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'your_test_db',
+            'USER': 'postgres',
+            'PASSWORD': os.environ.get('DB_PASS'),
+            'HOST': 'localhost',
+            'PORT': '5432',
+
+        },
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
@@ -180,6 +203,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
 if not DEBUG:  # in production
+
     # Azure settings
     AZURE_ACCOUNT_NAME = os.getenv('AZURE_ACCOUNT_NAME', 'your-default-account-name')
     AZURE_CUSTOM_DOMAIN = f'{AZURE_ACCOUNT_NAME}.blob.core.windows.net'
