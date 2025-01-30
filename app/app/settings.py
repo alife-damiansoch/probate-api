@@ -255,6 +255,7 @@ if not DEBUG:  # in production
     STATIC_ROOT = BASE_DIR / "staticfiles"  # WhiteNoise serves files from here
     # Set ATTACHMENTS_DIR to point to Azure Blob Storage container path
     ATTACHMENTS_DIR = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/attachments/"
+    DOC_DOWNLOAD_DIR = f"{MEDIA_URL}DocDownload/"
 
     # Outgoing Email Settings (SMTP)
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
