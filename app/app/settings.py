@@ -36,6 +36,28 @@ COMPANY_ADDRESS = os.getenv('COMPANY_ADDRESS', 'Default Company Address')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.getenv('DEBUG', 0)))
+# Enable these only in production
+ENV = os.getenv('DJANGO_ENV', 'development')
+IS_PRODUCTION = ENV == 'production'
+
+if IS_PRODUCTION:
+    SECURE_SSL_REDIRECT = True  # Force HTTPS
+    SESSION_COOKIE_SECURE = True  # Secure cookies over HTTPS
+    CSRF_COOKIE_SECURE = True  # Secure CSRF cookies
+    SECURE_HSTS_SECONDS = 31536000  # Enforce HTTPS for 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    X_FRAME_OPTIONS = 'DENY'  # Prevent iframe clickjacking
+    SECURE_CONTENT_TYPE_NOSNIFF = True  # Prevent MIME sniffing
+    SECURE_BROWSER_XSS_FILTER = True  # Enable XSS filtering
+    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"  # Secure referrer policy
+else:
+    SECURE_SSL_REDIRECT = False  # Allow HTTP in development
+    SESSION_COOKIE_SECURE = False  # Allow insecure cookies in dev
+    CSRF_COOKIE_SECURE = False  # Allow CSRF cookies over HTTP
+    SECURE_HSTS_SECONDS = 0  # No HSTS enforcement in dev
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
 
 # Get Azure's auto-generated hostname (if running in Azure)
 website_hostname = os.getenv('WEBSITE_HOSTNAME')
@@ -256,7 +278,7 @@ if not DEBUG:  # in production
 
     # Ensure `staticfiles/` directory exists before starting the server
     os.makedirs(STATIC_ROOT, exist_ok=True)  # ✅ Automatically create it if missing
-    
+
     # Set ATTACHMENTS_DIR to point to Azure Blob Storage container path
     ATTACHMENTS_DIR = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/attachments/"
     DOC_DOWNLOAD_DIR = f"{MEDIA_URL}DocDownload/"

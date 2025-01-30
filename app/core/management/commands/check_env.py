@@ -14,6 +14,7 @@ class Command(BaseCommand):
         "CSRF_TRUSTED_ORIGINS",
         "SECRET_KEY",
         "DEBUG",
+        "DJANGO_ENV",
         "AZURE_STORAGE_CONNECTION_STRING",
         "AZURE_ACCOUNT_NAME",
         "AZURE_CONTAINER",
