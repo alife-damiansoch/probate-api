@@ -34,6 +34,8 @@ class Command(BaseCommand):
         "ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL",
         "COMMITTEE_MEMBERS_COUNT_REQUIRED_FOR_APPROVAL",
         "AZURE_POSTGRESQL_CONNECTIONSTRING",  # This is the main DB connection variable
+        "SCM_DO_BUILD_DURING_DEPLOYMENT",
+        # try without this one added first this should already work from azure deployment center
     ]
 
     # If `AZURE_POSTGRESQL_CONNECTIONSTRING` is not set, check these as well
