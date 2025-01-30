@@ -16,6 +16,7 @@ class Command(BaseCommand):
         "DEBUG",
         "DJANGO_ENV",
         "ADMIN_URL",
+        "ALLOWED_ADMIN_IPS",
         "AZURE_STORAGE_CONNECTION_STRING",
         "AZURE_ACCOUNT_NAME",
         "AZURE_CONTAINER",
