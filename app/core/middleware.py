@@ -245,18 +245,28 @@ class LogHeadersMiddleware:
 class AdminIPRestrictionMiddleware(MiddlewareMixin):
     """
     Middleware to restrict access to the Django Admin panel
-    based on a whitelist of allowed IP addresses.
+    and API Docs based on a whitelist of allowed IP addresses.
     """
 
     def process_request(self, request):
         # Skip IP restriction if running tests
         if settings.TESTING:
             return None
-        # Check if the request is for the admin panel
-        if request.path.startswith(f"/{ADMIN_URL}/"):  # Use your new admin URL
-            client_ip = request.META.get("REMOTE_ADDR", "")
 
-            if client_ip not in ALLOWED_ADMIN_IPS:
-                raise PermissionDenied("Unauthorized IP - Access Denied to Admin Panel")
+        # Get client IP address (supports proxies)
+        client_ip = request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", ""))
+        if "," in client_ip:
+            client_ip = client_ip.split(",")[0].strip()  # Extract real client IP if behind a proxy
+
+        # Define restricted paths
+        restricted_paths = [
+            f"/{settings.ADMIN_URL}/",  # Admin Panel
+            "/api/schema/",  # API Schema
+            "/api/docs/",  # API Docs
+        ]
+
+        # If request path matches and IP is not allowed, deny access
+        if any(request.path.startswith(path) for path in restricted_paths) and client_ip not in ALLOWED_ADMIN_IPS:
+            raise PermissionDenied("Unauthorized IP - Access Denied")
 
         return None  # Continue processing the request
