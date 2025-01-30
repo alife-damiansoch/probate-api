@@ -253,6 +253,10 @@ if not DEBUG:  # in production
     MEDIA_URL = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/"
     STATIC_URL = "/static/"  # Required for Django to generate correct URLs for static files
     STATIC_ROOT = BASE_DIR / "staticfiles"  # WhiteNoise serves files from here
+
+    # Ensure `staticfiles/` directory exists before starting the server
+    os.makedirs(STATIC_ROOT, exist_ok=True)  # ✅ Automatically create it if missing
+    
     # Set ATTACHMENTS_DIR to point to Azure Blob Storage container path
     ATTACHMENTS_DIR = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/attachments/"
     DOC_DOWNLOAD_DIR = f"{MEDIA_URL}DocDownload/"
