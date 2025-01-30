@@ -42,6 +42,7 @@ IS_PRODUCTION = ENV == 'production'
 
 # custom url to access admin
 ADMIN_URL = os.getenv('ADMIN_URL', '/')
+ALLOWED_ADMIN_IPS = os.getenv('ALLOWED_ADMIN_IPS', '')
 
 if IS_PRODUCTION:
     SECURE_SSL_REDIRECT = True  # Force HTTPS
@@ -159,7 +160,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.CountryMiddleware',
     'core.middleware.LogEventOnErrorMiddleware',
-    'core.middleware.LogHeadersMiddleware'
+    'core.middleware.LogHeadersMiddleware',
+    'core.middleware.AdminIPRestrictionMiddleware'
 ]
 
 ROOT_URLCONF = 'app.urls'

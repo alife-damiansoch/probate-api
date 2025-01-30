@@ -2,10 +2,12 @@ from django.utils.deprecation import MiddlewareMixin
 from json import JSONDecodeError
 import json
 from django.http import JsonResponse
+from django.core.exceptions import PermissionDenied
 
 from app import settings
 from app.utils import log_event
 from app.settings import ADMIN_URL
+from app.settings import ALLOWED_ADMIN_IPS
 
 
 class LogEventOnErrorMiddleware(MiddlewareMixin):
@@ -238,3 +240,23 @@ class LogHeadersMiddleware:
         # Continue processing the request
         response = self.get_response(request)
         return response
+
+
+class AdminIPRestrictionMiddleware(MiddlewareMixin):
+    """
+    Middleware to restrict access to the Django Admin panel
+    based on a whitelist of allowed IP addresses.
+    """
+
+    def process_request(self, request):
+        # Skip IP restriction if running tests
+        if settings.TESTING:
+            return None
+        # Check if the request is for the admin panel
+        if request.path.startswith(f"/{ADMIN_URL}/"):  # Use your new admin URL
+            client_ip = request.META.get("REMOTE_ADDR", "")
+
+            if client_ip not in ALLOWED_ADMIN_IPS:
+                raise PermissionDenied("Unauthorized IP - Access Denied to Admin Panel")
+
+        return None  # Continue processing the request
