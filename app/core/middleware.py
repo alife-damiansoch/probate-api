@@ -5,6 +5,7 @@ from django.http import JsonResponse
 
 from app import settings
 from app.utils import log_event
+from app.settings import ADMIN_URL
 
 
 class LogEventOnErrorMiddleware(MiddlewareMixin):
@@ -152,7 +153,7 @@ class CountryMiddleware(MiddlewareMixin):
     def __call__(self, request):
         # Skip validation for admin and API documentation endpoints
         if (
-                request.path.startswith('/admin/')
+                request.path.startswith(f'/{ADMIN_URL}/')
                 or request.path.startswith('/api/docs/')
                 or request.path.startswith('/api/schema/')
                 or request.path.startswith('/api/user/activate/')

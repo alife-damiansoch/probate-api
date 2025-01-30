@@ -15,6 +15,7 @@ class Command(BaseCommand):
         "SECRET_KEY",
         "DEBUG",
         "DJANGO_ENV",
+        "ADMIN_URL",
         "AZURE_STORAGE_CONNECTION_STRING",
         "AZURE_ACCOUNT_NAME",
         "AZURE_CONTAINER",

@@ -40,6 +40,9 @@ DEBUG = bool(int(os.getenv('DEBUG', 0)))
 ENV = os.getenv('DJANGO_ENV', 'development')
 IS_PRODUCTION = ENV == 'production'
 
+# custom url to access admin
+ADMIN_URL = os.getenv('ADMIN_URL', '/')
+
 if IS_PRODUCTION:
     SECURE_SSL_REDIRECT = True  # Force HTTPS
     SESSION_COOKIE_SECURE = True  # Secure cookies over HTTPS
