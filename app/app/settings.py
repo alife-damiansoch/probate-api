@@ -37,22 +37,35 @@ COMPANY_ADDRESS = os.getenv('COMPANY_ADDRESS', 'Default Company Address')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.getenv('DEBUG', 0)))
 
-# Check for Azure's auto-created WEBSITE_HOSTNAME
+# Get Azure's auto-generated hostname (if running in Azure)
 website_hostname = os.getenv('WEBSITE_HOSTNAME')
 
+# Load allowed hosts from .env
+ALLOWED_HOSTS = list(filter(None, os.getenv('ALLOWED_HOSTS', '').split(',')))
+
+# If running in Azure, add `website_hostname` to ALLOWED_HOSTS
 if website_hostname:
-    ALLOWED_HOSTS = [website_hostname]
-    CSRF_TRUSTED_ORIGINS = [f"https://{website_hostname}"]
-else:
-    ALLOWED_HOSTS = list(filter(None, os.getenv('ALLOWED_HOSTS', '').split(',')))
+    ALLOWED_HOSTS.append(website_hostname)
+
+# Load CSRF trusted origins from .env
+CSRF_TRUSTED_ORIGINS = list(filter(None, os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')))
+
+# If running in Azure, add `website_hostname` to CSRF_TRUSTED_ORIGINS
+if website_hostname:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{website_hostname}")
 
 # CORS Configuration
 if DEBUG:
     CORS_ORIGIN_ALLOW_ALL = True
     CORS_ALLOWED_ORIGINS = []
 else:
-    ADDITIONAL_CORS_ORIGINS = os.getenv('ADDITIONAL_CORS_ORIGINS', '').split(',')
-    CORS_ALLOWED_ORIGINS = [f"https://{website_hostname}"] + [origin for origin in ADDITIONAL_CORS_ORIGINS if origin]
+    ADDITIONAL_CORS_ORIGINS = list(filter(None, os.getenv('ADDITIONAL_CORS_ORIGINS', '').split(',')))
+    CORS_ALLOWED_ORIGINS = ADDITIONAL_CORS_ORIGINS.copy()
+
+    # If running in Azure, add `website_hostname` to CORS_ALLOWED_ORIGINS
+    if website_hostname:
+        CORS_ALLOWED_ORIGINS.append(f"https://{website_hostname}")
+
     CORS_ORIGIN_ALLOW_ALL = False
 
 # Incoming Email Settings (IMAP)
@@ -238,7 +251,8 @@ if not DEBUG:  # in production
     }
 
     MEDIA_URL = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/"
-    STATIC_URL = "/static/"  # Static files served via WhiteNoise
+    STATIC_URL = "/static/"  # Required for Django to generate correct URLs for static files
+    STATIC_ROOT = BASE_DIR / "staticfiles"  # WhiteNoise serves files from here
     # Set ATTACHMENTS_DIR to point to Azure Blob Storage container path
     ATTACHMENTS_DIR = f"https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/attachments/"
 

@@ -11,6 +11,7 @@ class Command(BaseCommand):
         "PPS_ENCRYPTION_KEY",
         "ALLOWED_HOSTS",
         "ADDITIONAL_CORS_ORIGINS",
+        "CSRF_TRUSTED_ORIGINS",
         "SECRET_KEY",
         "DEBUG",
         "AZURE_STORAGE_CONNECTION_STRING",
