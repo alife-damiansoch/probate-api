@@ -341,6 +341,7 @@ REST_FRAMEWORK = {
 
     "DEFAULT_THROTTLE_CLASSES": [
         "core.throttling.AlertScopedRateThrottle",  # Use the custom throttle
+        "core.throttling.SustainedThrottle",  # NEW: Long-term block throttle
         "rest_framework.throttling.AnonRateThrottle",  # Limits unauthenticated users
         "rest_framework.throttling.UserRateThrottle",  # Limits authenticated users
 
@@ -356,6 +357,7 @@ REST_FRAMEWORK = {
         "authenticator_verification": "500/minute" if TESTING else "5/minute",
         "registration": "500/minute" if TESTING else "3/minute",
         "password_change": "500/minute" if TESTING else "3/minute",
+        "sustained": "1000/day" if TESTING else "50/day",  # NEW: Permanent block after 50 violations in a day
     }
 }
 
