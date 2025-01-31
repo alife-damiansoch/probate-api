@@ -334,10 +334,29 @@ AUTH_USER_MODEL = 'core.User'
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": 'drf_spectacular.openapi.AutoSchema',
+
     "DEFAULT_AUTHENTICATION_CLASSES": (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 
+    "DEFAULT_THROTTLE_CLASSES": [
+        "core.throttling.AlertScopedRateThrottle",  # Use the custom throttle
+        "rest_framework.throttling.AnonRateThrottle",  # Limits unauthenticated users
+        "rest_framework.throttling.UserRateThrottle",  # Limits authenticated users
+
+    ],
+
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "1000/minute" if TESTING else "10/minute",
+        "user": "5000/hour" if TESTING else "100/hour",
+        "login": "500/minute" if TESTING else "5/minute",
+        "password_reset": "500/minute" if TESTING else "3/minute",
+        "activation": "500/minute" if TESTING else "3/minute",
+        "otp_verification": "500/minute" if TESTING else "5/minute",
+        "authenticator_verification": "500/minute" if TESTING else "5/minute",
+        "registration": "500/minute" if TESTING else "3/minute",
+        "password_change": "500/minute" if TESTING else "3/minute",
+    }
 }
 
 SIMPLE_JWT = {

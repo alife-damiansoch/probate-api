@@ -41,6 +41,7 @@ from .permissions import IsStaff
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from core.throttling import AlertScopedRateThrottle
 
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -63,7 +64,12 @@ class UserList(generics.ListAPIView):
 
 
 class CreateUserView(generics.CreateAPIView):
-    """Create a new user in the system"""
+    """
+    Create a new user in the system with throttling.
+    """
+    throttle_classes = [AlertScopedRateThrottle]
+    throttle_scope = "registration"
+
     serializer_class = UserSerializer
 
     def create(self, request, *args, **kwargs):
@@ -170,6 +176,12 @@ class CreateUserView(generics.CreateAPIView):
 
 
 class UpdatePasswordView(generics.UpdateAPIView):
+    """
+        Allows users to update their password with throttling.
+    """
+    throttle_classes = [AlertScopedRateThrottle]
+    throttle_scope = "password_change"
+
     serializer_class = UpdatePasswordSerializer
     model = get_user_model()
     authentication_classes = (JWTAuthentication,)
@@ -203,6 +215,11 @@ logger = logging.getLogger(__name__)
 
 
 class MyTokenObtainPairView(TokenObtainPairView):
+    """
+      Handles user login with throttling to prevent brute force attacks.
+      """
+    throttle_classes = [AlertScopedRateThrottle]
+    throttle_scope = "login"
     serializer_class = MyTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
@@ -255,6 +272,11 @@ class MyTokenObtainPairView(TokenObtainPairView):
 
 
 class MobileTokenObtainPairViewForSolicitors(TokenObtainPairView):
+    """
+      Handles user login with throttling to prevent brute force attacks.
+      """
+    throttle_classes = [AlertScopedRateThrottle]
+    throttle_scope = "login"
     serializer_class = MyTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
@@ -374,7 +396,12 @@ class RetrieveUserView(generics.RetrieveAPIView):
 
 
 class ActivateUserView(APIView):
-    """Endpoint for activating user accounts."""
+    """
+    Endpoint for activating user accounts.
+    """
+    throttle_classes = [AlertScopedRateThrottle]
+    throttle_scope = "activation"
+
     authentication_classes = []  # Disable JWT Authentication for this view
     permission_classes = [AllowAny]  # Ensure unauthenticated users can access this
 
@@ -547,7 +574,12 @@ def generate_otp_and_send_email(email, user):
 class CheckCredentialsView(APIView):
     """
     Handle checking user credentials and sending OTP or setting up Authenticator App
-    """
+
+      Handles user login with throttling to prevent brute force attacks.
+      """
+    throttle_classes = [AlertScopedRateThrottle]  # Enable throttling
+    throttle_scope = "login"  # Apply "login" throttle settings from settings.py
+
     authentication_classes = []  # Disable JWT Authentication for this view
     permission_classes = [AllowAny]  # Ensure unauthenticated users can access this
 
@@ -802,8 +834,11 @@ class UpdateAuthMethodView(APIView):
 
 class ResetPasswordView(APIView):
     """
-    Handle password reset using token and uid
+    Handle password reset using token and uid with  throttling
     """
+    throttle_classes = [AlertScopedRateThrottle]
+    throttle_scope = "password_reset"
+
     authentication_classes = []  # Disable JWT Authentication for this view
     permission_classes = [AllowAny]  # Ensure unauthenticated users can access this
 
@@ -872,6 +907,9 @@ class VerifyAuthenticatorCodeView(APIView):
     """
     Verify the code from the authenticator app and activate the secret.
     """
+    throttle_classes = [AlertScopedRateThrottle]
+    throttle_scope = "authenticator_verification"
+
     authentication_classes = []  # Disable JWT Authentication for this view
     permission_classes = [AllowAny]  # Ensure unauthenticated users can access this
 
@@ -928,6 +966,9 @@ class ValidateOtpView(APIView):
     """
     API endpoint to validate an OTP for a given email.
     """
+    throttle_classes = [AlertScopedRateThrottle]
+    throttle_scope = "otp_verification"
+
     authentication_classes = []  # Disable authentication for this endpoint
     permission_classes = []  # Allow unauthenticated users
 
