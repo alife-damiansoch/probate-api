@@ -87,8 +87,8 @@ def custom_authenticate(request, email=None, password=None):
         logger.warning(f"Blocked login attempt for {email} from {client_ip} (Too many failed attempts)")
 
         raise AuthenticationFailed({
-            "error": "Too many failed login attempts.",
-            "message": f"You are temporarily blocked for {BLOCK_TIME_MINUTES} minutes."
+            "error": "Your account has been temporarily locked due to multiple failed login attempts.",
+            "message": f"Please try again after {BLOCK_TIME_MINUTES} minutes or contact support if you need assistance."
         })
 
     # Authenticate the user
@@ -116,8 +116,8 @@ def custom_authenticate(request, email=None, password=None):
             send_block_alert(email, client_ip, ip_attempts, email_attempts, unblock_time)
 
         raise AuthenticationFailed({
-            "error": f"Invalid email or password - attempts remaining: {FAILED_LOGIN_LIMIT - max(ip_attempts, email_attempts)}.",
-            "message": "Check your email and password, then try again."
+            "error": "Incorrect email or password. Please check your credentials.",
+            "message": f"You have {FAILED_LOGIN_LIMIT - max(ip_attempts, email_attempts)} attempts remaining before your account is temporarily locked."
         })
 
     # Reset failed attempts for IP and email on successful login
