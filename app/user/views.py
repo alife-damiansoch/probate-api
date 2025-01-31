@@ -41,7 +41,7 @@ from .permissions import IsStaff
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from core.throttling import AlertScopedRateThrottle
+from core.throttling import CombinedThrottle
 
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -67,7 +67,7 @@ class CreateUserView(generics.CreateAPIView):
     """
     Create a new user in the system with throttling.
     """
-    throttle_classes = [AlertScopedRateThrottle]
+    throttle_classes = [CombinedThrottle]
     throttle_scope = "registration"
 
     serializer_class = UserSerializer
@@ -179,7 +179,7 @@ class UpdatePasswordView(generics.UpdateAPIView):
     """
         Allows users to update their password with throttling.
     """
-    throttle_classes = [AlertScopedRateThrottle]
+    throttle_classes = [CombinedThrottle]
     throttle_scope = "password_change"
 
     serializer_class = UpdatePasswordSerializer
@@ -218,7 +218,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
     """
       Handles user login with throttling to prevent brute force attacks.
       """
-    throttle_classes = [AlertScopedRateThrottle]
+    throttle_classes = [CombinedThrottle]
     throttle_scope = "login"
     serializer_class = MyTokenObtainPairSerializer
 
@@ -275,7 +275,7 @@ class MobileTokenObtainPairViewForSolicitors(TokenObtainPairView):
     """
       Handles user login with throttling to prevent brute force attacks.
       """
-    throttle_classes = [AlertScopedRateThrottle]
+    throttle_classes = [CombinedThrottle]
     throttle_scope = "login"
     serializer_class = MyTokenObtainPairSerializer
 
@@ -399,7 +399,7 @@ class ActivateUserView(APIView):
     """
     Endpoint for activating user accounts.
     """
-    throttle_classes = [AlertScopedRateThrottle]
+    throttle_classes = [CombinedThrottle]
     throttle_scope = "activation"
 
     authentication_classes = []  # Disable JWT Authentication for this view
@@ -577,7 +577,7 @@ class CheckCredentialsView(APIView):
 
       Handles user login with throttling to prevent brute force attacks.
       """
-    throttle_classes = [AlertScopedRateThrottle]  # Enable throttling
+    throttle_classes = [CombinedThrottle]  # Enable throttling
     throttle_scope = "login"  # Apply "login" throttle settings from settings.py
 
     authentication_classes = []  # Disable JWT Authentication for this view
@@ -836,7 +836,7 @@ class ResetPasswordView(APIView):
     """
     Handle password reset using token and uid with  throttling
     """
-    throttle_classes = [AlertScopedRateThrottle]
+    throttle_classes = [CombinedThrottle]
     throttle_scope = "password_reset"
 
     authentication_classes = []  # Disable JWT Authentication for this view
@@ -907,7 +907,7 @@ class VerifyAuthenticatorCodeView(APIView):
     """
     Verify the code from the authenticator app and activate the secret.
     """
-    throttle_classes = [AlertScopedRateThrottle]
+    throttle_classes = [CombinedThrottle]
     throttle_scope = "authenticator_verification"
 
     authentication_classes = []  # Disable JWT Authentication for this view
@@ -966,7 +966,7 @@ class ValidateOtpView(APIView):
     """
     API endpoint to validate an OTP for a given email.
     """
-    throttle_classes = [AlertScopedRateThrottle]
+    throttle_classes = [CombinedThrottle]
     throttle_scope = "otp_verification"
 
     authentication_classes = []  # Disable authentication for this endpoint

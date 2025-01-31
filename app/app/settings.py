@@ -340,11 +340,9 @@ REST_FRAMEWORK = {
     ),
 
     "DEFAULT_THROTTLE_CLASSES": [
-        "core.throttling.AlertScopedRateThrottle",  # Use the custom throttle
-        "core.throttling.SustainedThrottle",  # NEW: Long-term block throttle
-        "rest_framework.throttling.AnonRateThrottle",  # Limits unauthenticated users
-        "rest_framework.throttling.UserRateThrottle",  # Limits authenticated users
-
+        "core.throttling.CombinedThrottle",  # Your merged short + long throttle
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
     ],
 
     "DEFAULT_THROTTLE_RATES": {
