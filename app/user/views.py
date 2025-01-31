@@ -10,7 +10,7 @@ from drf_spectacular.types import OpenApiTypes
 from qrcode.main import QRCode
 from uuid import uuid4
 
-from django.contrib.auth import get_user_model, authenticate
+from django.contrib.auth import get_user_model
 
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -47,7 +47,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import force_bytes, force_str
 from django.shortcuts import get_object_or_404
 
-from .utils import validate_otp, validate_authenticator_code
+from .utils import validate_otp, validate_authenticator_code, custom_authenticate
 
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
@@ -220,7 +220,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
             code = ''.join(code)  # Convert ['8', '9', '4', '5', '1', '2'] -> '894512'
 
         # Authenticate the user using email and password
-        user = authenticate(request, username=email, password=password)
+        user = custom_authenticate(request, email=email, password=password)
 
         if user is None:
             raise AuthenticationFailed("Invalid email or password.")
@@ -266,7 +266,7 @@ class MobileTokenObtainPairViewForSolicitors(TokenObtainPairView):
         password = request.data.get('password')
 
         # Authenticate the user using email and password
-        user = authenticate(request, username=email, password=password)
+        user = custom_authenticate(request, email=email, password=password)
 
         if user is None:
             raise AuthenticationFailed("Invalid email or password.")
@@ -588,7 +588,7 @@ class CheckCredentialsView(APIView):
             )
 
         # Authenticate the user
-        user = authenticate(email=email, password=password)
+        user = custom_authenticate(request, email=email, password=password)
 
         if not user:
             raise AuthenticationFailed("Invalid email or password.")

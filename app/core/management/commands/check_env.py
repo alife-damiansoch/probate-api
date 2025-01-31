@@ -25,6 +25,7 @@ class Command(BaseCommand):
         "COMPANY_REGISTRATION_NUMBER",
         "COMPANY_WEBSITE",
         "COMPANY_PHONE_NUMBER",
+        "ADMIN_EMAILS",
         "COMPANY_CEO",
         "EMAIL_HOST",
         "EMAIL_HOST_USER",

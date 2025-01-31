@@ -33,6 +33,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'changeme')
 COMPANY_NAME = os.getenv('COMPANY_NAME', 'Default Company Name')
 COMPANY_ADDRESS = os.getenv('COMPANY_ADDRESS', 'Default Company Address')
+# Get ADMIN_EMAILS as a list
+ADMIN_EMAILS = os.getenv("ADMIN_EMAILS", "").split(",")
+# Remove empty strings if the env variable is not set
+ADMIN_EMAILS = [email.strip() for email in ADMIN_EMAILS if email.strip()]
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.getenv('DEBUG', 0)))
