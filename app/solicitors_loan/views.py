@@ -24,6 +24,7 @@ from app import settings
 from app.pagination import CustomPageNumberPagination
 from app.utils import log_event
 from core.Validators.validate_file_extension import is_valid_file_extension
+from core.Validators.validate_file_size import is_valid_file_size
 from core.models import Document, Notification, Solicitor, Assignment
 from solicitors_loan import serializers
 from core import models
@@ -628,6 +629,15 @@ class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
                 {"error": f"Invalid file type. Allowed: {', '.join(settings.ALLOWED_FILE_EXTENSIONS)}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # ✅ Validate file  size
+        if not is_valid_file_size(uploaded_file):
+            return Response(
+                {"error": f"File is too large. Max allowed size for {uploaded_file.name.split('.')[-1]} is exceeded."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ✅ Save file
         serializer = serializers.SolicitorDocumentSerializer(data=request.data)
 
         print(f"FILES: {request.FILES}")

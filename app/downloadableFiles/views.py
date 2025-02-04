@@ -12,6 +12,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from agents_loan.permissions import IsStaff
+from core.Validators.validate_file_size import is_valid_file_size
 from downloadableFiles.serializers import FileUploadSerializer
 from core.Validators.validate_file_extension import is_valid_file_extension
 
@@ -64,6 +65,13 @@ def add_file(request):
     if not is_valid_file_extension(file.name):
         return Response(
             {"error": f"Invalid file type. Allowed: {', '.join(settings.ALLOWED_FILE_EXTENSIONS)}"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # ✅ Validate file  size
+    if not is_valid_file_size(file):
+        return Response(
+            {"error": f"File is too large. Max allowed size for {file.name.split('.')[-1]} is exceeded."},
             status=status.HTTP_400_BAD_REQUEST
         )
 

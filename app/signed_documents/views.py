@@ -13,6 +13,7 @@ from rest_framework import status
 from django.http import Http404
 
 from agents_loan.permissions import IsStaff
+from core.Validators.validate_file_size import is_valid_file_size
 from core.models import Application, Document, SignedDocumentLog, Notification
 from .helpers import get_geolocation, get_proxy_info
 from .serializers import SignedDocumentSerializer, SignedDocumentLogSerializer
@@ -122,6 +123,14 @@ class SignedDocumentUploadView(APIView):
 
         if not signature_base64:
             return Response({"error": "Signature image is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ✅ Validate file  size
+        if not is_valid_file_size(pdf_file):
+            return Response(
+                {
+                    "error": f"File is too large. Max allowed size for {pdf_file.name.split('.')[-1]} is exceeded."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Calculate the signature hash (SHA-256 hash of file content)
         file_content = pdf_file.read()
