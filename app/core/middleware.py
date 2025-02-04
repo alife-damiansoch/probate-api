@@ -238,9 +238,13 @@ class AdminIPRestrictionMiddleware(MiddlewareMixin):
 
 class CSPReportOnlyMiddleware(MiddlewareMixin):
     def process_response(self, request, response):
+        # Get the environment setting from .env (defaults to "production")
+        django_env = getattr(settings, "ENV", "production").lower()
+
+        # Default strict CSP for production (no inline scripts)
         csp_policy = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://unpkg.com; "
+            "script-src 'self' https://apis.google.com https://unpkg.com; "
             "script-src-elem 'self' https://unpkg.com; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; "
             "style-src-elem 'self' https://unpkg.com; "
@@ -249,8 +253,42 @@ class CSPReportOnlyMiddleware(MiddlewareMixin):
             "font-src 'self' https://fonts.gstatic.com; "
             "frame-ancestors 'none'; "
             "form-action 'self'; "
-            "report-uri /csp-report/; "  # Logs violations instead of blocking them
+            # "report-uri /csp-report/; "
         )
 
-        response["Content-Security-Policy-Report-Only"] = csp_policy
+        # Allow inline scripts ONLY for /api/docs/
+        if request.path.startswith("/api/docs/"):
+            if django_env == "development":
+                # ✅ DEVELOPMENT: Allow both HTTP & HTTPS, inline scripts
+                csp_policy = (
+                    "default-src 'self' http: https:; "
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: https://apis.google.com https://unpkg.com; "
+                    "script-src-elem 'self' 'unsafe-inline' http: https: https://unpkg.com; "
+                    "style-src 'self' 'unsafe-inline' http: https: https://fonts.googleapis.com https://unpkg.com; "
+                    "style-src-elem 'self' http: https: https://unpkg.com; "
+                    "img-src 'self' data: http: https: https://res.cloudinary.com https://unpkg.com; "
+                    "connect-src 'self' http: https: https://api.alife.ie; "
+                    "font-src 'self' http: https: https://fonts.gstatic.com; "
+                    "frame-ancestors 'none'; "
+                    "form-action 'self'; "
+                    # "report-uri /csp-report/; "
+                )
+            else:
+                # ✅ PRODUCTION: HTTPS only, but allows inline scripts for /api/docs/
+                csp_policy = (
+                    "default-src 'self' https:; "
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://unpkg.com; "
+                    "script-src-elem 'self' 'unsafe-inline' https://unpkg.com; "
+                    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; "
+                    "style-src-elem 'self' https://unpkg.com; "
+                    "img-src 'self' data: https://res.cloudinary.com https://unpkg.com; "
+                    "connect-src 'self' https://api.alife.ie; "
+                    "font-src 'self' https://fonts.gstatic.com; "
+                    "frame-ancestors 'none'; "
+                    "form-action 'self'; "
+                    # "report-uri /csp-report/; "
+                )
+
+        # Apply the policy to the response
+        response["Content-Security-Policy"] = csp_policy
         return response
