@@ -253,7 +253,7 @@ class CSPReportOnlyMiddleware(MiddlewareMixin):
             "font-src 'self' https://fonts.gstatic.com; "
             "frame-ancestors 'none'; "
             "form-action 'self'; "
-            # "report-uri /csp-report/; "
+            "report-uri /csp-report/; "
         )
 
         # Allow inline scripts ONLY for /api/docs/
@@ -271,7 +271,7 @@ class CSPReportOnlyMiddleware(MiddlewareMixin):
                     "font-src 'self' http: https: https://fonts.gstatic.com; "
                     "frame-ancestors 'none'; "
                     "form-action 'self'; "
-                    # "report-uri /csp-report/; "
+                    "report-uri /csp-report/; "
                 )
             else:
                 # ✅ PRODUCTION: HTTPS only, but allows inline scripts for /api/docs/
@@ -286,7 +286,7 @@ class CSPReportOnlyMiddleware(MiddlewareMixin):
                     "font-src 'self' https://fonts.gstatic.com; "
                     "frame-ancestors 'none'; "
                     "form-action 'self'; "
-                    # "report-uri /csp-report/; "
+                    "report-uri /csp-report/; "
                 )
 
         # Apply the policy to the response
