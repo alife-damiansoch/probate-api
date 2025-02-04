@@ -23,6 +23,7 @@ from rest_framework.views import APIView
 from app import settings
 from app.pagination import CustomPageNumberPagination
 from app.utils import log_event
+from core.Validators.validate_file_extension import is_valid_file_extension
 from core.models import Document, Notification, Solicitor, Assignment
 from solicitors_loan import serializers
 from core import models
@@ -612,7 +613,24 @@ class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
         tags=["document_solicitor"],
     )
     def post(self, request, application_id):
+        if "document" not in request.FILES:
+            return Response({"error": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        uploaded_file = request.FILES.getlist("document")  # Extract the file(s) as a list
+        if not uploaded_file:
+            return Response({"error": "No valid file provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        uploaded_file = uploaded_file[0]  # Extract the first file (assuming single file upload)
+
+        # ✅ **Validate File Extension**
+        if not is_valid_file_extension(uploaded_file.name):
+            return Response(
+                {"error": f"Invalid file type. Allowed: {', '.join(settings.ALLOWED_FILE_EXTENSIONS)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         serializer = serializers.SolicitorDocumentSerializer(data=request.data)
+
+        print(f"FILES: {request.FILES}")
 
         if serializer.is_valid():
             # store application instance for logging purpose

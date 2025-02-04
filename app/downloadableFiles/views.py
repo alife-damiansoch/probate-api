@@ -13,6 +13,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from agents_loan.permissions import IsStaff
 from downloadableFiles.serializers import FileUploadSerializer
+from core.Validators.validate_file_extension import is_valid_file_extension
 
 # In your add_file view
 if not os.path.exists(settings.DOC_DOWNLOAD_DIR):
@@ -58,6 +59,14 @@ def add_file(request):
         return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
     file = serializer.validated_data['file']
+
+    # ✅ **Validate File Extension**
+    if not is_valid_file_extension(file.name):
+        return Response(
+            {"error": f"Invalid file type. Allowed: {', '.join(settings.ALLOWED_FILE_EXTENSIONS)}"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
     file_path = os.path.join(settings.DOC_DOWNLOAD_DIR, file.name)
 
     with open(file_path, 'wb+') as destination:

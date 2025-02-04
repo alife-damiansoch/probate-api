@@ -80,6 +80,14 @@ if website_hostname:
 # Load CSRF trusted origins from .env
 CSRF_TRUSTED_ORIGINS = list(filter(None, os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')))
 
+# Prepare the ALLOWED_FILE_EXTENSIONS variable so the files can be validated when uploaded
+# Get allowed file extensions from the .env file and convert it into a list
+ALLOWED_FILE_EXTENSIONS = os.getenv("ALLOWED_FILE_EXTENSIONS", "").split(",")
+
+# Ensure all extensions start with a dot (e.g., ".pdf" instead of "pdf")
+ALLOWED_FILE_EXTENSIONS = [ext.strip().lower() if ext.startswith('.') else f".{ext.strip().lower()}"
+                           for ext in ALLOWED_FILE_EXTENSIONS]
+
 # If running in Azure, add `website_hostname` to CSRF_TRUSTED_ORIGINS
 if website_hostname:
     CSRF_TRUSTED_ORIGINS.append(f"https://{website_hostname}")
