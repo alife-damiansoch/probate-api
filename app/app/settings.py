@@ -98,12 +98,6 @@ else:
 
     CORS_ORIGIN_ALLOW_ALL = False
 
-# Incoming Email Settings (IMAP)
-IMAP_SERVER = os.getenv('IMAP_SERVER')
-IMAP_PORT = int(os.getenv('IMAP_PORT', 993))  # Convert to int
-IMAP_USER = os.getenv('IMAP_USER')
-IMAP_PASSWORD = os.getenv('IMAP_PASSWORD')
-
 # LOAN
 ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL = float(os.getenv("ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL", 1000000))
 COMMITTEE_MEMBERS_COUNT_REQUIRED_FOR_APPROVAL = int(os.getenv("COMMITTEE_MEMBERS_COUNT_REQUIRED_FOR_APPROVAL", 1))
@@ -295,12 +289,20 @@ if not DEBUG:  # in production
     # Outgoing Email Settings (SMTP)
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
     EMAIL_HOST = os.getenv('EMAIL_HOST')
-    EMAIL_PORT = 465
-    EMAIL_USE_TLS = False
-    EMAIL_USE_SSL = True
+    EMAIL_PORT = int(os.getenv("EMAIL_PORT", 26))
+    EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() in ["true", "1", "yes"]
+    EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() in ["true", "1", "yes"]
     EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
     EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
     DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
+
+    # Incoming Email Settings (IMAP)
+    IMAP_SERVER = os.getenv('IMAP_SERVER')
+    IMAP_PORT = int(os.getenv('IMAP_PORT', 993))  # Convert to int
+    IMAP_USER = os.getenv('IMAP_USER')
+    IMAP_PASSWORD = os.getenv('IMAP_PASSWORD')
+    IMAP_USE_TLS = os.getenv("IMAP_USE_TLS", "False").lower() in ["true", "1", "yes"]
+    IMAP_USE_SSL = os.getenv("IMAP_USE_SSL", "True").lower() in ["true", "1", "yes"]  # Defaulting to True for IMAP SSL
 
 else:  # in development
     MEDIA_URL = '/media/'
@@ -313,13 +315,21 @@ else:  # in development
     ATTACHMENTS_DIR = os.path.join(MEDIA_ROOT, 'email_attachments')
     # Your Non-SSL settings
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_USE_TLS = False
-    EMAIL_USE_SSL = False
-    EMAIL_HOST = 'mail.alife.ie'
-    EMAIL_PORT = 26
-    EMAIL_HOST_USER = os.getenv('DEFAULT_FROM_EMAIL')
+    EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() in ["true", "1", "yes"]
+    EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() in ["true", "1", "yes"]
+    EMAIL_HOST = os.getenv("EMAIL_HOST")
+    EMAIL_PORT = int(os.getenv("EMAIL_PORT", 26))
+    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
     EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+    DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
+
+    # Incoming Email Settings (IMAP)
+    IMAP_SERVER = os.getenv('IMAP_SERVER')
+    IMAP_PORT = int(os.getenv('IMAP_PORT', 993))  # Convert to int
+    IMAP_USER = os.getenv('IMAP_USER')
+    IMAP_PASSWORD = os.getenv('IMAP_PASSWORD')
+    IMAP_USE_TLS = os.getenv("IMAP_USE_TLS", "False").lower() in ["true", "1", "yes"]
+    IMAP_USE_SSL = os.getenv("IMAP_USE_SSL", "True").lower() in ["true", "1", "yes"]  # Defaulting to True for IMAP SSL
 
 # Ensure the local attachments directory exists if in development
 if DEBUG:
@@ -347,7 +357,7 @@ REST_FRAMEWORK = {
 
     "DEFAULT_THROTTLE_RATES": {
         "anon": "1000/minute" if TESTING else "10/minute",
-        "user": "5000/hour" if TESTING else "100/hour",
+        "user": "100000/hour",  # Effectively no limit unless abused
         "login": "500/minute" if TESTING else "5/minute",
         "password_reset": "500/minute" if TESTING else "3/minute",
         "activation": "500/minute" if TESTING else "3/minute",

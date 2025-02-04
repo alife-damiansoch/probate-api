@@ -28,6 +28,9 @@ class Command(BaseCommand):
         "ADMIN_EMAILS",
         "COMPANY_CEO",
         "EMAIL_HOST",
+        "EMAIL_USE_TLS",
+        "EMAIL_USE_SSL",
+        "EMAIL_PORT",
         "EMAIL_HOST_USER",
         "EMAIL_HOST_PASSWORD",
         "DEFAULT_FROM_EMAIL",
@@ -35,6 +38,8 @@ class Command(BaseCommand):
         "IMAP_PORT",
         "IMAP_USER",
         "IMAP_PASSWORD",
+        "IMAP_USE_TLS",
+        "IMAP_USE_SSL",
         "ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL",
         "COMMITTEE_MEMBERS_COUNT_REQUIRED_FOR_APPROVAL",
         "AZURE_POSTGRESQL_CONNECTIONSTRING",  # This is the main DB connection variable
