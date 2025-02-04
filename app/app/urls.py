@@ -7,7 +7,7 @@ from drf_spectacular.views import (
 from django.conf.urls.static import static
 from django.conf import settings
 
-from core.views import test_500_view
+from core.views import test_500_view, csp_report
 from app.settings import ADMIN_URL
 
 urlpatterns = [
@@ -31,7 +31,10 @@ urlpatterns = [
     path('api/assignments/', include('agents_default_assignments.urls', namespace='assignments')),
     path('api/', include('communications.urls', namespace='communications')),
 
+    # test and security paths from core app
     path('test/500/', test_500_view),
+    path("csp-report/", csp_report, name="csp_report"),
+
 ]
 
 if settings.DEBUG:

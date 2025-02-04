@@ -160,6 +160,7 @@ class CountryMiddleware(MiddlewareMixin):
                 or request.path.startswith('/api/schema/')
                 or request.path.startswith('/api/user/activate/')
                 or request.path.startswith('/api/user/reset-password/')
+                or request.path.startswith('/csp-report/')
         ):
             return self.get_response(request)
 
@@ -192,43 +193,6 @@ class CountryMiddleware(MiddlewareMixin):
         return response
 
 
-# class CountryMiddleware(MiddlewareMixin):
-#     """
-#     Middleware to enforce the presence of a 'Country' header in all requests.
-#     """
-#
-#     def __call__(self, request):
-#         # Skip validation for admin and API documentation endpoints
-#         if (
-#                 request.path.startswith('/admin/')
-#                 or request.path.startswith('/api/docs/')
-#                 or request.path.startswith('/api/schema/')
-#                 or request.path.startswith('/api/user/activate/')
-#         ):
-#             return self.get_response(request)
-#
-#         # Check if the 'Country' header is provided
-#         country = request.headers.get('Country')
-#
-#         if not country:
-#             if getattr(settings, 'TESTING', False):
-#                 # Automatically add the Country header during tests
-#                 request.META['HTTP_COUNTRY'] = 'IE'  # Add the header in the request.META
-#                 country = 'IE'  # Ensure country is set for further processing
-#             else:
-#                 # Return a 400 Bad Request response if the 'Country' header is missing
-#                 return JsonResponse(
-#                     {'error': 'Country header is required.'},
-#                     status=400,
-#                 )
-#
-#         # Set the country on the request object for further processing
-#         request.country = country
-#
-#         response = self.get_response(request)
-#         return response
-
-# middleware.py
 class LogHeadersMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -270,3 +234,23 @@ class AdminIPRestrictionMiddleware(MiddlewareMixin):
             raise PermissionDenied("Unauthorized IP - Access Denied")
 
         return None  # Continue processing the request
+
+
+class CSPReportOnlyMiddleware(MiddlewareMixin):
+    def process_response(self, request, response):
+        csp_policy = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://unpkg.com; "
+            "script-src-elem 'self' https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; "
+            "style-src-elem 'self' https://unpkg.com; "
+            "img-src 'self' data: https://res.cloudinary.com https://unpkg.com; "
+            "connect-src 'self' https://api.alife.ie; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "frame-ancestors 'none'; "
+            "form-action 'self'; "
+            "report-uri /csp-report/; "  # Logs violations instead of blocking them
+        )
+
+        response["Content-Security-Policy-Report-Only"] = csp_policy
+        return response
