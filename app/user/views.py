@@ -614,10 +614,7 @@ class CheckCredentialsView(APIView):
                 )
         except ObjectDoesNotExist:
             # Optional: Provide a message if the email is not registered
-            return Response(
-                {"detail": "Invalid email or password."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            print(f"User with email {email} does not exist.")
 
         # Authenticate the user
         user = custom_authenticate(request, email=email, password=password)
