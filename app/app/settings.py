@@ -365,16 +365,16 @@ REST_FRAMEWORK = {
     ],
 
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "1000/minute" if TESTING else "10/minute",
-        "user": "100000/hour",  # Effectively no limit unless abused
-        "login": "500/minute" if TESTING else "5/minute",
-        "password_reset": "500/minute" if TESTING else "3/minute",
-        "activation": "500/minute" if TESTING else "3/minute",
-        "otp_verification": "500/minute" if TESTING else "5/minute",
-        "authenticator_verification": "500/minute" if TESTING else "5/minute",
-        "registration": "500/minute" if TESTING else "3/minute",
-        "password_change": "500/minute" if TESTING else "3/minute",
-        "sustained": "1000/day" if TESTING else "50/day",  # NEW: Permanent block after 50 violations in a day
+        "anon": "10000/minute" if TESTING else "200/minute",
+        "user": "100000/hour" if TESTING else "10000/hour",  # Allows high activity without blocking real users
+        "login": "10000/minute" if TESTING else "10/minute",  # Prevent brute-force attacks
+        "password_reset": "10000/minute" if TESTING else "10/minute",
+        "activation": "10000/minute" if TESTING else "10/minute",
+        "otp_verification": "10000/minute" if TESTING else "15/minute",  # OTP needs a bit more
+        "authenticator_verification": "10000/minute" if TESTING else "15/minute",
+        "registration": "10000/minute" if TESTING else "100/minute",  # Increased to handle form validation retries
+        "password_change": "10000/minute" if TESTING else "10/minute",
+        "sustained": "10000/day" if TESTING else "500/day",  # Increased but still blocks abusers
     }
 }
 
