@@ -51,7 +51,8 @@ def csp_report(request):
                     sender="noreply@alife.ie",
                     recipient=email,
                     subject=subject,
-                    message=message
+                    message=message,
+                    save_in_email_log=False
                 )
 
             return JsonResponse({"status": "success"}, status=200)
