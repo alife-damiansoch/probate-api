@@ -21,3 +21,4 @@ aioimaplib==1.1.0
 qrcode[pil]==7.4.2
 pyotp==2.9.0
 whitenoise==6.8.2
+daphne==3.0.2
