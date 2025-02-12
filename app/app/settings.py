@@ -409,8 +409,9 @@ CHANNEL_LAYERS = {
 
 CORS_ALLOW_CREDENTIALS = True  # Allow sending cookies & authentication headers
 CORS_ALLOW_HEADERS = list(default_headers) + [
-    'Country', 'Frontend-Host', "x-frontend-api-key", "x-api-key-expiration",  # Adding the custom 'Country' header
+    'Country', 'Frontend-Host', "x-frontend-api-key", "x-api-key-expiration", "x-api-key-expiration-agents"
+    # Adding the custom 'Country' header
 ]
 CORS_EXPOSE_HEADERS = [
-    "x-api-key-expiration",  # ✅ Ensure this is exposed to frontend
+    "x-api-key-expiration", "x-api-key-expiration-agents"  # ✅ Ensure this is exposed to frontend
 ]

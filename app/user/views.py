@@ -293,6 +293,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
 
         #  Generate a new API key only for solicitor users
         if not user.is_staff:
+            print("NOT STAFF USER")
             # ✅ Generate a new API key
             api_key, created = FrontendAPIKey.objects.update_or_create(
                 user=user,
@@ -303,6 +304,24 @@ class MyTokenObtainPairView(TokenObtainPairView):
             # Set HttpOnly API key cookie
             response.set_cookie(
                 key="X-Frontend-API-Key",
+                value=api_key.key,
+                httponly=True,
+                secure=True,  # Set to True in production (requires HTTPS)
+                samesite="None",
+                path="/",
+            )
+        if user.is_staff:
+            print("STAFF USER")
+            # Generate a new API key only for agent users
+            api_key, created = FrontendAPIKey.objects.update_or_create(
+                user=user,
+                defaults={"key": secrets.token_urlsafe(32), "expires_at": now() + timedelta(minutes=15)}
+            )
+            # Create response
+
+            # Set HttpOnly API key cookie
+            response.set_cookie(
+                key="X-Frontend-API-Key-Agents",
                 value=api_key.key,
                 httponly=True,
                 secure=True,  # Set to True in production (requires HTTPS)

@@ -266,13 +266,14 @@ class ValidateAPIKeyMiddleware:
                 status=401
             )
         # ✅ Retrieve the API key from cookies
-        api_key = request.COOKIES.get('X-Frontend-API-Key')
+        api_key = request.COOKIES.get(
+            'X-Frontend-API-Key' if not request.user.is_superuser else "X-Frontend-API-Key-Agents")
         print("API KEY FROM REQUEST:", api_key)
         print("USER In Request:", request.user.__dict__)
         print("WHOLE REQUEST", request.__dict__)
         # Do this check only for the Solicitor users
-        if request.user.is_staff:
-            return self.get_response(request)
+        # if request.user.is_staff:
+        #     return self.get_response(request)
         if not api_key:
             return JsonResponse({"error": "Forbidden: Missing API key in request"}, status=403)
 
@@ -288,11 +289,13 @@ class ValidateAPIKeyMiddleware:
                 return JsonResponse({"error": "Forbidden: Invalid API key"}, status=403)
 
                 # ✅ Refresh the expiration time to 15 minutes from now
-            key_obj.refresh_expiration()
+            if request.path != "/api/communications/count-unseen_info_email/":
+                key_obj.refresh_expiration()
 
             # ✅ Add expiration time to response headers
             response = self.get_response(request)
-            response["X-API-Key-Expiration"] = key_obj.expires_at.isoformat()  # Send as ISO timestamp
+            response[
+                "X-API-Key-Expiration" if not request.user.is_staff else "X-API-Key-Expiration-Agents"] = key_obj.expires_at.isoformat()  # Send as ISO timestamp
             return response
 
         except FrontendAPIKey.DoesNotExist:
