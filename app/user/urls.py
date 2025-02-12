@@ -4,7 +4,8 @@ Urls mapping for a User api
 
 from django.urls import path
 from user import views
-from user.views import MyTokenObtainPairView, ValidateOtpView, MobileTokenObtainPairViewForSolicitors
+from user.views import MyTokenObtainPairView, ValidateOtpView, MobileTokenObtainPairViewForSolicitors, LogoutView, \
+    RefreshAPIKeyView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 app_name = 'user'
@@ -28,4 +29,6 @@ urlpatterns = [
     path('update-auth-method/', views.UpdateAuthMethodView.as_view(), name='update-auth-method'),
     path('verify-authenticator-code/', views.VerifyAuthenticatorCodeView.as_view(), name='verify-authenticator-code'),
     path('validate-otp/', ValidateOtpView.as_view(), name='validate-otp'),
+    path('logout/', LogoutView.as_view(), name='logout'),
+    path('refresh-api-key/', RefreshAPIKeyView.as_view(), name='refresh-api-key'),
 ]

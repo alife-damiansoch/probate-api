@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -780,6 +781,33 @@ class UserEmailLog(BaseEmailLog):
     pass
 
 
+class FrontendAPIKey(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="frontend_api_key")
+    key = models.CharField(max_length=64, unique=True, default=secrets.token_urlsafe(32))
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    def save(self, *args, **kwargs):
+        """Set expiration time dynamically on save (15 minutes from now)."""
+        self.expires_at = now() + timedelta(minutes=15)
+        super().save(*args, **kwargs)
+
+    def is_expired(self):
+        """Check if the key is expired."""
+        return now() > self.expires_at
+
+    def refresh_expiration(self):
+        """Extend the expiration time to 15 minutes from now."""
+        self.expires_at = now() + timedelta(minutes=15)
+        self.save(update_fields=["expires_at"])  # Save only the expires_at field
+
+    @staticmethod
+    def cleanup_expired_keys():
+        """Delete expired API keys periodically (can be run as a cron job)."""
+        FrontendAPIKey.objects.filter(expires_at__lt=now()).delete()
+        FrontendAPIKey.objects.filter(expires_at__lt=now()).delete()
+
+
 auditlog.register(User)
 auditlog.register(Application)
 auditlog.register(Document)
@@ -787,3 +815,4 @@ auditlog.register(Loan)
 auditlog.register(SignedDocumentLog)
 auditlog.register(EmailLog)
 auditlog.register(CommitteeApproval)
+auditlog.register(FrontendAPIKey)

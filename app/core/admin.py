@@ -20,7 +20,7 @@ from django.urls import reverse
 from app import settings
 from core import models
 from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog, \
-    AssociatedEmail, UserEmailLog, CommitteeApproval, Team, OTP, AuthenticatorSecret
+    AssociatedEmail, UserEmailLog, CommitteeApproval, Team, OTP, AuthenticatorSecret, FrontendAPIKey
 
 from rest_framework.authtoken.models import Token
 
@@ -657,6 +657,7 @@ admin.site.register(SignedDocumentLog, SignedDocumentLogAdmin)
 admin.site.register(Assignment, AssignmentAdmin)
 admin.site.register(EmailLog, EmailLogAdmin)
 admin.site.register(UserEmailLog, EmailLogAdmin)
+admin.site.register(FrontendAPIKey)
 
 
 @admin.register(AssociatedEmail)

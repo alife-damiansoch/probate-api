@@ -4,11 +4,15 @@ Views for the user Api
 import logging
 import os
 import io
+from datetime import timedelta
 
 import pyotp
 from drf_spectacular.types import OpenApiTypes
 from qrcode.main import QRCode
 from uuid import uuid4
+from rest_framework import status
+import secrets
+from django.core.cache import cache
 
 from django.contrib.auth import get_user_model
 
@@ -31,7 +35,7 @@ from rest_framework.views import APIView
 from communications.utils import send_email_f
 from core.Validators.phone_numbers_validators import PhoneNumberValidator
 from core.Validators.postcode_validators import PostcodeValidator
-from core.models import User, OTP, AuthenticatorSecret
+from core.models import User, OTP, AuthenticatorSecret, FrontendAPIKey
 from user.serializers import (UserSerializer,
                               UserListSerializer, UpdatePasswordSerializer, MyTokenObtainPairSerializer,
                               ResetPasswordSerializer, ForgotPasswordSerializer, CheckCredentialsSerializer,
@@ -41,6 +45,7 @@ from .permissions import IsStaff
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.tokens import RefreshToken
 from core.throttling import CombinedThrottle
 
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -265,10 +270,47 @@ class MyTokenObtainPairView(TokenObtainPairView):
                 f"Please use the designated website for your registered country."
             )
 
-        # If validation passes, continue with the default token generation
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        # # If validation passes, continue with the default token generation
+        # serializer = self.get_serializer(data=request.data)
+        # serializer.is_valid(raise_exception=True)
+        # return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+        # Generate access & refresh tokens (no changes to this part)
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        # ✅ Delete any existing API key for the user
+        FrontendAPIKey.objects.filter(user=user).delete()
+
+        response = Response(
+            {
+                "access": access_token,
+                "refresh": refresh_token,
+            },
+            status=status.HTTP_200_OK
+        )
+
+        #  Generate a new API key only for solicitor users
+        if not user.is_staff:
+            # ✅ Generate a new API key
+            api_key, created = FrontendAPIKey.objects.update_or_create(
+                user=user,
+                defaults={"key": secrets.token_urlsafe(32), "expires_at": now() + timedelta(minutes=15)}
+            )
+            # Create response
+
+            # Set HttpOnly API key cookie
+            response.set_cookie(
+                key="X-Frontend-API-Key",
+                value=api_key.key,
+                httponly=True,
+                secure=True,  # Set to True in production (requires HTTPS)
+                samesite="None",
+                path="/",
+            )
+
+        return response
 
 
 class MobileTokenObtainPairViewForSolicitors(TokenObtainPairView):
@@ -318,6 +360,9 @@ class ManageUserView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         """Retrieve the authenticated user"""
+
+        # Print all cookies from the request
+        print("Cookies received:", self.request.COOKIES)
         return self.request.user
 
     def update(self, request, *args, **kwargs):
@@ -634,7 +679,7 @@ class CheckCredentialsView(APIView):
         elif user.preferred_auth_method == 'authenticator':
             # Check if the authenticator secret already exists
             authenticator = AuthenticatorSecret.objects.filter(user=user).first()
-            if not authenticator or authenticator.is_active == False:
+            if not authenticator or authenticator.is_active is False:
                 # Generate a new secret for the user
                 secret = pyotp.random_base32()
                 qr_code_binary = generate_authenticator_secret(user, secret)
@@ -1002,3 +1047,43 @@ class ValidateOtpView(APIView):
                 return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
         except APIException as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class LogoutView(APIView):
+    """Logout view that deletes the API key and clears cookies."""
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        # ✅ Delete the API key
+        if request.user.is_authenticated:
+            FrontendAPIKey.objects.filter(user=request.user).delete()
+
+        response = Response({"message": "Logged out"}, status=200)
+
+        # ✅ Remove API key cookie (Ensure it's properly deleted for cross-site requests)
+        response.delete_cookie("X-Frontend-API-Key", samesite="None")
+
+        return response
+
+
+class RefreshAPIKeyView(APIView):
+    """Refresh API key expiration time by 15 minutes."""
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        user = request.user
+
+        try:
+            # ✅ Extend API key expiration time by 15 minutes
+            key_obj = FrontendAPIKey.objects.get(user=user)
+            key_obj.expires_at = now() + timedelta(minutes=15)
+            key_obj.save(update_fields=["expires_at"])
+
+            return Response(
+                {"message": "API key extended", "expires_at": key_obj.expires_at.isoformat()},
+                status=200
+            )
+        except FrontendAPIKey.DoesNotExist:
+            return Response({"error": "API key not found"}, status=404)

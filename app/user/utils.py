@@ -117,9 +117,10 @@ def custom_authenticate(request, email=None, password=None):
 
         raise AuthenticationFailed({
             "error": "Incorrect email or password. Please check your credentials.",
-            "message": f"You have {FAILED_LOGIN_LIMIT - max(ip_attempts, email_attempts)} attempts remaining before your account is temporarily locked."
-        })
+            "message": f"You have {FAILED_LOGIN_LIMIT - max(ip_attempts, email_attempts)} attempts remaining before your account is temporarily locked.",
 
+        }, code="authentication_failed"  # ✅ Ensures a 401 response)
+        )
     # Reset failed attempts for IP and email on successful login
     cache.delete(ip_cache_key)
     cache.delete(email_cache_key)

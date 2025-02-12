@@ -165,6 +165,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.middleware.ValidateAPIKeyMiddleware',
     'core.middleware.CountryMiddleware',
     'core.middleware.LogEventOnErrorMiddleware',
     'core.middleware.LogHeadersMiddleware',
@@ -406,6 +407,10 @@ CHANNEL_LAYERS = {
 # Specify the headers that are allowed, including the custom 'Country' header
 
 
+CORS_ALLOW_CREDENTIALS = True  # Allow sending cookies & authentication headers
 CORS_ALLOW_HEADERS = list(default_headers) + [
-    'Country', 'Frontend-Host'  # Adding the custom 'Country' header
+    'Country', 'Frontend-Host', "x-frontend-api-key", "x-api-key-expiration",  # Adding the custom 'Country' header
+]
+CORS_EXPOSE_HEADERS = [
+    "x-api-key-expiration",  # ✅ Ensure this is exposed to frontend
 ]

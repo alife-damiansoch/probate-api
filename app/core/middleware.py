@@ -1,13 +1,24 @@
+import logging
+
 from django.utils.deprecation import MiddlewareMixin
 from json import JSONDecodeError
 import json
 from django.http import JsonResponse
 from django.core.exceptions import PermissionDenied
+from rest_framework_simplejwt.exceptions import InvalidToken
 
 from app import settings
 from app.utils import log_event
-from app.settings import ADMIN_URL
+from app.settings import ADMIN_URL, MIDDLEWARE
 from app.settings import ALLOWED_ADMIN_IPS
+from django.core.cache import cache
+
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.contrib.auth import get_user_model
+
+from core.models import FrontendAPIKey
+
+User = get_user_model()
 
 
 class LogEventOnErrorMiddleware(MiddlewareMixin):
@@ -146,6 +157,16 @@ class CorsMiddleware(object):
         return response
 
 
+EXCLUDED_PATHS = [
+    f'/{settings.ADMIN_URL}/',
+    '/api/docs/',
+    '/api/schema/',
+    '/api/user/activate/',
+    '/api/user/reset-password/',
+    '/csp-report/'
+]
+
+
 class CountryMiddleware(MiddlewareMixin):
     """
     Middleware to enforce the presence of a 'Country' header in all requests,
@@ -154,14 +175,7 @@ class CountryMiddleware(MiddlewareMixin):
 
     def __call__(self, request):
         # Skip validation for admin and API documentation endpoints
-        if (
-                request.path.startswith(f'/{ADMIN_URL}/')
-                or request.path.startswith('/api/docs/')
-                or request.path.startswith('/api/schema/')
-                or request.path.startswith('/api/user/activate/')
-                or request.path.startswith('/api/user/reset-password/')
-                or request.path.startswith('/csp-report/')
-        ):
+        if any(request.path.startswith(path) for path in EXCLUDED_PATHS):
             return self.get_response(request)
 
         # Check if the request originates from Swagger (Referer contains '/api/docs/')
@@ -191,6 +205,98 @@ class CountryMiddleware(MiddlewareMixin):
 
         response = self.get_response(request)
         return response
+
+
+class ValidateAPIKeyMiddleware:
+    """
+    Middleware to validate the X-Frontend-API-Key for all incoming requests
+    except the excluded paths or when running tests.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # ✅ Skip check if running tests
+        if settings.TESTING:
+            return self.get_response(request)
+
+        # ✅ Extend EXCLUDED_PATHS for this middleware
+        EXCLUDED_PATHS.extend([
+            "/api/user/check-credentials/",
+            "/api/user/validate-otp/",
+            "/api/user/verify-authenticator-code/",
+            "/api/user/update-auth-method/",
+            "/api/user/token/",
+            "/api/user/me/",
+            "/api/user/create/",
+            "/api/user/activate/",
+            "/api/user/forgot-password/",
+            "/api/user/reset-password/",
+        ])
+
+        # ✅ Skip validation for excluded paths
+        if any(request.path.startswith(path) for path in EXCLUDED_PATHS):
+            return self.get_response(request)
+
+            # ✅ Manually authenticate JWT token before checking API key
+        jwt_authenticator = JWTAuthentication()
+        try:
+            auth_result = jwt_authenticator.authenticate(request)
+
+            if auth_result:
+                request.user, _ = auth_result  # ✅ Set authenticated user
+            else:
+                # ✅ Return the same response as DRF when token is missing or expired
+                return JsonResponse(
+                    {"detail": "Given token not valid for any token type", "code": "token_not_valid"},
+                    status=401
+                )
+
+        except InvalidToken:
+            # ✅ Handle explicitly invalid token cases
+            return JsonResponse(
+                {"detail": "Given token not valid for any token type", "code": "token_not_valid"},
+                status=401
+            )
+        except Exception as e:
+            print("JWT Authentication failed:", str(e))
+            return JsonResponse(
+                {"detail": "Unauthorized: Token validation failed", "code": "token_not_valid"},
+                status=401
+            )
+        # ✅ Retrieve the API key from cookies
+        api_key = request.COOKIES.get('X-Frontend-API-Key')
+        print("API KEY FROM REQUEST:", api_key)
+        print("USER In Request:", request.user.__dict__)
+        print("WHOLE REQUEST", request.__dict__)
+        # Do this check only for the Solicitor users
+        if request.user.is_staff:
+            return self.get_response(request)
+        if not api_key:
+            return JsonResponse({"error": "Forbidden: Missing API key in request"}, status=403)
+
+            # ✅ Retrieve the API key from the database
+        try:
+            key_obj = FrontendAPIKey.objects.get(user=request.user)
+            if key_obj.is_expired():
+                key_obj.delete()  # Delete expired key
+                return JsonResponse({"error": "Forbidden: API key expired"}, status=403)
+
+            # ✅ check the key
+            if api_key != key_obj.key:
+                return JsonResponse({"error": "Forbidden: Invalid API key"}, status=403)
+
+                # ✅ Refresh the expiration time to 15 minutes from now
+            key_obj.refresh_expiration()
+
+            # ✅ Add expiration time to response headers
+            response = self.get_response(request)
+            response["X-API-Key-Expiration"] = key_obj.expires_at.isoformat()  # Send as ISO timestamp
+            return response
+
+        except FrontendAPIKey.DoesNotExist:
+            return JsonResponse({"error": "Forbidden: API key not found in storage"}, status=403)
 
 
 class LogHeadersMiddleware:
