@@ -267,7 +267,7 @@ class ValidateAPIKeyMiddleware:
             )
         # ✅ Retrieve the API key from cookies
         api_key = request.COOKIES.get(
-            'X-Frontend-API-Key' if not request.user.is_superuser else "X-Frontend-API-Key-Agents")
+            'X-Frontend-API-Key' if not request.user.is_staff else "X-Frontend-API-Key-Agents")
         print("API KEY FROM REQUEST:", api_key)
         print("USER In Request:", request.user.__dict__)
         print("WHOLE REQUEST", request.__dict__)
