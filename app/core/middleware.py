@@ -268,9 +268,9 @@ class ValidateAPIKeyMiddleware:
         # ✅ Retrieve the API key from cookies
         api_key = request.COOKIES.get(
             'X-Frontend-API-Key' if not request.user.is_staff else "X-Frontend-API-Key-Agents")
-        print("API KEY FROM REQUEST:", api_key)
-        print("USER In Request:", request.user.__dict__)
-        print("WHOLE REQUEST", request.__dict__)
+        # print("API KEY FROM REQUEST:", api_key)
+        # print("USER In Request:", request.user.__dict__)
+        # print("WHOLE REQUEST", request.__dict__)
         # Do this check only for the Solicitor users
         # if request.user.is_staff:
         #     return self.get_response(request)
@@ -308,7 +308,7 @@ class LogHeadersMiddleware:
 
     def __call__(self, request):
         # Log all incoming headers
-        print("Request Headers:", dict(request.headers))
+        # print("Request Headers:", dict(request.headers))
 
         # Continue processing the request
         response = self.get_response(request)

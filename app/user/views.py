@@ -293,7 +293,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
 
         #  Generate a new API key only for solicitor users
         if not user.is_staff:
-            print("NOT STAFF USER")
+            # print("NOT STAFF USER")
             # ✅ Generate a new API key
             api_key, created = FrontendAPIKey.objects.update_or_create(
                 user=user,
@@ -311,7 +311,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
                 path="/",
             )
         if user.is_staff:
-            print("STAFF USER")
+            # print("STAFF USER")
             # Generate a new API key only for agent users
             api_key, created = FrontendAPIKey.objects.update_or_create(
                 user=user,
@@ -381,7 +381,7 @@ class ManageUserView(generics.RetrieveUpdateAPIView):
         """Retrieve the authenticated user"""
 
         # Print all cookies from the request
-        print("Cookies received:", self.request.COOKIES)
+        # print("Cookies received:", self.request.COOKIES)
         return self.request.user
 
     def update(self, request, *args, **kwargs):

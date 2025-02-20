@@ -640,7 +640,7 @@ class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
         # ✅ Save file
         serializer = serializers.SolicitorDocumentSerializer(data=request.data)
 
-        print(f"FILES: {request.FILES}")
+        # print(f"FILES: {request.FILES}")
 
         if serializer.is_valid():
             # store application instance for logging purpose

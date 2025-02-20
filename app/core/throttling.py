@@ -109,7 +109,7 @@ class CombinedThrottle(ScopedRateThrottle):
         Calculate the remaining wait time for a blocked request.
         """
         cached_data = cache.get(cache_key)
-        print(cached_data)
+        # print(cached_data)
         if not cached_data or not isinstance(cached_data, dict) or "expires_at" not in cached_data:
             return "a while"  # Fallback if cache is missing or invalid
 
