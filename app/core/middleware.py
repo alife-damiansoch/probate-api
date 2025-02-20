@@ -163,7 +163,8 @@ EXCLUDED_PATHS = [
     '/api/schema/',
     '/api/user/activate/',
     '/api/user/reset-password/',
-    '/csp-report/'
+    '/csp-report/',
+    '/favicon.ico',
 ]
 
 
