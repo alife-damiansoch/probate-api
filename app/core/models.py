@@ -573,7 +573,7 @@ class Loan(models.Model):
                 message=email_content,
                 application=self.application,
                 solicitor_firm=self.application.user,
-
+                save_in_email_log=False
             )
             notification_message += f'Advancement committee approval {res}. Send to {member.email}\n'
         try:
