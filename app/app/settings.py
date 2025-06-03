@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 import os
 from datetime import timedelta
 from pathlib import Path
+import dj_database_url
 
 from corsheaders.defaults import default_headers
 
@@ -197,11 +198,21 @@ WSGI_APPLICATION = 'app.wsgi.application'
 
 # Retrieve the connection string from Azure environment variables
 CONNECTION = os.getenv('AZURE_POSTGRESQL_CONNECTIONSTRING', '')
+# Retrieve the connection string from Render environment variables
+DATABASE_URL = os.getenv('DATABASE_URL', '')
 
-if CONNECTION:
-    # Convert the space-separated key=value string into a dictionary
+if DATABASE_URL:
+    print("🟢 Using Render DATABASE_URL for PostgreSQL connection:")
+    print(f"DATABASE_URL = {DATABASE_URL}")
+    DATABASES = {
+        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)
+    }
+elif os.getenv('AZURE_POSTGRESQL_CONNECTIONSTRING', ''):
+    CONNECTION = os.getenv('AZURE_POSTGRESQL_CONNECTIONSTRING', '')
+    print("🔵 Using AZURE_POSTGRESQL_CONNECTIONSTRING for PostgreSQL connection:")
+    print(f"AZURE_POSTGRESQL_CONNECTIONSTRING = {CONNECTION}")
     CONNECTION_STR = {pair.split('=')[0]: pair.split('=')[1] for pair in CONNECTION.split(' ')}
-
+    print(f"Parsed Azure connection: {CONNECTION_STR}")
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -209,33 +220,26 @@ if CONNECTION:
             "HOST": CONNECTION_STR.get("host"),
             "USER": CONNECTION_STR.get("user"),
             "PASSWORD": CONNECTION_STR.get("password"),
-            "PORT": CONNECTION_STR.get("port", "5432"),  # Default PostgreSQL port
+            "PORT": CONNECTION_STR.get("port", "5432"),
             "OPTIONS": {
                 "sslmode": CONNECTION_STR.get("sslmode", "require"),
             },
         }
     }
 else:
-    print("⚠️ AZURE_POSTGRESQL_CONNECTIONSTRING is not set!")
-
+    print("🟡 WARNING: DATABASE_URL and AZURE_POSTGRESQL_CONNECTIONSTRING are not set!")
+    print("Fallback to manual local DB settings:")
+    print(
+        f"DB_HOST={os.environ.get('DB_HOST', 'localhost')}, DB_NAME={os.environ.get('DB_NAME', 'your_local_db')}, DB_USER={os.environ.get('DB_USER', 'postgres')}")
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'HOST': os.environ.get('DB_HOST'),
-            'NAME': os.environ.get('DB_NAME'),
-            'USER': os.environ.get('DB_USER'),
-            'PASSWORD': os.environ.get('DB_PASS'),
-            'PORT': '5432',  # Add the port explicitly
-        },
-        'test_db': {  # Define your test database
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'your_test_db',
-            'USER': 'postgres',
-            'PASSWORD': os.environ.get('DB_PASS'),
-            'HOST': 'localhost',
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'NAME': os.environ.get('DB_NAME', 'your_local_db'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASS', ''),
             'PORT': '5432',
-
-        },
+        }
     }
 
 # Password validation
