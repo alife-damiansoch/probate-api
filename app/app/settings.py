@@ -320,9 +320,9 @@ if not DEBUG:  # in production
 
 else:  # in development
     MEDIA_URL = '/media/'
-    STATIC_URL = '/static/static/'
+    STATIC_URL = '/static/'
     STATICFILES_DIRS = [BASE_DIR / "static"]
-    STATIC_ROOT = "staticfiles"
+    STATIC_ROOT = BASE_DIR / "staticfiles"
     MEDIA_ROOT = BASE_DIR / "media"
     DOC_DOWNLOAD_DIR = os.path.join(MEDIA_ROOT, 'DocDownload')
     # Set default attachment directory to a subfolder within media
