@@ -7,18 +7,6 @@ from django.http import JsonResponse
 from django.core.exceptions import PermissionDenied
 
 
-# Do NOT import these at the top:
-# from rest_framework_simplejwt.authentication import JWTAuthentication
-# from rest_framework_simplejwt.exceptions import InvalidToken
-# from django.contrib.auth import get_user_model
-# from app import settings
-# from app.utils import log_event
-# from app.settings import ALLOWED_ADMIN_IPS
-# from core.models import FrontendAPIKey
-
-# EXCLUDED_PATHS definition needs settings, so move it below.
-
-
 class LogEventOnErrorMiddleware(MiddlewareMixin):
     def process_response(self, request, response):
         if request.path == '/favicon.ico':
