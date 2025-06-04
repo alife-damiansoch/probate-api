@@ -3,8 +3,6 @@ import uuid
 
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
-from core.models import Event  # Import your event model
-
 
 def log_event(request, request_body, application=None, response_status=None, response=None, is_error=False):
     """
@@ -25,7 +23,7 @@ def log_event(request, request_body, application=None, response_status=None, res
        Returns:
        None. The function creates an entry in the Event model.
        """
-
+    from core.models import Event  # Import your event model
     log_data = {
         'request_id': getattr(request, 'id', uuid.uuid4()),
         'method': request.method,
