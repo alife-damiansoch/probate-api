@@ -330,11 +330,15 @@ class Applicant(models.Model):
         return f"{self.first_name} {self.last_name}"
 
 
+from django.db import models
+
+
 class Estate(models.Model):
     description = models.CharField(max_length=255)
     value = models.DecimalField(max_digits=12, decimal_places=2)
+    lendable = models.BooleanField(null=True, default=None)  # allow null
     application = models.ForeignKey(
-        Application, on_delete=models.CASCADE, related_name='estates')
+        'Application', on_delete=models.CASCADE, related_name='estates')
 
     def __str__(self):
         return f'{self.description} - {self.value}'

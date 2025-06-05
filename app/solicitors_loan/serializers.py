@@ -67,7 +67,7 @@ class SolicitorApplicantSerializer(serializers.ModelSerializer):
 class SolicitorEstateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Estate
-        fields = ['description', 'value']
+        fields = ['description', 'value', 'lendable']
 
 
 class SolicitorApplicationSerializer(serializers.ModelSerializer):
