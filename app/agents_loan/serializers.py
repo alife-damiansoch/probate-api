@@ -134,7 +134,7 @@ class AgentApplicationDetailSerializer(AgentApplicationSerializer):
         fields = AgentApplicationSerializer.Meta.fields + ['deceased', 'applicants', 'estates', 'expenses',
                                                            'value_of_the_estate_after_expenses',
                                                            'dispute', 'documents',
-                                                           'signed_documents']
+                                                           'signed_documents', 'was_will_prepared_by_solicitor', ]
 
     def get_value_of_the_estate_after_expenses(self, obj):
         return obj.value_of_the_estate_after_expenses()
