@@ -101,7 +101,8 @@ class SolicitorApplicationDetailSerializer(SolicitorApplicationSerializer):
     class Meta(SolicitorApplicationSerializer.Meta):
         fields = SolicitorApplicationSerializer.Meta.fields + ['deceased', 'dispute', 'applicants', 'estates',
                                                                'documents',
-                                                               'signed_documents', 'expenses']
+                                                               'signed_documents', 'expenses',
+                                                               'was_will_prepared_by_solicitor', ]
 
     def create(self, validated_data):
         deceased_data = validated_data.pop('deceased', None)

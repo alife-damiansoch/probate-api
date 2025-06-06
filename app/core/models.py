@@ -239,6 +239,11 @@ class Application(models.Model):
     )
     is_new = models.BooleanField(default=True)  # Indicates if this is a new application
 
+    was_will_prepared_by_solicitor = models.BooleanField(
+        default=False,
+        help_text="Was this will professionally prepared by a solicitor?"
+    )
+
     class Meta:
         indexes = [
             models.Index(fields=['date_submitted']),
