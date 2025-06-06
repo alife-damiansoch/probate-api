@@ -65,7 +65,7 @@ class AgentApplicantSerializer(serializers.ModelSerializer):
 class AgentEstateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Estate
-        fields = ['description', 'value']
+        fields = ['description', 'value', 'lendable']
 
 
 class AgentApplicationSerializer(serializers.ModelSerializer):
