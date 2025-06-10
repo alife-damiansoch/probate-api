@@ -20,7 +20,11 @@ from django.urls import reverse
 from app import settings
 from core import models
 from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog, \
-    AssociatedEmail, UserEmailLog, CommitteeApproval, Team, OTP, AuthenticatorSecret, FrontendAPIKey
+    AssociatedEmail, UserEmailLog, CommitteeApproval, Team, OTP, AuthenticatorSecret, FrontendAPIKey, \
+    RealAndLeaseholdProperty, \
+    HouseholdContents, CarsBoats, BusinessFarming, BusinessOther, \
+    UnpaidPurchaseMoney, FinancialAsset, LifeInsurance, DebtOwed, SecuritiesQuoted, \
+    SecuritiesUnquoted, OtherProperty, IrishDebt
 
 from rest_framework.authtoken.models import Token
 
@@ -160,8 +164,68 @@ class UserAdmin(BaseUserAdmin):
         return inline_instances
 
 
-class EstateInline(admin.TabularInline):
-    model = models.Estate
+class RealAndLeaseholdInline(admin.TabularInline):
+    model = RealAndLeaseholdProperty
+    extra = 0
+
+
+class HouseholdContentsInline(admin.TabularInline):
+    model = HouseholdContents
+    extra = 0
+
+
+class CarsBoatsInline(admin.TabularInline):
+    model = CarsBoats
+    extra = 0
+
+
+class BusinessFarmingInline(admin.TabularInline):
+    model = BusinessFarming
+    extra = 0
+
+
+class BusinessOtherInline(admin.TabularInline):
+    model = BusinessOther
+    extra = 0
+
+
+class UnpaidPurchaseMoneyInline(admin.TabularInline):
+    model = UnpaidPurchaseMoney
+    extra = 0
+
+
+class FinancialAssetInline(admin.TabularInline):
+    model = FinancialAsset
+    extra = 0
+
+
+class LifeInsuranceInline(admin.TabularInline):
+    model = LifeInsurance
+    extra = 0
+
+
+class DebtOwedInline(admin.TabularInline):
+    model = DebtOwed
+    extra = 0
+
+
+class SecuritiesQuotedInline(admin.TabularInline):
+    model = SecuritiesQuoted
+    extra = 0
+
+
+class SecuritiesUnquotedInline(admin.TabularInline):
+    model = SecuritiesUnquoted
+    extra = 0
+
+
+class OtherPropertyInline(admin.TabularInline):
+    model = OtherProperty
+    extra = 0
+
+
+class IrishDebtInline(admin.TabularInline):
+    model = IrishDebt
     extra = 0
 
 
@@ -199,10 +263,30 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
 
+@admin.register(models.Application)
 class ApplicationAdmin(admin.ModelAdmin):
     ordering = ["id"]
     form = ApplicationForm
-    inlines = [ApplicantInline, EstateInline, ExpenseInline, DocumentInline]
+    inlines = [
+        ApplicantInline,
+        ExpenseInline,
+        DocumentInline,
+
+        # New split estate inlines
+        RealAndLeaseholdInline,
+        HouseholdContentsInline,
+        CarsBoatsInline,
+        BusinessFarmingInline,
+        BusinessOtherInline,
+        UnpaidPurchaseMoneyInline,
+        FinancialAssetInline,
+        LifeInsuranceInline,
+        DebtOwedInline,
+        SecuritiesQuotedInline,
+        SecuritiesUnquotedInline,
+        OtherPropertyInline,
+        IrishDebtInline,
+    ]
 
     fieldsets = (
         (None, {
@@ -212,7 +296,7 @@ class ApplicationAdmin(admin.ModelAdmin):
         }),
         (_("Details"), {
             "fields": (
-                "was_will_prepared_by_solicitor",  # Now at the top of details!
+                "was_will_prepared_by_solicitor",
                 "is_new", "approved", "is_rejected", "rejected_reason", "rejected_date",
                 "undertaking_ready", "loan_agreement_ready", "value_of_the_estate_after_expenses"
             )
@@ -241,9 +325,9 @@ class ApplicationAdmin(admin.ModelAdmin):
     dispute_details.short_description = 'Dispute'
 
     def save_model(self, request, obj, form, change):
-        if not obj.pk:  # If the object is being created
+        if not obj.pk:
             obj.user = request.user
-        else:  # Object is being updated
+        else:
             obj.last_updated_by = request.user
         super().save_model(request, obj, form, change)
 
@@ -645,9 +729,9 @@ admin.site.register(LogEntry, CustomLogEntryAdmin)
 admin.site.register(models.User, UserAdmin)
 admin.site.register(models.Team, TeamAdmin)
 admin.site.register(models.Address)
-admin.site.register(models.Application, ApplicationAdmin)
+
 admin.site.register(models.Deceased)
-admin.site.register(models.Estate)
+
 admin.site.register(models.Dispute)
 admin.site.register(models.Event, EventsAdmin)
 admin.site.register(models.Loan, LoanAdmin)

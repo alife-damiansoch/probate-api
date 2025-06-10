@@ -31,6 +31,8 @@ urlpatterns = [
     path('api/assignments/', include('agents_default_assignments.urls', namespace='assignments')),
     path('api/', include('communications.urls', namespace='communications')),
 
+    path("api/estates/", include("estates.urls")),
+
     # test and security paths from core app
     path('test/500/', test_500_view),
     path("csp-report/", csp_report, name="csp_report"),

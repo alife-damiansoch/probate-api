@@ -1,13 +1,17 @@
 """
 Serializers for solicitors-application apis
 """
+from decimal import Decimal
+
+from django.db.models import Sum
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from core.models import (Application, Deceased, Dispute, Applicant, Estate, Document, )
+from core.models import (Application, Deceased, Dispute, Applicant, Document, )
 from expense.serializers import ExpenseSerializer
 from user.serializers import UserSerializer
 from loan.serializers import LoanSerializer
+from rest_framework.reverse import reverse
 
 
 class AgentDocumentSerializer(serializers.ModelSerializer):
@@ -60,12 +64,6 @@ class AgentApplicantSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
-
-
-class AgentEstateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Estate
-        fields = ['description', 'value', 'lendable']
 
 
 class AgentApplicationSerializer(serializers.ModelSerializer):
@@ -123,27 +121,47 @@ class AgentApplicationDetailSerializer(AgentApplicationSerializer):
     dispute = AgentDisputeSerializer(required=True)  # Serializer for the Dispute model
     applicants = AgentApplicantSerializer(
         many=True, required=True)
-    estates = AgentEstateSerializer(
-        many=True, required=True)
+    estate_summary = serializers.SerializerMethodField(read_only=True)
     documents = serializers.SerializerMethodField(read_only=True)
     signed_documents = serializers.SerializerMethodField(read_only=True)
     expenses = ExpenseSerializer(many=True, read_only=True)
     value_of_the_estate_after_expenses = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
     class Meta(AgentApplicationSerializer.Meta):
-        fields = AgentApplicationSerializer.Meta.fields + ['deceased', 'applicants', 'estates', 'expenses',
+        fields = AgentApplicationSerializer.Meta.fields + ['deceased', 'applicants', 'estate_summary', 'expenses',
                                                            'value_of_the_estate_after_expenses',
                                                            'dispute', 'documents',
                                                            'signed_documents', 'was_will_prepared_by_solicitor', ]
 
-    def get_value_of_the_estate_after_expenses(self, obj):
-        return obj.value_of_the_estate_after_expenses()
+    def get_estate_summary(self, obj):
+        request = self.context.get('request')
+        return reverse('estates-by-application', args=[obj.id], request=request)
+
+    def get_value_of_the_estate_after_expenses(self):
+        total_assets = Decimal(0)
+        total_debts = Decimal(0)
+
+        for related in [
+            self.real_and_leasehold_set,
+            self.financial_assets_set,
+            self.life_insurance_set,
+            self.pension_set,
+            self.shared_ownership_set,
+            self.digital_assets_set,
+            self.other_assets_set,
+            self.irish_debts_set,
+        ]:
+            assets_sum = related.filter(is_asset=True).aggregate(sum=Sum('value'))['sum'] or Decimal(0)
+            debts_sum = related.filter(is_asset=False).aggregate(sum=Sum('value'))['sum'] or Decimal(0)
+            total_assets += assets_sum
+            total_debts += debts_sum
+
+        return total_assets - total_debts
 
     def create(self, validated_data):
         deceased_data = validated_data.pop('deceased', None)
         dispute_data = validated_data.pop('dispute', None)
         applicants_data = validated_data.pop('applicants', [])
-        estates_data = validated_data.pop('estates', [])
 
         if deceased_data:
             deceased = AgentDeceasedSerializer.create(AgentDeceasedSerializer(), validated_data=deceased_data)
@@ -154,15 +172,13 @@ class AgentApplicationDetailSerializer(AgentApplicationSerializer):
                                                  dispute=dispute if dispute_data else None, **validated_data)
         for applicant_data in applicants_data:
             Applicant.objects.create(application=application, **applicant_data)
-        for estate_data in estates_data:
-            Estate.objects.create(application=application, **estate_data)
+
         return application
 
     def update(self, instance, validated_data):
         deceased_data = validated_data.pop('deceased', None)
         dispute_data = validated_data.pop('dispute', None)
         applicants_data = validated_data.pop('applicants', [])
-        estates_data = validated_data.pop('estates', [])
 
         # Update direct attributes of the Application instance
         for attr, value in validated_data.items():
@@ -182,13 +198,10 @@ class AgentApplicationDetailSerializer(AgentApplicationSerializer):
 
         # Delete old Applicant and Estate instances
         Applicant.objects.filter(application=instance.id).delete()
-        Estate.objects.filter(application=instance.id).delete()
 
         # Create new Applicant and Estate instances
         for applicant_data in applicants_data:
             Applicant.objects.create(application=instance, **applicant_data)
-        for estate_data in estates_data:
-            Estate.objects.create(application=instance, **estate_data)
 
         return instance
 

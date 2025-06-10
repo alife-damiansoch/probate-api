@@ -502,7 +502,16 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
     def compare_estates(self, original_estates, updated_estates):
         """
         Compare original and updated estates data and return a list of changes.
+        Handles nested dict fields like 'details'.
         """
+
+        def make_hashable(obj):
+            if isinstance(obj, dict):
+                return tuple(sorted((k, make_hashable(v)) for k, v in obj.items()))
+            if isinstance(obj, list):
+                return tuple(make_hashable(e) for e in obj)
+            return obj
+
         changes = []
 
         # Ensure both original and updated estates are not None
@@ -510,28 +519,31 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
         updated_estates = updated_estates or []
 
         # Convert list of dictionaries to sets for easier comparison
-        original_set = set(tuple(sorted(d.items())) for d in original_estates)
-        updated_set = set(tuple(sorted(d.items())) for d in updated_estates)
+        original_set = set(make_hashable(d) for d in original_estates)
+        updated_set = set(make_hashable(d) for d in updated_estates)
 
         # Detect added estates
         added_estates = updated_set - original_set
         for estate in added_estates:
-            changes.append(f"Estate added: {dict(estate)}")
+            changes.append(f"Estate added: {estate}")
 
         # Detect removed estates
         removed_estates = original_set - updated_set
         for estate in removed_estates:
-            changes.append(f"Estate removed: {dict(estate)}")
+            changes.append(f"Estate removed: {estate}")
 
-        # Detect modified estates
+        # Detect modified estates (assumes 'id' is present and stable)
         for original_estate in original_estates:
             matching_updated_estate = next(
-                (est for est in updated_estates if est['id'] == original_estate['id']), None)
+                (est for est in updated_estates if est.get('id') == original_estate.get('id')), None)
             if matching_updated_estate:
                 for key in original_estate:
-                    if original_estate[key] != matching_updated_estate[key]:
+                    if (
+                            key in matching_updated_estate and
+                            original_estate[key] != matching_updated_estate[key]
+                    ):
                         changes.append(
-                            f"Estate {original_estate['id']} field '{key}' changed from {original_estate[key]} to {matching_updated_estate[key]}"
+                            f"Estate {original_estate.get('id')} field '{key}' changed from {original_estate[key]} to {matching_updated_estate[key]}"
                         )
 
         return changes

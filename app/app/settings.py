@@ -150,7 +150,8 @@ INSTALLED_APPS = [
     'downloadableFiles',
     'signed_documents',
     'agents_default_assignments',
-    'communications'
+    'communications',
+    "estates"
 
 ]
 
