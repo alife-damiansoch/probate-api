@@ -278,13 +278,10 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
         """Update an existing application."""
         request_body = self.request.data
         applicants_data = request_body.get('applicants', [])
-        estates_data = request_body.get('estates', [])
 
         # Ensure applicants_data and estates_data are lists or empty lists
         if applicants_data is None:
             applicants_data = []
-        if estates_data is None:
-            estates_data = []
 
         user = self.request.user
         ApplicantsValidator.validate(applicants_data, user)
@@ -295,7 +292,6 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
 
             # Get the original applicants and estates data, ensuring they're lists
             original_applicants = list(instance.applicants.all().values()) if instance.applicants.exists() else []
-            original_estates = list(instance.estates.all().values()) if instance.estates.exists() else []
 
             # Get the original deceased and dispute objects
             original_deceased = instance.deceased
@@ -318,7 +314,7 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                         # Save the updated instance
                         serializer.save(last_updated_by=self.request.user,
                                         solicitor=solicitor_instance,
-                                        estates=original_estates,
+
                                         applicants=original_applicants,
                                         )
 
@@ -363,8 +359,6 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                     # Get updated applicants and estates data, ensuring they're lists
                     updated_applicants = list(
                         updated_instance.applicants.all().values()) if updated_instance.applicants.exists() else []
-                    updated_estates = list(
-                        updated_instance.estates.all().values()) if updated_instance.estates.exists() else []
 
                     # Get the updated deceased and dispute objects
                     updated_deceased = updated_instance.deceased
@@ -383,11 +377,6 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                     applicants_changes = self.compare_applicants(original_applicants, updated_applicants)
                     if applicants_changes:
                         changes.append("Applicant data updated")
-
-                    # Compare original and updated estates data
-                    estates_changes = self.compare_estates(original_estates, updated_estates)
-                    if estates_changes:
-                        changes.append("Estate data updated")
 
                     # Check for changes in deceased fields
                     if original_deceased and updated_deceased:
@@ -495,43 +484,6 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                     if original_applicant[key] != matching_updated_applicant[key]:
                         changes.append(
                             f"Applicant {original_applicant['id']} field '{key}' changed from {original_applicant[key]} to {matching_updated_applicant[key]}"
-                        )
-
-        return changes
-
-    def compare_estates(self, original_estates, updated_estates):
-        """
-        Compare original and updated estates data and return a list of changes.
-        """
-        changes = []
-
-        # Ensure both original and updated estates are not None
-        original_estates = original_estates or []
-        updated_estates = updated_estates or []
-
-        # Convert list of dictionaries to sets for easier comparison
-        original_set = set(tuple(sorted(d.items())) for d in original_estates)
-        updated_set = set(tuple(sorted(d.items())) for d in updated_estates)
-
-        # Detect added estates
-        added_estates = updated_set - original_set
-        for estate in added_estates:
-            changes.append(f"Estate added: {dict(estate)}")
-
-        # Detect removed estates
-        removed_estates = original_set - updated_set
-        for estate in removed_estates:
-            changes.append(f"Estate removed: {dict(estate)}")
-
-        # Detect modified estates
-        for original_estate in original_estates:
-            matching_updated_estate = next(
-                (est for est in updated_estates if est['id'] == original_estate['id']), None)
-            if matching_updated_estate:
-                for key in original_estate:
-                    if original_estate[key] != matching_updated_estate[key]:
-                        changes.append(
-                            f"Estate {original_estate['id']} field '{key}' changed from {original_estate[key]} to {matching_updated_estate[key]}"
                         )
 
         return changes

@@ -7,9 +7,10 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from app import settings
-from core.models import (Application, Deceased, Dispute, Applicant, Estate, Document, )
+from core.models import (Application, Deceased, Dispute, Applicant, Document, )
 from expense.serializers import ExpenseSerializer
 from loan.serializers import LoanSerializer
+from rest_framework.reverse import reverse
 
 
 class SolicitorDocumentSerializer(serializers.ModelSerializer):
@@ -64,12 +65,6 @@ class SolicitorApplicantSerializer(serializers.ModelSerializer):
         return instance
 
 
-class SolicitorEstateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Estate
-        fields = ['description', 'value', 'lendable']
-
-
 class SolicitorApplicationSerializer(serializers.ModelSerializer):
     """serializer for application list"""
     applicants = SolicitorApplicantSerializer(
@@ -92,23 +87,25 @@ class SolicitorApplicationDetailSerializer(SolicitorApplicationSerializer):
     dispute = SolicitorDisputeSerializer(required=True)  # Serializer for the Dispute model
     applicants = SolicitorApplicantSerializer(
         many=True, required=True)
-    estates = SolicitorEstateSerializer(
-        many=True, required=True)
+    estate_summary = serializers.SerializerMethodField(read_only=True)
     documents = serializers.SerializerMethodField(read_only=True)
     signed_documents = serializers.SerializerMethodField(read_only=True)
     expenses = ExpenseSerializer(many=True, read_only=True)
 
     class Meta(SolicitorApplicationSerializer.Meta):
-        fields = SolicitorApplicationSerializer.Meta.fields + ['deceased', 'dispute', 'applicants', 'estates',
-                                                               'documents',
-                                                               'signed_documents', 'expenses',
-                                                               'was_will_prepared_by_solicitor', ]
+        fields = SolicitorApplicationSerializer.Meta.fields + [
+            'deceased', 'dispute', 'applicants', 'documents', 'signed_documents',
+            'expenses', 'was_will_prepared_by_solicitor', 'estate_summary'
+        ]
+
+    def get_estate_summary(self, obj):
+        request = self.context.get('request')
+        return reverse('estates-by-application', args=[obj.id], request=request)
 
     def create(self, validated_data):
         deceased_data = validated_data.pop('deceased', None)
         dispute_data = validated_data.pop('dispute', None)
         applicants_data = validated_data.pop('applicants', [])
-        estates_data = validated_data.pop('estates', [])
 
         if deceased_data:
             deceased = SolicitorDeceasedSerializer.create(SolicitorDeceasedSerializer(), validated_data=deceased_data)
@@ -119,15 +116,13 @@ class SolicitorApplicationDetailSerializer(SolicitorApplicationSerializer):
                                                  dispute=dispute if dispute_data else None, **validated_data)
         for applicant_data in applicants_data:
             Applicant.objects.create(application=application, **applicant_data)
-        for estate_data in estates_data:
-            Estate.objects.create(application=application, **estate_data)
+
         return application
 
     def update(self, instance, validated_data):
         deceased_data = validated_data.pop('deceased', None)
         dispute_data = validated_data.pop('dispute', None)
         applicants_data = validated_data.pop('applicants', [])
-        estates_data = validated_data.pop('estates', [])
 
         # Update direct attributes of the Application instance
         for attr, value in validated_data.items():
@@ -148,17 +143,11 @@ class SolicitorApplicationDetailSerializer(SolicitorApplicationSerializer):
 
         # Fetch current applicants and estates related to this application
         current_applicants = Applicant.objects.filter(application=instance)
-        current_estates = Estate.objects.filter(application=instance)
 
         # Convert current applicants and estates to a dictionary keyed by a unique combination of fields
         current_applicants_dict = {
             (applicant.first_name, applicant.last_name, applicant.pps_number): applicant
             for applicant in current_applicants
-        }
-
-        current_estates_dict = {
-            (estate.description, estate.value): estate
-            for estate in current_estates
         }
 
         # Track applicants and estates to keep
@@ -185,27 +174,6 @@ class SolicitorApplicationDetailSerializer(SolicitorApplicationSerializer):
         for applicant in current_applicants:
             if applicant not in applicants_to_keep:
                 applicant.delete()
-
-        # Update or create estates
-        for estate_data in estates_data:
-            key = (estate_data.get('description'), estate_data.get('value'))
-            estate_instance = current_estates_dict.get(key)
-
-            if estate_instance:
-                # Update existing estate
-                for attr, value in estate_data.items():
-                    setattr(estate_instance, attr, value)
-                estate_instance.save()
-                estates_to_keep.append(estate_instance)
-            else:
-                # Create new estate if no match found
-                new_estate = Estate.objects.create(application=instance, **estate_data)
-                estates_to_keep.append(new_estate)
-
-        # Remove estates not in the new data set
-        for estate in current_estates:
-            if estate not in estates_to_keep:
-                estate.delete()
 
         return instance
 

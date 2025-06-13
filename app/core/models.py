@@ -1,5 +1,6 @@
 import secrets
 from datetime import datetime
+from decimal import Decimal
 
 from cryptography.fernet import Fernet, InvalidToken
 from dateutil.relativedelta import relativedelta
@@ -17,6 +18,7 @@ from django.utils import timezone
 from auditlog.registry import auditlog
 from django.db.models import ForeignKey, Sum
 from django.conf import settings
+from django.db import models
 
 import uuid
 
@@ -255,9 +257,32 @@ class Application(models.Model):
         ]
 
     def value_of_the_estate_after_expenses(self):
-        estates_sum = self.estates.aggregate(total_estate_value=Sum('value'))['total_estate_value'] or 0
-        expenses_sum = self.expenses.aggregate(total_expense_value=Sum('value'))['total_expense_value'] or 0
-        return estates_sum - expenses_sum
+        total_assets = Decimal(0)
+        total_debts = Decimal(0)
+
+        related_fields = [
+            self.real_and_leasehold.all(),
+            self.household_contents.all(),
+            self.cars_boats.all(),
+            self.business_farming.all(),
+            self.business_other.all(),
+            self.unpaid_purchase_money.all(),
+            self.financial_assets.all(),
+            self.life_insurance.all(),
+            self.debts_owing.all(),
+            self.securities_quoted.all(),
+            self.securities_unquoted.all(),
+            self.other_property.all(),
+            self.irish_debts.all(),
+        ]
+
+        for related in related_fields:
+            assets_sum = related.filter(is_asset=True).aggregate(sum=Sum('value'))['sum'] or Decimal(0)
+            debts_sum = related.filter(is_asset=False).aggregate(sum=Sum('value'))['sum'] or Decimal(0)
+            total_assets += assets_sum
+            total_debts += debts_sum
+
+        return total_assets - total_debts
 
     @property
     def undertaking_ready(self) -> bool:
@@ -335,18 +360,122 @@ class Applicant(models.Model):
         return f"{self.first_name} {self.last_name}"
 
 
-from django.db import models
+class RealAndLeaseholdProperty(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="real_and_leasehold")
+    address = models.TextField(blank=True)
+    county = models.CharField(max_length=128, blank=True)
+    nature = models.CharField(max_length=128, blank=True)
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    lendable = models.BooleanField(default=True)
+    is_asset = models.BooleanField(default=True)
 
 
-class Estate(models.Model):
-    description = models.CharField(max_length=255)
-    value = models.DecimalField(max_digits=12, decimal_places=2)
-    lendable = models.BooleanField(null=True, default=None)  # allow null
-    application = models.ForeignKey(
-        'Application', on_delete=models.CASCADE, related_name='estates')
+class HouseholdContents(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="household_contents")
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
 
-    def __str__(self):
-        return f'{self.description} - {self.value}'
+    lendable = models.BooleanField(default=True)
+    is_asset = models.BooleanField(default=True)
+
+
+class CarsBoats(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="cars_boats")
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    lendable = models.BooleanField(default=True)
+    is_asset = models.BooleanField(default=True)
+
+
+class BusinessFarming(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="business_farming")
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    lendable = models.BooleanField(default=True)
+    is_asset = models.BooleanField(default=True)
+
+
+class BusinessOther(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="business_other")
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    lendable = models.BooleanField(default=True)
+    is_asset = models.BooleanField(default=True)
+
+
+class UnpaidPurchaseMoney(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="unpaid_purchase_money")
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    lendable = models.BooleanField(default=True)
+    is_asset = models.BooleanField(default=True)
+
+
+class FinancialAsset(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="financial_assets")
+    institution = models.CharField(max_length=128, blank=True)
+    account_number = models.CharField(max_length=128, blank=True)
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    lendable = models.BooleanField(default=True)
+    is_asset = models.BooleanField(default=True)
+
+
+class LifeInsurance(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="life_insurance")
+    insurer = models.CharField(max_length=128, blank=True)
+    policy_number = models.CharField(max_length=128, blank=True)
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    lendable = models.BooleanField(default=True)
+    is_asset = models.BooleanField(default=True)
+
+
+class DebtOwed(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="debts_owing")
+    debtor = models.CharField(max_length=128, blank=True)
+    description = models.TextField(blank=True)
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    lendable = models.BooleanField(default=False)
+    is_asset = models.BooleanField(default=True)
+
+
+class SecuritiesQuoted(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="securities_quoted")
+    description = models.TextField(blank=True)
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    lendable = models.BooleanField(default=True)
+    is_asset = models.BooleanField(default=True)
+
+
+class SecuritiesUnquoted(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="securities_unquoted")
+    description = models.TextField(blank=True)
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    lendable = models.BooleanField(default=False)
+    is_asset = models.BooleanField(default=True)
+
+
+class OtherProperty(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="other_property")
+    description = models.TextField(blank=True)
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    lendable = models.BooleanField(default=True)
+    is_asset = models.BooleanField(default=True)
+
+
+class IrishDebt(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="irish_debts")
+    creditor = models.CharField(max_length=128, blank=True)
+    description = models.TextField(blank=True)
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    lendable = models.BooleanField(default=False)
+    # NOT an asset
+    is_asset = models.BooleanField(default=False)
 
 
 class Expense(models.Model):
