@@ -135,28 +135,25 @@ class AgentApplicationDetailSerializer(AgentApplicationSerializer):
 
     def get_estate_summary(self, obj):
         request = self.context.get('request')
-        return reverse('estates-by-application', args=[obj.id], request=request)
+        relative_url = reverse('estates-by-application', args=[obj.id])
 
-    def get_value_of_the_estate_after_expenses(self):
-        total_assets = Decimal(0)
-        total_debts = Decimal(0)
+        if request:
+            absolute_url = request.build_absolute_uri(relative_url)
 
-        for related in [
-            self.real_and_leasehold_set,
-            self.financial_assets_set,
-            self.life_insurance_set,
-            self.pension_set,
-            self.shared_ownership_set,
-            self.digital_assets_set,
-            self.other_assets_set,
-            self.irish_debts_set,
-        ]:
-            assets_sum = related.filter(is_asset=True).aggregate(sum=Sum('value'))['sum'] or Decimal(0)
-            debts_sum = related.filter(is_asset=False).aggregate(sum=Sum('value'))['sum'] or Decimal(0)
-            total_assets += assets_sum
-            total_debts += debts_sum
+            # Check common proxy headers that indicate original HTTPS request
+            is_secure = (
+                    request.is_secure() or  # Direct HTTPS
+                    request.META.get('HTTP_X_FORWARDED_PROTO') == 'https' or  # Most common
+                    request.META.get('HTTP_X_FORWARDED_SSL') == 'on' or
+                    request.META.get('HTTP_X_SCHEME') == 'https'
+            )
 
-        return total_assets - total_debts
+            if is_secure and absolute_url.startswith('http://'):
+                absolute_url = absolute_url.replace('http://', 'https://')
+
+            return absolute_url
+
+        return relative_url
 
     def create(self, validated_data):
         deceased_data = validated_data.pop('deceased', None)
