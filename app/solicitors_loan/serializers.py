@@ -100,7 +100,10 @@ class SolicitorApplicationDetailSerializer(SolicitorApplicationSerializer):
 
     def get_estate_summary(self, obj):
         request = self.context.get('request')
-        return reverse('estates-by-application', args=[obj.id], request=request)
+        if request:
+            relative_url = reverse('estates-by-application', args=[obj.id])
+            return request.build_absolute_uri(relative_url)
+        return reverse('estates-by-application', args=[obj.id])
 
     def create(self, validated_data):
         deceased_data = validated_data.pop('deceased', None)
