@@ -100,10 +100,25 @@ class SolicitorApplicationDetailSerializer(SolicitorApplicationSerializer):
 
     def get_estate_summary(self, obj):
         request = self.context.get('request')
+        relative_url = reverse('estates-by-application', args=[obj.id])
+
         if request:
-            relative_url = reverse('estates-by-application', args=[obj.id])
-            return request.build_absolute_uri(relative_url)
-        return reverse('estates-by-application', args=[obj.id])
+            absolute_url = request.build_absolute_uri(relative_url)
+
+            # Check common proxy headers that indicate original HTTPS request
+            is_secure = (
+                    request.is_secure() or  # Direct HTTPS
+                    request.META.get('HTTP_X_FORWARDED_PROTO') == 'https' or  # Most common
+                    request.META.get('HTTP_X_FORWARDED_SSL') == 'on' or
+                    request.META.get('HTTP_X_SCHEME') == 'https'
+            )
+
+            if is_secure and absolute_url.startswith('http://'):
+                absolute_url = absolute_url.replace('http://', 'https://')
+
+            return absolute_url
+
+        return relative_url
 
     def create(self, validated_data):
         deceased_data = validated_data.pop('deceased', None)
