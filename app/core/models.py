@@ -510,6 +510,15 @@ class Document(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
+    # NEW FIELD: Link to document requirement (for user-uploaded docs)
+    document_type_requirement = models.ForeignKey(
+        'document_requirements.ApplicationDocumentRequirement',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="The requirement this document fulfills"
+    )
+
     def save(self, *args, **kwargs):
         # Only auto-set original_name when creating the instance AND it's empty
         if self.document and not self.id and not self.original_name:

@@ -30,6 +30,8 @@ from rest_framework.authtoken.models import Token
 
 from auditlog.models import LogEntry
 
+from document_requirements.models import ApplicationDocumentRequirement, DocumentType
+
 
 class AssignedSolicitorInline(admin.TabularInline):
     """Inline admin class for AssignedSolicitor"""
@@ -811,3 +813,111 @@ class AuthenticatorSecretAdmin(admin.ModelAdmin):
         return obj.user.email  # Display user's email
 
     user_email.short_description = "User Email"  # Custom column header
+
+
+@admin.register(DocumentType)
+class DocumentTypeAdmin(admin.ModelAdmin):
+    list_display = [
+        'name',
+        'signature_required',
+        'who_needs_to_sign',
+        'order',
+        'is_active',
+        'usage_count',
+        'created_at'
+    ]
+    list_filter = ['signature_required', 'who_needs_to_sign', 'is_active', 'created_at']
+    search_fields = ['name', 'description']
+    list_editable = ['order', 'is_active']
+    ordering = ['order', 'name']
+    readonly_fields = ['created_at', 'updated_at', 'usage_count']
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'description', 'order', 'is_active')
+        }),
+        ('Signature Requirements', {
+            'fields': ('signature_required', 'who_needs_to_sign'),
+            'description': 'Configure if this document type requires signatures'
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at', 'usage_count'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def usage_count(self, obj):
+        count = ApplicationDocumentRequirement.objects.filter(document_type=obj).count()
+        return format_html(
+            '<span style="color: {};">{} applications</span>',
+            '#28a745' if count > 0 else '#6c757d',
+            count
+        )
+
+    usage_count.short_description = "Usage"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related('applicationdocumentrequirement_set')
+
+
+@admin.register(ApplicationDocumentRequirement)
+class ApplicationDocumentRequirementAdmin(admin.ModelAdmin):
+    list_display = [
+        'application_link',
+        'document_type',
+        'is_uploaded_display',
+        'created_at',
+        'created_by'
+    ]
+    list_filter = [
+        'document_type',
+        'created_at',
+        'document_type__signature_required'
+    ]
+    search_fields = [
+        'application__id',
+        'document_type__name',
+        'created_by__email'
+    ]
+    readonly_fields = ['created_at', 'is_uploaded_display']
+    raw_id_fields = ['application', 'created_by']
+
+    fieldsets = (
+        ('Requirement Details', {
+            'fields': ('application', 'document_type')
+        }),
+        ('Status', {
+            'fields': ('is_uploaded_display',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'created_by'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def application_link(self, obj):
+        return format_html(
+            '<a href="/admin/core/application/{}/change/">#{}</a>',
+            obj.application.id,
+            obj.application.id
+        )
+
+    application_link.short_description = "Application"
+    application_link.admin_order_field = 'application__id'
+
+    def is_uploaded_display(self, obj):
+        if obj.is_uploaded:
+            return format_html(
+                '<span style="color: #28a745; font-weight: bold;">✓ Uploaded</span>'
+            )
+        else:
+            return format_html(
+                '<span style="color: #dc3545; font-weight: bold;">✗ Missing</span>'
+            )
+
+    is_uploaded_display.short_description = "Upload Status"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'application', 'document_type', 'created_by'
+        )

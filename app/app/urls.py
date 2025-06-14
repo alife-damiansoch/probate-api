@@ -32,6 +32,7 @@ urlpatterns = [
     path('api/', include('communications.urls', namespace='communications')),
 
     path("api/estates/", include("estates.urls")),
+    path('', include('document_requirements.urls')),
 
     # test and security paths from core app
     path('test/500/', test_500_view),
