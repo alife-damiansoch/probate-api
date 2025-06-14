@@ -18,7 +18,8 @@ class SolicitorDocumentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['id', 'application', 'document', 'original_name', 'is_signed', 'is_undertaking', 'is_loan_agreement']
+        fields = ['id', 'application', 'document', 'original_name', 'is_signed', 'is_undertaking', 'is_loan_agreement',
+                  'signature_required', 'who_needs_to_sign']
         read_only_fields = ('id', 'application', 'is_signed', 'is_undertaking', 'is_loan_agreement')
         extra_kwargs = {'document': {'required': True}}
 
