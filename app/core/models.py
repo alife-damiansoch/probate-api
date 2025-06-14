@@ -489,6 +489,11 @@ class Expense(models.Model):
 
 
 class Document(models.Model):
+    SIGNER_CHOICES = [
+        ('solicitor', 'Solicitor'),
+        ('applicant', 'Applicant'),
+    ]
+
     application = models.ForeignKey(
         Application, on_delete=models.CASCADE, related_name='documents')
     document = models.FileField(upload_to=get_application_document_file_path)
@@ -496,17 +501,52 @@ class Document(models.Model):
     is_signed = models.BooleanField(default=False)
     is_undertaking = models.BooleanField(default=False)
     is_loan_agreement = models.BooleanField(default=False)
+    signature_required = models.BooleanField(default=False)
+    who_needs_to_sign = models.CharField(
+        max_length=20,
+        choices=SIGNER_CHOICES,
+        default='solicitor',
+        help_text="Who needs to sign this document"
+    )
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     def save(self, *args, **kwargs):
-        if self.document and not self.id:  # Only set original_name when creating the instance
-            self.original_name = self.document.name
+        # Only auto-set original_name when creating the instance AND it's empty
+        if self.document and not self.id and not self.original_name:
+            # Generate meaningful name based on document type and application
+            if self.is_undertaking:
+                self.original_name = f"Solicitor_Undertaking_{self.application.id}"
+            elif self.is_loan_agreement:
+                # For loan agreements, fallback to basic name if not set in view
+                self.original_name = f"Advancement_Agreement_{self.application.id}"
+            else:
+                # Fallback to filename without extension
+                filename = self.document.name
+                if filename:
+                    self.original_name = filename.rsplit('.', 1)[0] if '.' in filename else filename
+
+        # Auto-set signature requirements based on document type
+        if self.is_undertaking:
+            self.signature_required = True
+            self.who_needs_to_sign = 'solicitor'
+        elif self.is_loan_agreement:
+            self.signature_required = True
+            self.who_needs_to_sign = 'applicant'
+
         super().save(*args, **kwargs)
 
     # this overwrites makes sure that file is deleted when instance is deleted from the database
     def delete(self, *args, **kwargs):
         self.document.delete()
         super().delete(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.original_name} - {self.application.id}"
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Document"
+        verbose_name_plural = "Documents"
 
 
 class Event(models.Model):
