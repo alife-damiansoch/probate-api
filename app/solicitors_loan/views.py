@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
 from django.db.models import Q
 from django.http import JsonResponse, Http404, HttpResponse, HttpResponseNotFound, HttpResponseForbidden
 
@@ -540,7 +540,6 @@ class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
     permission_classes = [IsAuthenticated, IsNonStaff]
 
     def get_queryset(self):
-
         return models.Application.objects.all()
 
     def get_object(self, application_id):
@@ -569,11 +568,11 @@ class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
         if "document" not in request.FILES:
             return Response({"error": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
 
-        uploaded_file = request.FILES.getlist("document")  # Extract the file(s) as a list
+        uploaded_file = request.FILES.getlist("document")
         if not uploaded_file:
             return Response({"error": "No valid file provided."}, status=status.HTTP_400_BAD_REQUEST)
 
-        uploaded_file = uploaded_file[0]  # Extract the first file (assuming single file upload)
+        uploaded_file = uploaded_file[0]
 
         # ✅ **Validate File Extension**
         if not is_valid_file_extension(uploaded_file.name):
@@ -582,7 +581,7 @@ class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ✅ Validate file  size
+        # ✅ Validate file size
         if not is_valid_file_size(uploaded_file):
             return Response(
                 {"error": f"File is too large. Max allowed size for {uploaded_file.name.split('.')[-1]} is exceeded."},
@@ -592,17 +591,15 @@ class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
         # ✅ Save file
         serializer = serializers.SolicitorDocumentSerializer(data=request.data)
 
-        # print(f"FILES: {request.FILES}")
-
         if serializer.is_valid():
             # store application instance for logging purpose
             application = models.Application.objects.get(id=application_id)
             serializer.save(application=application)
 
-            # logging the successful POST request
+            # logging the successful POST request - FIXED THIS PART
             request_body = {}
             for key, value in request.data.items():
-                if not isinstance(value, InMemoryUploadedFile):
+                if not isinstance(value, (InMemoryUploadedFile, TemporaryUploadedFile)):
                     request_body[key] = value
                 else:
                     request_body[key] = 'A new file was uploaded.'

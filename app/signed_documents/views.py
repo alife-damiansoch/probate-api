@@ -99,6 +99,11 @@ class SignedDocumentUploadView(APIView):
         is_loan_agreement = request.data.get('is_loan_agreement', False)
         # Retrieve the device information (sent from frontend)
         device_info_str = request.data.get('device_info', '{}')  # Get the device info JSON string
+
+        # Check if this is a signing operation (existing document)
+        document_id = request.data.get('document_id')  # Optional: for identifying original document
+        is_signing_existing = document_id is not None
+
         # Parse the device information JSON string into a dictionary
         try:
             device_info = json.loads(device_info_str)
@@ -227,6 +232,41 @@ class SignedDocumentUploadView(APIView):
         # Wrap the BytesIO in a Django File object and assign a name
         pdf_file_to_save = File(signed_pdf_buffer, name=pdf_file.name)
 
+        # Find and store reference to original unsigned document before creating new one
+        original_document = None
+        if is_signing_existing and document_id:
+            try:
+                original_document = Document.objects.get(
+                    id=document_id,
+                    application=application,
+                    is_signed=False
+                )
+                print(f"Found original unsigned document: {original_document.id}")
+            except Document.DoesNotExist:
+                print(f"Original document with ID {document_id} not found")
+        else:
+            # If no document_id provided, try to find by document type and signature requirements
+            try:
+                filter_kwargs = {
+                    'application': application,
+                    'is_signed': False,
+                    'signature_required': True
+                }
+
+                # Add type-specific filters
+                if is_undertaking == "true" or is_undertaking is True:
+                    filter_kwargs['is_undertaking'] = True
+                elif is_loan_agreement == "true" or is_loan_agreement is True:
+                    filter_kwargs['is_loan_agreement'] = True
+
+                original_document = Document.objects.filter(**filter_kwargs).first()
+                if original_document:
+                    print(f"Found original document by type matching: {original_document.id}")
+                else:
+                    print("No matching original document found by type")
+            except Exception as e:
+                print(f"Error finding original document: {e}")
+
         # Save the modified PDF file in the Document model
         signed_document = Document.objects.create(
             application=application,
@@ -235,9 +275,35 @@ class SignedDocumentUploadView(APIView):
             original_name=pdf_file.name,
             is_undertaking=True if is_undertaking == "true" else False,
             is_loan_agreement=True if is_loan_agreement == "true" else False,
+            signature_required=False,  # Signed documents don't require signature anymore
+            who_needs_to_sign=original_document.who_needs_to_sign if original_document else None
         )
 
-        # print(f"Created Document: {model_to_dict(signed_document)}")  # Debug: Full object details
+        print(f"Created signed document: {signed_document.id}")
+
+        # Delete the original unsigned document after successful creation of signed document
+        if original_document:
+            try:
+                # Store the file path for cleanup
+                original_file_path = original_document.document.path if original_document.document else None
+                original_document_id = original_document.id
+
+                # Delete the database record
+                original_document.delete()
+                print(f"Deleted original unsigned document: {original_document_id}")
+
+                # Optionally delete the physical file from storage
+                if original_file_path and os.path.exists(original_file_path):
+                    try:
+                        os.remove(original_file_path)
+                        print(f"Deleted original file: {original_file_path}")
+                    except OSError as e:
+                        print(f"Error deleting original file {original_file_path}: {e}")
+
+            except Exception as e:
+                print(f"Error deleting original document: {e}")
+                # Don't fail the entire operation if deletion fails
+                pass
 
         # Capture metadata for logging
         user = request.user
@@ -286,8 +352,6 @@ class SignedDocumentUploadView(APIView):
             device_vendor=device_vendor,
             device_screen_resolution=screen_resolution,
         )
-
-        # print(f"Created SignedDocumentLog: {model_to_dict(signed_document_log)}")  # Debug: Full log details
 
         # send notification to users
         notification = Notification.objects.create(
