@@ -270,12 +270,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
                 f"Please use the designated website for your registered country."
             )
 
-        # # If validation passes, continue with the default token generation
-        # serializer = self.get_serializer(data=request.data)
-        # serializer.is_valid(raise_exception=True)
-        # return Response(serializer.validated_data, status=status.HTTP_200_OK)
-
-        # Generate access & refresh tokens (no changes to this part)
+        # Generate access & refresh tokens
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
@@ -283,51 +278,32 @@ class MyTokenObtainPairView(TokenObtainPairView):
         # ✅ Delete any existing API key for the user
         FrontendAPIKey.objects.filter(user=user).delete()
 
-        response = Response(
-            {
-                "access": access_token,
-                "refresh": refresh_token,
-            },
-            status=status.HTTP_200_OK
+        # ✅ Generate a new API key
+        api_key, created = FrontendAPIKey.objects.update_or_create(
+            user=user,
+            defaults={"key": secrets.token_urlsafe(32), "expires_at": now() + timedelta(minutes=15)}
         )
 
-        #  Generate a new API key only for solicitor users
-        if not user.is_staff:
-            # print("NOT STAFF USER")
-            # ✅ Generate a new API key
-            api_key, created = FrontendAPIKey.objects.update_or_create(
-                user=user,
-                defaults={"key": secrets.token_urlsafe(32), "expires_at": now() + timedelta(minutes=15)}
-            )
-            # Create response
+        # Prepare response data
+        response_data = {
+            "access": access_token,
+            "refresh": refresh_token,
+            "api_key": api_key.key,  # Include API key in response
+            "user_type": "staff" if user.is_staff else "regular"  # Help frontend know which type
+        }
 
-            # Set HttpOnly API key cookie
-            response.set_cookie(
-                key="X-Frontend-API-Key",
-                value=api_key.key,
-                httponly=True,
-                secure=True,  # Set to True in production (requires HTTPS)
-                samesite="None",
-                path="/",
-            )
-        if user.is_staff:
-            # print("STAFF USER")
-            # Generate a new API key only for agent users
-            api_key, created = FrontendAPIKey.objects.update_or_create(
-                user=user,
-                defaults={"key": secrets.token_urlsafe(32), "expires_at": now() + timedelta(minutes=15)}
-            )
-            # Create response
+        response = Response(response_data, status=status.HTTP_200_OK)
 
-            # Set HttpOnly API key cookie
-            response.set_cookie(
-                key="X-Frontend-API-Key-Agents",
-                value=api_key.key,
-                httponly=True,
-                secure=True,  # Set to True in production (requires HTTPS)
-                samesite="None",
-                path="/",
-            )
+        # Set HttpOnly API key cookie (still set for browsers that support it)
+        cookie_name = "X-Frontend-API-Key" if not user.is_staff else "X-Frontend-API-Key-Agents"
+        response.set_cookie(
+            key=cookie_name,
+            value=api_key.key,
+            httponly=True,
+            secure=True,  # Set to True in production (requires HTTPS)
+            samesite="Strict",  # Changed from "None" to "Strict"
+            path="/",
+        )
 
         return response
 

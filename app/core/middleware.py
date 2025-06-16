@@ -134,6 +134,7 @@ class ValidateAPIKeyMiddleware:
         ]
         if any(request.path.startswith(path) for path in EXCLUDED_PATHS):
             return self.get_response(request)
+
         # JWT authentication
         from rest_framework_simplejwt.authentication import JWTAuthentication
         from rest_framework_simplejwt.exceptions import InvalidToken
@@ -158,11 +159,22 @@ class ValidateAPIKeyMiddleware:
                 {"detail": "Unauthorized: Token validation failed", "code": "token_not_valid"},
                 status=401
             )
-        # Retrieve API key from cookies
-        api_key = request.COOKIES.get(
-            'X-Frontend-API-Key' if not request.user.is_staff else "X-Frontend-API-Key-Agents")
+
+        # Determine the correct API key names based on user type
+        cookie_name = 'X-Frontend-API-Key' if not request.user.is_staff else "X-Frontend-API-Key-Agents"
+        header_name = 'X-Frontend-API-Key' if not request.user.is_staff else 'X-Frontend-API-Key-Agents'
+
+        # Retrieve API key from cookies first
+        api_key = request.COOKIES.get(cookie_name)
+
+        # If no cookie, check for header (fallback for incognito/mobile)
+        if not api_key:
+            api_key = request.headers.get(header_name)
+            print(f"API key not found in cookies, checking headers: {api_key is not None}")
+
         if not api_key:
             return JsonResponse({"error": "Forbidden: Missing API key in request"}, status=403)
+
         from core.models import FrontendAPIKey
         try:
             key_obj = FrontendAPIKey.objects.get(user=request.user)
@@ -174,8 +186,10 @@ class ValidateAPIKeyMiddleware:
             if request.path != "/api/communications/count-unseen_info_email/":
                 key_obj.refresh_expiration()
             response = self.get_response(request)
-            response[
-                "X-API-Key-Expiration" if not request.user.is_staff else "X-API-Key-Expiration-Agents"] = key_obj.expires_at.isoformat()
+
+            # Set the appropriate expiration header
+            expiration_header = "X-API-Key-Expiration" if not request.user.is_staff else "X-API-Key-Expiration-Agents"
+            response[expiration_header] = key_obj.expires_at.isoformat()
             return response
         except FrontendAPIKey.DoesNotExist:
             return JsonResponse({"error": "Forbidden: API key not found in storage"}, status=403)
