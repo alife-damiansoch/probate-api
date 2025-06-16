@@ -6,6 +6,7 @@ from django.forms import model_to_dict
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.core.files.base import ContentFile
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -16,14 +17,14 @@ from io import BytesIO
 import json
 import datetime
 
-from core.models import Application, Solicitor, User  # Assuming these models are in the 'core' app
+from core.models import Application, Solicitor, User, Document  # Added Document model
 
 
 @extend_schema(
     summary="Generate an Undertaking PDF",
-    description="Generates a PDF document for an undertaking based on the application ID and agreed fee provided in the request. This endpoint is intended for use by authorized users only.",
+    description="Generates a PDF document for an undertaking based on the application ID and agreed fee provided in the request. The PDF is saved directly to the application's documents with signature requirements.",
     tags=["undertaking"],
-    request=OpenApiTypes.OBJECT,  # Expecting a generic object for request body
+    request=OpenApiTypes.OBJECT,
     examples=[
         OpenApiExample(
             name="Example request",
@@ -31,13 +32,13 @@ from core.models import Application, Solicitor, User  # Assuming these models ar
                 "application_id": 180,
                 "fee_agreed_for_undertaking": 37500
             },
-            request_only=True,  # This example is only for the request body
+            request_only=True,
         )
     ],
     responses={
         200: OpenApiResponse(
-            description='Generated PDF file',
-            response=OpenApiTypes.BINARY,  # Use OpenApiTypes.BINARY for binary file response
+            description='PDF generated and saved successfully',
+            response=OpenApiTypes.OBJECT
         ),
         400: OpenApiResponse(
             description='Bad Request',
@@ -110,8 +111,6 @@ def generate_undertaking_pdf(request):
             'currency_sign': application.user.get_currency()
         }
 
-        # print(context)
-
         # Render the HTML template with context data
         html_string = render_to_string('undertaking/undertaking_template.html', context)
 
@@ -124,10 +123,40 @@ def generate_undertaking_pdf(request):
         if pdf.err:
             return JsonResponse({'error': 'Error generating PDF'}, status=500)
 
-        # Return PDF as a response
-        response = HttpResponse(result.getvalue(), content_type='application/pdf')
-        response['Content-Disposition'] = 'attachment; filename="undertaking.pdf"'
-        return response
+        # Get the PDF content
+        pdf_content = result.getvalue()
+
+        # Create a filename for the PDF
+        filename = f"Solicitor_Undertaking_{application_id}.pdf"
+
+        # Create a Document instance and save the PDF with signature requirements
+        document = Document(
+            application=application,
+            is_signed=False,
+            is_undertaking=True,
+            is_loan_agreement=False,
+            signature_required=True,  # Undertaking requires signature
+            who_needs_to_sign='solicitor'  # Solicitor needs to sign undertaking
+        )
+
+        # Save the PDF file to the document field
+        document.document.save(
+            filename,
+            ContentFile(pdf_content),
+            save=False
+        )
+
+        # Save the document instance
+        document.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Undertaking PDF generated and saved successfully. Solicitor signature required.',
+            'document_id': document.id,
+            'filename': filename,
+            'signature_required': True,
+            'who_needs_to_sign': 'solicitor'
+        })
 
     except Application.DoesNotExist:
         return JsonResponse({'error': 'Application not found.'}, status=404)
@@ -139,7 +168,7 @@ def generate_undertaking_pdf(request):
 
 @extend_schema(
     summary="Generate an Advancement Agreement PDF",
-    description="Generates a PDF document for a single applicant or multiple PDF documents bundled in a ZIP for multiple applicants based on the application ID and agreed fee provided in the request.",
+    description="Generates PDF documents for advancement agreements and saves them directly to the application's documents. Creates separate PDFs for each applicant with signature requirements and saves them individually.",
     tags=["advancement"],
     request=OpenApiTypes.OBJECT,
     examples=[
@@ -149,13 +178,13 @@ def generate_undertaking_pdf(request):
                 "application_id": 180,
                 "fee_agreed_for_undertaking": 37500
             },
-            request_only=True,  # This example is only for the request body
+            request_only=True,
         )
     ],
     responses={
         200: OpenApiResponse(
-            description='Generated PDF or ZIP file',
-            response=OpenApiTypes.BINARY,  # Use OpenApiTypes.BINARY for binary file response
+            description='PDFs generated and saved successfully',
+            response=OpenApiTypes.OBJECT
         ),
         400: OpenApiResponse(
             description='Bad Request',
@@ -195,35 +224,51 @@ def generate_advancement_agreement_pdf(request):
         # Get all applicants associated with the application
         applicants = application.applicants.all()
 
-        # Check if there's only one applicant, then return a single PDF
-        if len(applicants) == 1:
-            # Single applicant case
-            applicant = applicants[0]
-            # Create PDF for the single applicant
+        created_documents = []
+
+        # Create a PDF for each applicant and save as Document
+        for applicant in applicants:
             pdf_response = create_pdf_for_applicant(application, applicant, company_name, company_address,
-                                                    company_registration_number, company_website, company_phone_number,
-                                                    fee_agreed_for_undertaking, company_ceo)
-            response = HttpResponse(pdf_response.getvalue(), content_type='application/pdf')
-            response[
-                'Content-Disposition'] = f'attachment; filename="Advancement_Agreement_{application_id}_{applicant.first_name}_{applicant.last_name}.pdf"'
-            return response
+                                                    company_registration_number, company_website,
+                                                    company_phone_number, fee_agreed_for_undertaking, company_ceo)
 
-        # If there are multiple applicants, create a ZIP archive
-        zip_buffer = BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
-            for applicant in applicants:
-                pdf_response = create_pdf_for_applicant(application, applicant, company_name, company_address,
-                                                        company_registration_number, company_website,
-                                                        company_phone_number,
-                                                        fee_agreed_for_undertaking, company_ceo)
-                pdf_filename = f"Advancement_Agreement_{application_id}_{applicant.first_name}_{applicant.last_name}.pdf"
-                zip_file.writestr(pdf_filename, pdf_response.getvalue())
+            # Create filename with the specified format
+            filename = f"Advancement_Agreement_{application_id}_{applicant.first_name}_{applicant.last_name}.pdf"
 
-        # Return the ZIP file as a response
-        zip_buffer.seek(0)
-        response = HttpResponse(zip_buffer, content_type='application/zip')
-        response['Content-Disposition'] = f'attachment; filename="Advancement_Agreements_{application_id}.zip"'
-        return response
+            # Create a Document instance and save the PDF with signature requirements
+            document = Document(
+                application=application,
+                is_signed=False,
+                is_undertaking=False,
+                is_loan_agreement=True,
+                signature_required=True,  # Advancement agreement requires signature
+                who_needs_to_sign='applicant'  # Applicant needs to sign advancement agreement
+            )
+
+            # Save the PDF file to the document field
+            document.document.save(
+                filename,
+                ContentFile(pdf_response.getvalue()),
+                save=False
+            )
+
+            # Save the document instance
+            document.save()
+
+            created_documents.append({
+                'document_id': document.id,
+                'filename': filename,
+                'applicant_name': f"{applicant.first_name} {applicant.last_name}",
+                'signature_required': True,
+                'who_needs_to_sign': 'applicant'
+            })
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Advancement Agreement PDFs generated and saved successfully for {len(applicants)} applicant(s). Applicant signatures required.',
+            'documents': created_documents,
+            'total_documents_created': len(created_documents)
+        })
 
     except Application.DoesNotExist:
         return JsonResponse({'error': 'Application not found.'}, status=404)

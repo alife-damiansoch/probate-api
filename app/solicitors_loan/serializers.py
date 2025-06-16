@@ -15,12 +15,49 @@ from rest_framework.reverse import reverse
 
 class SolicitorDocumentSerializer(serializers.ModelSerializer):
     """Serializer for uploading document files"""
+    document_type_requirement = serializers.IntegerField(required=False, write_only=True)
 
     class Meta:
         model = Document
-        fields = ['id', 'application', 'document', 'original_name', 'is_signed', 'is_undertaking', 'is_loan_agreement']
+        fields = ['id', 'application', 'document', 'original_name', 'is_signed', 'is_undertaking', 'is_loan_agreement',
+                  'signature_required', 'who_needs_to_sign', 'document_type_requirement']
         read_only_fields = ('id', 'application', 'is_signed', 'is_undertaking', 'is_loan_agreement')
         extra_kwargs = {'document': {'required': True}}
+
+    def create(self, validated_data):
+        # Extract the requirement ID (if provided)
+        requirement_id = validated_data.pop('document_type_requirement', None)
+
+        # Create the document first
+        document = super().create(validated_data)
+
+        # Handle requirement linking if provided
+        if requirement_id:
+            try:
+                from document_requirements.models import ApplicationDocumentRequirement
+                requirement = ApplicationDocumentRequirement.objects.get(
+                    id=requirement_id,
+                    application=document.application
+                )
+
+                # Link the document to the requirement
+                document.document_type_requirement = requirement
+
+                # Auto-set signature requirements based on DocumentType
+                if requirement.document_type.signature_required:
+                    document.signature_required = True
+                    document.who_needs_to_sign = requirement.document_type.who_needs_to_sign
+                else:
+                    document.signature_required = False
+
+                # Save with the new fields
+                document.save()
+
+            except ApplicationDocumentRequirement.DoesNotExist:
+                # If requirement doesn't exist, continue without linking
+                pass
+
+        return document
 
 
 class SolicitorDeceasedSerializer(serializers.ModelSerializer):
