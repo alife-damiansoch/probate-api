@@ -160,17 +160,13 @@ class ValidateAPIKeyMiddleware:
                 status=401
             )
 
-        # Determine the correct API key names based on user type
-        cookie_name = 'X-Frontend-API-Key' if not request.user.is_staff else "X-Frontend-API-Key-Agents"
+        # ✅ ONLY CHECK HEADERS - No cookie checking
+        # Determine the correct header name based on user type
         header_name = 'X-Frontend-API-Key' if not request.user.is_staff else 'X-Frontend-API-Key-Agents'
 
-        # Retrieve API key from cookies first
-        api_key = request.COOKIES.get(cookie_name)
-
-        # If no cookie, check for header (fallback for incognito/mobile)
-        if not api_key:
-            api_key = request.headers.get(header_name)
-            print(f"API key not found in cookies, checking headers: {api_key is not None}")
+        # Retrieve API key from headers only
+        api_key = request.headers.get(header_name)
+        print(f"Checking for API key in header '{header_name}': {api_key is not None}")
 
         if not api_key:
             return JsonResponse({"error": "Forbidden: Missing API key in request"}, status=403)

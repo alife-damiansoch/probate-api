@@ -284,7 +284,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
             defaults={"key": secrets.token_urlsafe(32), "expires_at": now() + timedelta(minutes=15)}
         )
 
-        # Prepare response data
+        # Prepare response data - include API key in response body
         response_data = {
             "access": access_token,
             "refresh": refresh_token,
@@ -294,16 +294,8 @@ class MyTokenObtainPairView(TokenObtainPairView):
 
         response = Response(response_data, status=status.HTTP_200_OK)
 
-        # Set HttpOnly API key cookie (still set for browsers that support it)
-        cookie_name = "X-Frontend-API-Key" if not user.is_staff else "X-Frontend-API-Key-Agents"
-        response.set_cookie(
-            key=cookie_name,
-            value=api_key.key,
-            httponly=True,
-            secure=True,  # Set to True in production (requires HTTPS)
-            samesite="Strict",  # Changed from "None" to "Strict"
-            path="/",
-        )
+        # ✅ NO COOKIE SETTING - We'll use headers only
+        # Removed all cookie setting code
 
         return response
 
