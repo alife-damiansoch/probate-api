@@ -24,7 +24,7 @@ from core.models import LoanExtension, Transaction, Document, Solicitor, SignedD
     RealAndLeaseholdProperty, \
     HouseholdContents, CarsBoats, BusinessFarming, BusinessOther, \
     UnpaidPurchaseMoney, FinancialAsset, LifeInsurance, DebtOwed, SecuritiesQuoted, \
-    SecuritiesUnquoted, OtherProperty, IrishDebt
+    SecuritiesUnquoted, OtherProperty, IrishDebt, ApplicationProcessingStatus
 
 from rest_framework.authtoken.models import Token
 
@@ -261,8 +261,25 @@ class ApplicationForm(forms.ModelForm):
         fields = '__all__'
 
 
-from django.contrib import admin
-from django.utils.translation import gettext_lazy as _
+class ApplicationProcessingStatusInline(admin.StackedInline):
+    model = ApplicationProcessingStatus
+    extra = 0
+    max_num = 1
+    can_delete = False
+
+    fields = (
+        'application_details_completed_confirmed',
+        'solicitor_preferred_aml_method',
+        'last_updated_by',
+        'date_updated'
+    )
+
+    readonly_fields = ('last_updated_by', 'date_updated')
+
+    def save_model(self, request, obj, form, change):
+        if change:
+            obj.last_updated_by = request.user
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(models.Application)
@@ -270,6 +287,7 @@ class ApplicationAdmin(admin.ModelAdmin):
     ordering = ["id"]
     form = ApplicationForm
     inlines = [
+        ApplicationProcessingStatusInline,  # Add this at the top
         ApplicantInline,
         ExpenseInline,
         DocumentInline,
@@ -311,7 +329,26 @@ class ApplicationAdmin(admin.ModelAdmin):
 
     search_fields = ["id", ]
     list_display = ("id", "user", "solicitor", "assigned_to", "deceased_full_name", "dispute_details",
-                    "value_of_the_estate_after_expenses", "undertaking_ready", "loan_agreement_ready")
+                    "value_of_the_estate_after_expenses", "undertaking_ready", "loan_agreement_ready",
+                    "processing_status_confirmed", "processing_aml_method")  # Added processing status columns
+
+    # Add methods to display processing status in list view
+    def processing_status_confirmed(self, obj):
+        try:
+            return obj.processing_status.application_details_completed_confirmed
+        except ApplicationProcessingStatus.DoesNotExist:
+            return False
+
+    processing_status_confirmed.boolean = True
+    processing_status_confirmed.short_description = 'Status Confirmed'
+
+    def processing_aml_method(self, obj):
+        try:
+            return obj.processing_status.solicitor_preferred_aml_method or '-'
+        except ApplicationProcessingStatus.DoesNotExist:
+            return '-'
+
+    processing_aml_method.short_description = 'AML Method'
 
     def deceased_full_name(self, obj):
         if obj.deceased:

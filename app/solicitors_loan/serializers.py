@@ -7,7 +7,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from app import settings
-from core.models import (Application, Deceased, Dispute, Applicant, Document, )
+from core.models import (Application, Deceased, Dispute, Applicant, Document, ApplicationProcessingStatus, )
 from expense.serializers import ExpenseSerializer
 from loan.serializers import LoanSerializer
 from rest_framework.reverse import reverse
@@ -167,6 +167,20 @@ class SolicitorApplicantSerializer(serializers.ModelSerializer):
         return instance
 
 
+class ApplicationProcessingStatusSerializer(serializers.ModelSerializer):
+    last_updated_by = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = ApplicationProcessingStatus
+        fields = [
+            'application_details_completed_confirmed',
+            'solicitor_preferred_aml_method',
+            'last_updated_by',
+            'date_updated'
+        ]
+        read_only_fields = ['last_updated_by', 'date_updated']
+
+
 class SolicitorApplicationSerializer(serializers.ModelSerializer):
     """serializer for application list"""
     applicants = SolicitorApplicantSerializer(
@@ -193,11 +207,12 @@ class SolicitorApplicationDetailSerializer(SolicitorApplicationSerializer):
     documents = serializers.SerializerMethodField(read_only=True)
     signed_documents = serializers.SerializerMethodField(read_only=True)
     expenses = ExpenseSerializer(many=True, read_only=True)
+    processing_status = ApplicationProcessingStatusSerializer(read_only=True)
 
     class Meta(SolicitorApplicationSerializer.Meta):
         fields = SolicitorApplicationSerializer.Meta.fields + [
             'deceased', 'dispute', 'applicants', 'documents', 'signed_documents',
-            'expenses', 'was_will_prepared_by_solicitor', 'estate_summary'
+            'expenses', 'was_will_prepared_by_solicitor', 'estate_summary', 'processing_status'
         ]
 
     def get_estate_summary(self, obj):

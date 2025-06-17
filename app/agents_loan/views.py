@@ -22,6 +22,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from agents_loan import serializers
+from agents_loan.serializers import ApplicationProcessingStatusSerializer
 from app import settings
 from app.utils import log_event
 from core import models
@@ -32,7 +33,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiPara
 
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
-from core.models import Document
+from core.models import Document, Application, ApplicationProcessingStatus
 
 from core.Validators.id_validators import ApplicantsValidator
 
@@ -697,3 +698,98 @@ class NewApplicationViewSet(viewsets.ViewSet):
             return Response({"message": f"Application {pk} marked as seen."}, status=status.HTTP_200_OK)
         except models.Application.DoesNotExist:
             return Response({"error": f"Application with ID {pk} does not exist."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ApplicationProcessingStatusCreateView(APIView):
+    """
+    Create ApplicationProcessingStatus for an application.
+    Only allows creation - updates and deletes must be done through admin.
+    """
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = [IsAuthenticated, IsStaff]
+
+    def post(self, request, application_id):
+        """Create processing status for an application"""
+        try:
+            # Get the application
+            application = get_object_or_404(Application, id=application_id)
+
+            # Check if processing status already exists
+            if hasattr(application, 'processing_status'):
+                return Response(
+                    {
+                        'error': 'Processing status already exists for this application. Updates must be done through admin.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Create the processing status
+            processing_status = ApplicationProcessingStatus.objects.create(
+                application=application,
+                application_details_completed_confirmed=request.data.get('application_details_completed_confirmed',
+                                                                         False),
+                solicitor_preferred_aml_method=request.data.get('solicitor_preferred_aml_method'),
+                last_updated_by=request.user
+            )
+
+            # Serialize and return the created object
+            serializer = ApplicationProcessingStatusSerializer(processing_status)
+
+            return Response(
+                {
+                    'message': 'Processing status created successfully',
+                    'data': serializer.data
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        except Application.DoesNotExist:
+            return Response(
+                {'error': 'Application not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def get(self, request, application_id):
+        """Get processing status for an application"""
+        try:
+            application = get_object_or_404(Application, id=application_id)
+
+            if hasattr(application, 'processing_status'):
+                serializer = ApplicationProcessingStatusSerializer(application.processing_status)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    {'message': 'No processing status found for this application'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        except Application.DoesNotExist:
+            return Response(
+                {'error': 'Application not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    def put(self, request, application_id):
+        """Prevent updates through API"""
+        return Response(
+            {'error': 'Updates not allowed through API. Please use admin interface.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def patch(self, request, application_id):
+        """Prevent partial updates through API"""
+        return Response(
+            {'error': 'Updates not allowed through API. Please use admin interface.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def delete(self, request, application_id):
+        """Prevent deletes through API"""
+        return Response(
+            {'error': 'Deletes not allowed through API. Please use admin interface.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )

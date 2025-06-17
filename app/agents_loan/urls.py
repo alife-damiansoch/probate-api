@@ -7,7 +7,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from agents_loan import views
-from agents_loan.views import DownloadFileView, NewApplicationViewSet
+from agents_loan.views import DownloadFileView, NewApplicationViewSet, ApplicationProcessingStatusCreateView
 
 router = DefaultRouter()
 
@@ -34,4 +34,8 @@ urlpatterns = [
     path('applications/agent_applications/new_applications/<int:pk>/mark-seen/',
          NewApplicationViewSet.as_view({'patch': 'mark_seen'}),
          name='new-applications-mark-seen'),
+    # Processing Status URLs
+    path('applications/agent_applications/<int:application_id>/processing-status/',
+         ApplicationProcessingStatusCreateView.as_view(),
+         name='application-processing-status'),
 ]
