@@ -74,11 +74,56 @@ class SolicitorDisputeSerializer(serializers.ModelSerializer):
 
 class SolicitorApplicantSerializer(serializers.ModelSerializer):
     # Override the pps_number field to accept plain text from the frontend
-    pps_number = serializers.CharField(required=False, allow_blank=True)
+    pps_number = serializers.CharField(required=True, allow_blank=False)
+
+    # Add computed fields for convenience
+    full_name = serializers.ReadOnlyField()
+    full_address = serializers.ReadOnlyField()
+
+    # Custom field for date of birth with proper format - now required
+    date_of_birth = serializers.DateField(
+        required=True,
+        allow_null=False,
+        input_formats=['%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'],
+        format='%Y-%m-%d'
+    )
+
+    # Make other fields explicitly required
+    title = serializers.ChoiceField(choices=Applicant.TITLE_CHOICES, required=True)
+    first_name = serializers.CharField(max_length=255, required=True, allow_blank=False)
+    last_name = serializers.CharField(max_length=255, required=True, allow_blank=False)
+    address_line_1 = serializers.CharField(max_length=255, required=True, allow_blank=False)
+    address_line_2 = serializers.CharField(max_length=255, required=False, allow_blank=True)  # Keep optional
+    city = serializers.CharField(max_length=100, required=True, allow_blank=False)
+    county = serializers.CharField(max_length=100, required=True, allow_blank=False)
+    postal_code = serializers.CharField(max_length=20, required=True, allow_blank=False)
+    country = serializers.CharField(max_length=100, required=True, allow_blank=False)
+    email = serializers.EmailField(max_length=254, required=True, allow_blank=False)
+    phone_number = serializers.CharField(max_length=17, required=True, allow_blank=False)
 
     class Meta:
         model = Applicant
-        fields = ['title', 'first_name', 'last_name', 'pps_number']
+        fields = [
+            'id',
+            'title',
+            'first_name',
+            'last_name',
+            'pps_number',
+            'address_line_1',
+            'address_line_2',
+            'city',
+            'county',
+            'postal_code',
+            'country',
+            'date_of_birth',
+            'email',
+            'phone_number',
+            'full_name',
+            'full_address',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'full_name', 'full_address', 'created_at', 'updated_at']
 
     def get_pps_number(self, obj):
         """Return the decrypted PPS number for GET requests."""
@@ -89,6 +134,26 @@ class SolicitorApplicantSerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         ret['pps_number'] = instance.decrypted_pps
         return ret
+
+    def validate(self, data):
+        """Additional validation for required fields."""
+        required_fields = [
+            'title', 'first_name', 'last_name', 'pps_number',
+            'address_line_1', 'city', 'county', 'postal_code',
+            'date_of_birth', 'email', 'phone_number', 'country'
+        ]
+
+        errors = {}
+        for field in required_fields:
+            value = data.get(field)
+            if not value or (isinstance(value, str) and not value.strip()):
+                field_name = field.replace('_', ' ').title()
+                errors[field] = f"{field_name} is required and cannot be empty."
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return data
 
     def create(self, validated_data):
         """Handle creating a new Applicant."""
@@ -196,33 +261,49 @@ class SolicitorApplicationDetailSerializer(SolicitorApplicationSerializer):
             dispute_serializer.is_valid(raise_exception=True)
             dispute_serializer.save()
 
-        # Fetch current applicants and estates related to this application
+        # Fetch current applicants related to this application
         current_applicants = Applicant.objects.filter(application=instance)
 
-        # Convert current applicants and estates to a dictionary keyed by a unique combination of fields
-        current_applicants_dict = {
-            (applicant.first_name, applicant.last_name, applicant.pps_number): applicant
+        # Create dictionaries for easier lookup
+        current_applicants_by_id = {applicant.id: applicant for applicant in current_applicants}
+        current_applicants_by_key = {
+            (applicant.first_name, applicant.last_name, applicant.decrypted_pps): applicant
             for applicant in current_applicants
         }
 
-        # Track applicants and estates to keep
+        # Track applicants to keep
         applicants_to_keep = []
-        estates_to_keep = []
 
         # Update or create applicants
         for applicant_data in applicants_data:
-            key = (applicant_data.get('first_name'), applicant_data.get('last_name'), applicant_data.get('pps_number'))
-            applicant_instance = current_applicants_dict.get(key)
+            applicant_id = applicant_data.get('id')
+            applicant_instance = None
+
+            if applicant_id:
+                # If ID is provided, try to find by ID first
+                applicant_instance = current_applicants_by_id.get(applicant_id)
+
+            if not applicant_instance:
+                # If not found by ID, try to find by key combination
+                key = (
+                    applicant_data.get('first_name'),
+                    applicant_data.get('last_name'),
+                    applicant_data.get('pps_number')
+                )
+                applicant_instance = current_applicants_by_key.get(key)
 
             if applicant_instance:
                 # Update existing applicant
                 for attr, value in applicant_data.items():
-                    setattr(applicant_instance, attr, value)
+                    if attr != 'id':  # Don't update the ID
+                        setattr(applicant_instance, attr, value)
                 applicant_instance.save()
                 applicants_to_keep.append(applicant_instance)
             else:
                 # Create new applicant if no match found
-                new_applicant = Applicant.objects.create(application=instance, **applicant_data)
+                # Remove 'id' from applicant_data if present to avoid conflicts
+                create_data = {k: v for k, v in applicant_data.items() if k != 'id'}
+                new_applicant = Applicant.objects.create(application=instance, **create_data)
                 applicants_to_keep.append(new_applicant)
 
         # Remove applicants not in the new data set

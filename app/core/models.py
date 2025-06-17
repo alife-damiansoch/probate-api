@@ -325,12 +325,49 @@ class Applicant(models.Model):
         ('Prof', 'Prof'),
     )
 
+    # Existing fields
     title = models.CharField(max_length=5, choices=TITLE_CHOICES)
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
     pps_number = models.BinaryField(null=True, blank=True)
     application = models.ForeignKey(
         'Application', on_delete=models.CASCADE, related_name='applicants')
+
+    # New fields with default values for compatibility
+    address_line_1 = models.CharField(max_length=255, default='', blank=True)
+    address_line_2 = models.CharField(max_length=255, default='', blank=True)
+    city = models.CharField(max_length=100, default='', blank=True)
+    county = models.CharField(max_length=100, default='', blank=True)
+    postal_code = models.CharField(max_length=20, default='', blank=True)
+    country = models.CharField(max_length=100, default='Ireland', blank=True)
+
+    date_of_birth = models.DateField(null=True, blank=True)
+
+    email = models.EmailField(max_length=254, default='', blank=True)
+
+    phone_number = models.CharField(max_length=17, default='', blank=True)
+
+    # Timestamps for auditing
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def full_name(self):
+        """Return the full name of the applicant."""
+        return f"{self.first_name} {self.last_name}"
+
+    @property
+    def full_address(self):
+        """Return the full formatted address."""
+        address_parts = [
+            self.address_line_1,
+            self.address_line_2,
+            self.city,
+            self.county,
+            self.postal_code,
+            self.country
+        ]
+        return ', '.join([part for part in address_parts if part.strip()])
 
     @property
     def decrypted_pps(self):
@@ -358,6 +395,11 @@ class Applicant(models.Model):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+
+    class Meta:
+        ordering = ['last_name', 'first_name']
+        verbose_name = 'Applicant'
+        verbose_name_plural = 'Applicants'
 
 
 class RealAndLeaseholdProperty(models.Model):

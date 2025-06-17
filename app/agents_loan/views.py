@@ -216,7 +216,11 @@ class AgentApplicationViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(
                 Q(applicants__first_name__icontains=search_term) |
                 Q(applicants__last_name__icontains=search_term) |
-                Q(applicants__pps_number__icontains=search_term)
+                Q(applicants__pps_number__icontains=search_term) |
+                Q(applicants__email__icontains=search_term) |
+                Q(applicants__phone_number__icontains=search_term) |
+                Q(applicants__city__icontains=search_term) |
+                Q(applicants__county__icontains=search_term)
             ).distinct()
             return queryset
 

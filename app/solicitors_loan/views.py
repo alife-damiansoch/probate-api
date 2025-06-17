@@ -209,7 +209,11 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(
                 Q(applicants__first_name__icontains=search_term) |
                 Q(applicants__last_name__icontains=search_term) |
-                Q(applicants__pps_number__icontains=search_term)
+                Q(applicants__pps_number__icontains=search_term) |
+                Q(applicants__email__icontains=search_term) |
+                Q(applicants__phone_number__icontains=search_term) |
+                Q(applicants__city__icontains=search_term) |
+                Q(applicants__county__icontains=search_term)
             ).distinct()
 
         return queryset
@@ -468,23 +472,35 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
         # Detect added applicants
         added_applicants = updated_set - original_set
         for applicant in added_applicants:
-            changes.append(f"Applicant added: {dict(applicant)}")
+            applicant_dict = dict(applicant)
+            changes.append(
+                f"Applicant added: {applicant_dict.get('first_name', '')} {applicant_dict.get('last_name', '')}")
 
         # Detect removed applicants
         removed_applicants = original_set - updated_set
         for applicant in removed_applicants:
-            changes.append(f"Applicant removed: {dict(applicant)}")
+            applicant_dict = dict(applicant)
+            changes.append(
+                f"Applicant removed: {applicant_dict.get('first_name', '')} {applicant_dict.get('last_name', '')}")
 
         # Detect modified applicants
         for original_applicant in original_applicants:
             matching_updated_applicant = next(
                 (app for app in updated_applicants if app['id'] == original_applicant['id']), None)
             if matching_updated_applicant:
-                for key in original_applicant:
-                    if original_applicant[key] != matching_updated_applicant[key]:
-                        changes.append(
-                            f"Applicant {original_applicant['id']} field '{key}' changed from {original_applicant[key]} to {matching_updated_applicant[key]}"
-                        )
+                # Define important fields to track for changes
+                important_fields = [
+                    'title', 'first_name', 'last_name', 'pps_number',
+                    'address_line_1', 'address_line_2', 'city', 'county',
+                    'postal_code', 'country', 'date_of_birth', 'email', 'phone_number'
+                ]
+
+                for key in important_fields:
+                    if key in original_applicant and key in matching_updated_applicant:
+                        if original_applicant[key] != matching_updated_applicant[key]:
+                            changes.append(
+                                f"Applicant {original_applicant.get('first_name', '')} {original_applicant.get('last_name', '')} field '{key}' updated"
+                            )
 
         return changes
 
