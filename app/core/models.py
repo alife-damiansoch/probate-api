@@ -303,6 +303,43 @@ class Application(models.Model):
         super().delete(*args, **kwargs)
 
 
+class ApplicationProcessingStatus(models.Model):
+    """Application processing status and solicitor preferences"""
+
+    AML_METHOD_CHOICES = [
+        ('KYC', 'KYC'),
+        ('AML', 'AML'),
+    ]
+
+    application = models.OneToOneField(
+        'Application',
+        on_delete=models.CASCADE,
+        related_name='processing_status'
+    )
+
+    application_details_completed_confirmed = models.BooleanField(default=False)
+
+    solicitor_preferred_aml_method = models.CharField(
+        max_length=3,
+        choices=AML_METHOD_CHOICES,
+        null=True,
+        blank=True
+    )
+
+    last_updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='updated_processing_status_set'
+    )
+
+    date_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Processing Status for Application {self.application.id}"
+
+
 class Comment(models.Model):
     text = models.TextField(default=None, null=True, blank=True)
     created_by = ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
@@ -488,7 +525,7 @@ class SecuritiesQuoted(models.Model):
     description = models.TextField(blank=True)
     value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
 
-    lendable = models.BooleanField(default=True)
+    lendable = models.BooleanField(default=False)
     is_asset = models.BooleanField(default=True)
 
 

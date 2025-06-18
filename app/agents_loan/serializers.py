@@ -7,7 +7,7 @@ from django.db.models import Sum
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from core.models import (Application, Deceased, Dispute, Applicant, Document, )
+from core.models import (Application, Deceased, Dispute, Applicant, Document, ApplicationProcessingStatus, )
 from expense.serializers import ExpenseSerializer
 from user.serializers import UserSerializer
 from loan.serializers import LoanSerializer
@@ -132,6 +132,20 @@ class AgentApplicantSerializer(serializers.ModelSerializer):
         return instance
 
 
+class ApplicationProcessingStatusSerializer(serializers.ModelSerializer):
+    last_updated_by = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = ApplicationProcessingStatus
+        fields = [
+            'application_details_completed_confirmed',
+            'solicitor_preferred_aml_method',
+            'last_updated_by',
+            'date_updated'
+        ]
+        read_only_fields = ['last_updated_by', 'date_updated']
+
+
 class AgentApplicationSerializer(serializers.ModelSerializer):
     """serializer for application list"""
 
@@ -192,12 +206,14 @@ class AgentApplicationDetailSerializer(AgentApplicationSerializer):
     signed_documents = serializers.SerializerMethodField(read_only=True)
     expenses = ExpenseSerializer(many=True, read_only=True)
     value_of_the_estate_after_expenses = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    processing_status = ApplicationProcessingStatusSerializer(read_only=True)
 
     class Meta(AgentApplicationSerializer.Meta):
         fields = AgentApplicationSerializer.Meta.fields + ['deceased', 'applicants', 'estate_summary', 'expenses',
                                                            'value_of_the_estate_after_expenses',
                                                            'dispute', 'documents',
-                                                           'signed_documents', 'was_will_prepared_by_solicitor', ]
+                                                           'signed_documents', 'was_will_prepared_by_solicitor',
+                                                           'processing_status']
 
     def get_estate_summary(self, obj):
         request = self.context.get('request')
