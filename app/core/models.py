@@ -525,7 +525,7 @@ class SecuritiesQuoted(models.Model):
     description = models.TextField(blank=True)
     value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
 
-    lendable = models.BooleanField(default=True)
+    lendable = models.BooleanField(default=False)
     is_asset = models.BooleanField(default=True)
 
 
