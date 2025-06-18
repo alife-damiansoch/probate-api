@@ -1074,6 +1074,40 @@ class FrontendAPIKey(models.Model):
         FrontendAPIKey.objects.filter(expires_at__lt=now()).delete()
 
 
+class InternalFile(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    file = models.FileField(upload_to='internal_files/')
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name='internal_files',
+        null=True,  # Add this temporarily
+        blank=True  # Add this temporarily
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    is_ccr = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Internal File'
+        verbose_name_plural = 'Internal Files'
+        indexes = [
+            models.Index(fields=['application']),
+            models.Index(fields=['created_at']),
+            models.Index(fields=['is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.application.id}"
+
+
 auditlog.register(User)
 auditlog.register(Application)
 auditlog.register(Document)

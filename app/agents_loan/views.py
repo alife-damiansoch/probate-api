@@ -538,6 +538,10 @@ class AgentDocumentUploadAndViewListForApplicationIdView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+import os
+import shutil
+
+
 class AgentDocumentDeleteView(APIView):
     serializer_class = serializers.AgentDocumentSerializer
     authentication_classes = (JWTAuthentication,)
@@ -559,6 +563,39 @@ class AgentDocumentDeleteView(APIView):
             document = self.get_document(document_id)
             if document.application.approved:
                 raise ValidationError("This operation is not allowed on approved applications")
+
+            # Move file to deletedFiles directory before deleting the database record
+            if document.document and hasattr(document.document, 'path'):
+                original_file_path = document.document.path
+                try:
+
+                    if os.path.exists(original_file_path):
+                        # Create the deletedFiles/applicationID directory structure
+                        deleted_files_dir = os.path.join('deletedFiles', str(document.application.id))
+                        os.makedirs(deleted_files_dir, exist_ok=True)
+
+                        # Get the original filename
+                        original_filename = os.path.basename(original_file_path)
+
+                        # Create the destination path
+                        destination_path = os.path.join(deleted_files_dir, original_filename)
+
+                        # Handle filename conflicts by adding a timestamp if file already exists
+                        if os.path.exists(destination_path):
+                            from datetime import datetime
+                            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                            name, ext = os.path.splitext(original_filename)
+                            destination_path = os.path.join(deleted_files_dir, f"{name}_{timestamp}{ext}")
+
+                        # Move the file to the deletedFiles directory
+                        shutil.move(original_file_path, destination_path)
+                        print(f"Moved document file from {original_file_path} to {destination_path}")
+
+                except (OSError, shutil.Error) as e:
+                    print(f"Error moving document file {original_file_path}: {e}")
+                    # Continue with deletion even if move fails
+
+            # Delete the database record
             document.delete()
             log_event(request=request, request_body={'message': 'A document was deleted.'}, application=None,
                       response_status=204)

@@ -153,6 +153,7 @@ INSTALLED_APPS = [
     'communications',
     "estates",
     'document_requirements',
+    'internal_files'
 
 ]
 

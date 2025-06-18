@@ -24,7 +24,7 @@ from core.models import LoanExtension, Transaction, Document, Solicitor, SignedD
     RealAndLeaseholdProperty, \
     HouseholdContents, CarsBoats, BusinessFarming, BusinessOther, \
     UnpaidPurchaseMoney, FinancialAsset, LifeInsurance, DebtOwed, SecuritiesQuoted, \
-    SecuritiesUnquoted, OtherProperty, IrishDebt, ApplicationProcessingStatus
+    SecuritiesUnquoted, OtherProperty, IrishDebt, ApplicationProcessingStatus, InternalFile
 
 from rest_framework.authtoken.models import Token
 
@@ -958,3 +958,24 @@ class ApplicationDocumentRequirementAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related(
             'application', 'document_type', 'created_by'
         )
+
+
+@admin.register(InternalFile)
+class InternalFileAdmin(admin.ModelAdmin):
+    list_display = ['title', 'application', 'uploaded_by', 'created_at', 'is_active']
+    list_filter = ['is_active', 'created_at', 'uploaded_by']
+    search_fields = ['title', 'description', 'application__id']
+    readonly_fields = ['created_at', 'updated_at']
+
+    fieldsets = (
+        (None, {
+            'fields': ('title', 'description', 'file', 'application', 'is_active')
+        }),
+        ('Metadata', {
+            'fields': ('uploaded_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('application', 'uploaded_by')
