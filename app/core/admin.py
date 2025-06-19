@@ -10,6 +10,7 @@ from django import forms
 from django.forms import TextInput
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.utils.safestring import mark_safe
 
 from rangefilter.filters import DateRangeFilter
 
@@ -31,6 +32,8 @@ from rest_framework.authtoken.models import Token
 from auditlog.models import LogEntry
 
 from document_requirements.models import ApplicationDocumentRequirement, DocumentType
+from finance_checklist.models import LoanChecklistSubmission, FinanceChecklistItem, LoanChecklistItemCheck, \
+    ChecklistConfiguration
 
 
 class AssignedSolicitorInline(admin.TabularInline):
@@ -979,3 +982,137 @@ class InternalFileAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('application', 'uploaded_by')
+
+
+@admin.register(FinanceChecklistItem)
+class FinanceChecklistItemAdmin(admin.ModelAdmin):
+    list_display = ['title', 'is_active', 'order', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['title', 'description']
+    list_editable = ['is_active', 'order']
+    list_per_page = 50
+    ordering = ['order', 'title']
+
+    fieldsets = (
+        (None, {
+            'fields': ('title', 'description', 'is_active', 'order')
+        }),
+    )
+
+
+@admin.register(ChecklistConfiguration)
+class ChecklistConfigurationAdmin(admin.ModelAdmin):
+    list_display = ['required_approvers', 'is_active', 'created_at', 'updated_at']
+    list_filter = ['is_active', 'created_at']
+
+    fieldsets = (
+        (None, {
+            'fields': ('required_approvers', 'is_active'),
+            'description': 'Configure how many staff users must complete the checklist for each loan.'
+        }),
+    )
+
+    def has_add_permission(self, request):
+        # Only allow adding if no active configuration exists
+        return not ChecklistConfiguration.objects.filter(is_active=True).exists()
+
+
+class LoanChecklistItemCheckInline(admin.TabularInline):
+    model = LoanChecklistItemCheck
+    extra = 0
+    readonly_fields = ['checklist_item', 'is_checked', 'notes']
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(LoanChecklistSubmission)
+class LoanChecklistSubmissionAdmin(admin.ModelAdmin):
+    list_display = [
+        'loan_link', 'submitted_by', 'submitted_at',
+        'checked_items_count', 'notes_preview'
+    ]
+    list_filter = ['submitted_at', 'submitted_by']
+    search_fields = ['loan__id', 'submitted_by__username', 'notes']
+    readonly_fields = ['loan', 'submitted_by', 'submitted_at', 'checked_items_summary']
+
+    inlines = [LoanChecklistItemCheckInline]
+
+    fieldsets = (
+        ('Submission Info', {
+            'fields': ('loan', 'submitted_by', 'submitted_at', 'notes')
+        }),
+        ('Checklist Summary', {
+            'fields': ('checked_items_summary',),
+        }),
+    )
+
+    def loan_link(self, obj):
+        url = reverse('admin:core_loan_change', args=[obj.loan.id])  # Replace 'core' with your actual app name
+        return format_html('<a href="{}">{}</a>', url, f"Loan {obj.loan.id}")
+
+    loan_link.short_description = 'Loan'
+
+    def checked_items_count(self, obj):
+        total_items = FinanceChecklistItem.objects.filter(is_active=True).count()
+        checked_count = obj.item_checks.filter(is_checked=True).count()
+        return f"{checked_count}/{total_items}"
+
+    checked_items_count.short_description = 'Items Checked'
+
+    def notes_preview(self, obj):
+        if obj.notes:
+            return obj.notes[:50] + "..." if len(obj.notes) > 50 else obj.notes
+        return "-"
+
+    notes_preview.short_description = 'Notes'
+
+    def checked_items_summary(self, obj):
+        """Display summary of checked items"""
+        checks = obj.item_checks.all().select_related('checklist_item')
+
+        html = "<div style='max-height: 200px; overflow-y: auto;'>"
+        html += "<table style='width: 100%; border-collapse: collapse;'>"
+        html += "<tr style='background: #f8f9fa; font-weight: bold;'>"
+        html += "<th style='padding: 8px; border: 1px solid #ddd;'>Item</th>"
+        html += "<th style='padding: 8px; border: 1px solid #ddd;'>Status</th>"
+        html += "<th style='padding: 8px; border: 1px solid #ddd;'>Notes</th>"
+        html += "</tr>"
+
+        for check in checks:
+            status_color = "#28a745" if check.is_checked else "#dc3545"
+            status_text = "✓ Checked" if check.is_checked else "✗ Not Checked"
+
+            html += f"<tr>"
+            html += f"<td style='padding: 8px; border: 1px solid #ddd;'>{check.checklist_item.title}</td>"
+            html += f"<td style='padding: 8px; border: 1px solid #ddd; color: {status_color}; font-weight: bold;'>{status_text}</td>"
+            html += f"<td style='padding: 8px; border: 1px solid #ddd;'>{check.notes or '-'}</td>"
+            html += f"</tr>"
+
+        html += "</table></div>"
+        return mark_safe(html)
+
+    checked_items_summary.short_description = 'Checklist Items Summary'
+
+
+# Add to your existing Loan admin or create new one
+class LoanChecklistSubmissionInline(admin.TabularInline):
+    model = LoanChecklistSubmission
+    extra = 0
+    readonly_fields = ['submitted_by', 'submitted_at', 'items_checked_summary']
+    fields = ['submitted_by', 'submitted_at', 'notes', 'items_checked_summary']
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def items_checked_summary(self, obj):
+        if not obj.pk:
+            return "-"
+
+        total_items = FinanceChecklistItem.objects.filter(is_active=True).count()
+        checked_count = obj.item_checks.filter(is_checked=True).count()
+        return f"{checked_count}/{total_items} items checked"
+
+    items_checked_summary.short_description = 'Progress'

@@ -856,6 +856,69 @@ class Loan(models.Model):
             print(f"Error creating notification: {e}")
             return False  # Return False if any error occurs
 
+    @property
+    def finance_checklist_complete(self):
+        from finance_checklist.models import ChecklistConfiguration, FinanceChecklistItem, LoanChecklistItemCheck
+        """Check if finance checklist is complete for this loan"""
+        config = ChecklistConfiguration.objects.filter(is_active=True).first()
+        if not config:
+            return False
+
+        # Get all active checklist items
+        active_items = FinanceChecklistItem.objects.filter(is_active=True)
+        if not active_items.exists():
+            return False
+
+        # Get all submissions for this loan
+        submissions = self.checklist_submissions.all()
+
+        # Check if we have enough unique users who submitted
+        unique_submitters = submissions.values_list('submitted_by', flat=True).distinct()
+        if len(unique_submitters) < config.required_approvers:
+            return False
+
+        # Check if all required items are checked by required number of users
+        for item in active_items:
+            # Count how many different users checked this item
+            users_who_checked = LoanChecklistItemCheck.objects.filter(
+                submission__loan=self,
+                checklist_item=item,
+                is_checked=True
+            ).values_list('submission__submitted_by', flat=True).distinct()
+
+            if len(users_who_checked) < config.required_approvers:
+                return False
+
+        return True
+
+    @property
+    def checklist_submissions_summary(self):
+        """Get summary of checklist submissions"""
+        from finance_checklist.models import ChecklistConfiguration, FinanceChecklistItem
+        submissions = self.checklist_submissions.all().select_related('submitted_by')
+        config = ChecklistConfiguration.objects.filter(is_active=True).first()
+
+        summary = {
+            'total_submissions': submissions.count(),
+            'required_submissions': config.required_approvers if config else 1,
+            'is_complete': self.finance_checklist_complete,
+            'submissions': []
+        }
+
+        for submission in submissions:
+            checked_count = submission.item_checks.filter(is_checked=True).count()
+            total_items = FinanceChecklistItem.objects.filter(is_active=True).count()
+
+            summary['submissions'].append({
+                'user': submission.submitted_by.username,
+                'submitted_at': submission.submitted_at,
+                'checked_items': checked_count,
+                'total_items': total_items,
+                'notes': submission.notes
+            })
+
+        return summary
+
 
 class CommitteeApproval(models.Model):
     loan = models.ForeignKey(

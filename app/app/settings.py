@@ -153,7 +153,8 @@ INSTALLED_APPS = [
     'communications',
     "estates",
     'document_requirements',
-    'internal_files'
+    'internal_files',
+    'finance_checklist'
 
 ]
 
