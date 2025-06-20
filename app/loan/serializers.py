@@ -5,6 +5,8 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from core.models import (Loan, Transaction, LoanExtension, User)
+from loanbook.models import LoanBook
+from loanbook.serializers import LoanBookSerializer
 
 
 class TransactionSerializer(serializers.ModelSerializer):
@@ -71,6 +73,7 @@ class LoanSerializer(serializers.ModelSerializer):
     committee_approvements_status = serializers.SerializerMethodField()
     country = serializers.SerializerMethodField()
     currency_sign = serializers.SerializerMethodField()
+    loanbook_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Loan
@@ -80,7 +83,7 @@ class LoanSerializer(serializers.ModelSerializer):
             'last_updated_by_email', 'application', 'assigned_to_email', 'is_paid_out', 'paid_out_date',
             'pay_out_reference_number',
             'committee_approvements_status', 'needs_committee_approval', 'is_committee_approved', 'country',
-            'currency_sign'
+            'currency_sign', 'loanbook_data'
             # New fields added here
         ]
         read_only_fields = [
@@ -89,6 +92,12 @@ class LoanSerializer(serializers.ModelSerializer):
             'is_committee_approved', 'country', 'currency_sign'
         ]
         extra_kwargs = {"application": {'required': True}}
+
+    def get_loanbook_data(self, obj):
+        try:
+            return LoanBookSerializer(obj.loanbook).data
+        except LoanBook.DoesNotExist:
+            return None
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_currency_sign(self, obj):

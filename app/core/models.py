@@ -700,10 +700,8 @@ class Loan(models.Model):
                 # Determine if committee approval is needed
                 self.needs_committee_approval = self.amount_agreed >= settings.ADVANCEMENT_THRESHOLD_FOR_COMMITTEE_APPROVAL
 
-            # Set or clear paid_out_date based on is_paid_out
-            if self.is_paid_out and not self.paid_out_date:
-                self.paid_out_date = timezone.now().date()
-            elif not self.is_paid_out:
+            # Clear paid_out_date if is_paid_out is False
+            if not self.is_paid_out:
                 self.paid_out_date = None
 
             # Save the instance to ensure self.id is assigned

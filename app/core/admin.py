@@ -34,6 +34,7 @@ from auditlog.models import LogEntry
 from document_requirements.models import ApplicationDocumentRequirement, DocumentType
 from finance_checklist.models import LoanChecklistSubmission, FinanceChecklistItem, LoanChecklistItemCheck, \
     ChecklistConfiguration
+from loanbook.models import LoanBook
 
 
 class AssignedSolicitorInline(admin.TabularInline):
@@ -1143,3 +1144,13 @@ class LoanChecklistSubmissionAdmin(admin.ModelAdmin):
         return mark_safe(html)
 
     checked_items_summary.short_description = 'Checklist Items Summary'
+
+
+@admin.register(LoanBook)
+class LoanBookAdmin(admin.ModelAdmin):
+    readonly_fields = ('loan', 'initial_amount', 'created_at')
+    list_display = (
+        'loan', 'initial_amount', 'estate_net_value',
+        'initial_fee_percentage', 'daily_fee_after_year_percentage', 'exit_fee_percentage',
+        'created_at'
+    )
