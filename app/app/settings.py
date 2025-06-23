@@ -154,7 +154,8 @@ INSTALLED_APPS = [
     "estates",
     'document_requirements',
     'internal_files',
-    'finance_checklist'
+    'finance_checklist',
+    "loanbook"
 
 ]
 
