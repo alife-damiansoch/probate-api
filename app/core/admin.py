@@ -1148,7 +1148,7 @@ class LoanChecklistSubmissionAdmin(admin.ModelAdmin):
 
 @admin.register(LoanBook)
 class LoanBookAdmin(admin.ModelAdmin):
-    readonly_fields = ('loan', 'initial_amount', 'created_at')
+    readonly_fields = ('loan',)
     list_display = (
         'loan', 'initial_amount', 'estate_net_value',
         'initial_fee_percentage', 'daily_fee_after_year_percentage', 'exit_fee_percentage',
