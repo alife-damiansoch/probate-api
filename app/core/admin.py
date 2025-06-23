@@ -1039,7 +1039,7 @@ class LoanChecklistSubmissionAdmin(admin.ModelAdmin):
         'notes_preview'
     ]
     list_filter = ['submitted_at', 'submitted_by']
-    search_fields = ['loan__id', 'submitted_by__username', 'notes']
+    search_fields = ['loan__id', 'submitted_by__email', 'notes']
     readonly_fields = ['loan', 'submitted_by', 'submitted_at', 'checked_items_summary']
 
     inlines = [LoanChecklistItemCheckInline]
@@ -1154,3 +1154,4 @@ class LoanBookAdmin(admin.ModelAdmin):
         'initial_fee_percentage', 'daily_fee_after_year_percentage', 'exit_fee_percentage',
         'created_at'
     )
+    search_fields = ('loan__id',)  # Search by the related Loan's ID
