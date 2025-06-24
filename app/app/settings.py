@@ -155,7 +155,8 @@ INSTALLED_APPS = [
     'document_requirements',
     'internal_files',
     'finance_checklist',
-    "loanbook"
+    "loanbook",
+    'document_emails'
 
 ]
 

@@ -31,6 +31,7 @@ from rest_framework.authtoken.models import Token
 
 from auditlog.models import LogEntry
 
+from document_emails.models import EmailDeliveryLog, EmailDocument, EmailCommunication
 from document_requirements.models import ApplicationDocumentRequirement, DocumentType
 from finance_checklist.models import LoanChecklistSubmission, FinanceChecklistItem, LoanChecklistItemCheck, \
     ChecklistConfiguration
@@ -1155,3 +1156,113 @@ class LoanBookAdmin(admin.ModelAdmin):
         'created_at'
     )
     search_fields = ('loan__id',)  # Search by the related Loan's ID
+
+
+@admin.register(EmailCommunication)
+class EmailCommunicationAdmin(admin.ModelAdmin):
+    list_display = [
+        'id', 'application_link', 'recipient_email', 'subject_truncated',
+        'status', 'document_count', 'sent_by', 'created_at', 'sent_at'
+    ]
+    list_filter = ['status', 'created_at', 'sent_at', 'email_template']
+    search_fields = ['recipient_email', 'subject', 'application__id']
+    readonly_fields = ['created_at', 'sent_at', 'delivered_at', 'email_service_id']
+
+    fieldsets = (
+        ('Email Details', {
+            'fields': ('application', 'recipient_email', 'recipient_name', 'subject', 'message')
+        }),
+        ('Settings', {
+            'fields': ('email_template', 'status')
+        }),
+        ('Tracking', {
+            'fields': ('sent_by', 'created_at', 'sent_at', 'delivered_at', 'email_service_id'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def application_link(self, obj):
+        if obj.application:
+            try:
+                # Try different possible admin URL patterns for Application
+                url = reverse('admin:core_application_change', args=[obj.application.id])
+                return format_html('<a href="{}">{}</a>', url, obj.application.id)
+            except:
+                try:
+                    # Alternative pattern
+                    url = reverse('admin:applications_application_change', args=[obj.application.id])
+                    return format_html('<a href="{}">{}</a>', url, obj.application.id)
+                except:
+                    # If reverse fails, just return the ID without link
+                    return str(obj.application.id)
+        return '-'
+
+    application_link.short_description = 'Application'
+
+    def subject_truncated(self, obj):
+        return obj.subject[:50] + '...' if len(obj.subject) > 50 else obj.subject
+
+    subject_truncated.short_description = 'Subject'
+
+    def document_count(self, obj):
+        count = obj.email_documents.count()
+        return format_html('<span class="badge">{}</span>', count)
+
+    document_count.short_description = 'Documents'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'application', 'sent_by'
+        ).prefetch_related('email_documents')
+
+
+@admin.register(EmailDocument)
+class EmailDocumentAdmin(admin.ModelAdmin):
+    list_display = [
+        'id', 'original_name', 'email_communication_link',
+        'file_size_formatted', 'mime_type', 'created_at'
+    ]
+    list_filter = ['mime_type', 'created_at']
+    search_fields = ['original_name', 'email_communication__subject']
+    readonly_fields = ['file_size', 'created_at']
+
+    def email_communication_link(self, obj):
+        url = reverse('admin:document_emails_emailcommunication_change',
+                      args=[obj.email_communication.id])
+        return format_html('<a href="{}">{}</a>',
+                           url, f"Email {obj.email_communication.id}")
+
+    email_communication_link.short_description = 'Email Communication'
+
+    def file_size_formatted(self, obj):
+        size = obj.file_size
+        if size < 1024:
+            return f"{size} B"
+        elif size < 1024 * 1024:
+            return f"{size / 1024:.1f} KB"
+        else:
+            return f"{size / (1024 * 1024):.1f} MB"
+
+    file_size_formatted.short_description = 'File Size'
+
+
+@admin.register(EmailDeliveryLog)
+class EmailDeliveryLogAdmin(admin.ModelAdmin):
+    list_display = [
+        'id', 'email_communication_link', 'event_type',
+        'timestamp', 'created_at'
+    ]
+    list_filter = ['event_type', 'timestamp', 'created_at']
+    search_fields = ['email_communication__subject', 'email_communication__recipient_email']
+    readonly_fields = ['timestamp', 'created_at', 'service_data']
+
+    def email_communication_link(self, obj):
+        url = reverse('admin:document_emails_emailcommunication_change',
+                      args=[obj.email_communication.id])
+        return format_html('<a href="{}">{}</a>',
+                           url, f"Email {obj.email_communication.id}")
+
+    email_communication_link.short_description = 'Email Communication'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('email_communication')
