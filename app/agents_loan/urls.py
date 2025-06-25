@@ -7,7 +7,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from agents_loan import views
-from agents_loan.views import DownloadFileView, NewApplicationViewSet, ApplicationProcessingStatusCreateView
+from agents_loan.views import DownloadFileView, NewApplicationViewSet, ApplicationProcessingStatusCreateView, \
+    NotifySolicitorDocumentUploadView
 
 router = DefaultRouter()
 
@@ -38,4 +39,7 @@ urlpatterns = [
     path('applications/agent_applications/<int:application_id>/processing-status/',
          ApplicationProcessingStatusCreateView.as_view(),
          name='application-processing-status'),
+    path('applications/agent_applications/<int:application_id>/notify-solicitor-documents/',
+         NotifySolicitorDocumentUploadView.as_view(),
+         name='notify-solicitor-documents'),
 ]

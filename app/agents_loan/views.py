@@ -25,6 +25,7 @@ from agents_loan import serializers
 from agents_loan.serializers import ApplicationProcessingStatusSerializer
 from app import settings
 from app.utils import log_event
+from communications.utils import send_email_f
 from core import models
 from agents_loan.permissions import IsStaff
 from app.pagination import CustomPageNumberPagination
@@ -38,6 +39,12 @@ from core.models import Document, Application, ApplicationProcessingStatus
 from django.core.files.base import ContentFile
 
 from core.Validators.id_validators import ApplicantsValidator
+
+from django.conf import settings
+from django.core.files.storage import default_storage
+
+import shutil
+from datetime import datetime
 
 
 @extend_schema_view(
@@ -540,16 +547,6 @@ class AgentDocumentUploadAndViewListForApplicationIdView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-import os
-import shutil
-
-from django.conf import settings
-from django.core.files.storage import default_storage
-import os
-import shutil
-from datetime import datetime
-
-
 class AgentDocumentDeleteView(APIView):
     serializer_class = serializers.AgentDocumentSerializer
     authentication_classes = (JWTAuthentication,)
@@ -875,3 +872,257 @@ class ApplicationProcessingStatusCreateView(APIView):
             {'error': 'Deletes not allowed through API. Please use admin interface.'},
             status=status.HTTP_405_METHOD_NOT_ALLOWED
         )
+
+
+# Add this class to your existing views.py file
+
+class NotifySolicitorDocumentUploadView(APIView):
+    """
+    Notify solicitor that new documents have been uploaded to an application.
+    """
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = [IsAuthenticated, IsStaff]
+
+    @extend_schema(
+        summary="Notify solicitor of new document upload {-Works only for staff users-}",
+        description="Sends an email notification to the solicitor when new documents are uploaded to an application.",
+        tags=["document_agent"],
+        responses={
+            200: {"description": "Email notification sent successfully"},
+            404: {"description": "Application not found"},
+            400: {"description": "No solicitor associated with this application or email sending failed"}
+        }
+    )
+    def post(self, request, application_id):
+        try:
+            # Get the application
+            application = get_object_or_404(models.Application, id=application_id)
+
+            # Check if application has a solicitor
+            if not application.solicitor or not application.user.email:
+                return Response(
+                    {'error': 'No solicitor email found for this application'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get the sender (current user)
+            sender_email = request.user.email
+            recipient_email = application.user.email
+
+            # Create email subject
+            subject = f"New Documents Added - Application #{application.id}"
+
+            # Create email message using HTML template
+            message = self._create_email_template(application, request.user)
+
+            # Send email using the provided function
+            email_result = send_email_f(
+                sender=sender_email,
+                recipient=recipient_email,
+                subject=subject,
+                message=message,
+                application=application,
+                solicitor_firm=application.solicitor.firm if hasattr(application.solicitor, 'firm') else None,
+                use_info_email=True  # Use default info email as sender
+            )
+
+            if 'error' in email_result:
+                return Response(
+                    {'error': f'Failed to send email: {email_result["error"]}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Log the notification event
+            log_event(
+                request=request,
+                request_body={'action': 'solicitor_document_notification_sent'},
+                application=application,
+                response_status=200
+            )
+
+            return Response(
+                {
+                    'message': 'Email notification sent successfully to solicitor',
+                    'solicitor_email': recipient_email,
+                    'application_id': application.id
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except models.Application.DoesNotExist:
+            return Response(
+                {'error': 'Application not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'An error occurred: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _create_email_template(self, application, sender_user):
+        """
+        Create a professional HTML email template for document upload notification.
+        """
+        # Get sender name for personalization
+        sender_name = getattr(sender_user, 'name', sender_user.email).split()[0] if hasattr(sender_user,
+                                                                                            'name') and sender_user.name else 'Team'
+
+        # Get applicant names for reference
+        applicant_names = []
+        if hasattr(application, 'applicants') and application.applicants.exists():
+            applicant_names = [f"{applicant.first_name} {applicant.last_name}" for applicant in
+                               application.applicants.all()]
+
+        applicant_text = ", ".join(applicant_names) if applicant_names else "N/A"
+
+        # Get recent documents count (documents uploaded today)
+        today = timezone.now().date()
+        recent_docs_count = models.Document.objects.filter(
+            application=application,
+            created_at__date=today
+        ).count()
+
+        html_template = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>New Documents Added</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background-color: #f4f4f4;
+                }}
+                .email-container {{
+                    background-color: #ffffff;
+                    border-radius: 8px;
+                    padding: 30px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }}
+                .header {{
+                    background-color: #2c3e50;
+                    color: white;
+                    padding: 20px;
+                    border-radius: 8px 8px 0 0;
+                    margin: -30px -30px 20px -30px;
+                }}
+                .header h1 {{
+                    margin: 0;
+                    font-size: 24px;
+                }}
+                .application-info {{
+                    background-color: #ecf0f1;
+                    padding: 15px;
+                    border-radius: 6px;
+                    margin: 20px 0;
+                }}
+                .info-row {{
+                    margin: 8px 0;
+                }}
+                .label {{
+                    font-weight: bold;
+                    color: #2c3e50;
+                }}
+                .value {{
+                    margin-left: 10px;
+                }}
+                .highlight {{
+                    background-color: #e8f5e8;
+                    padding: 15px;
+                    border-left: 4px solid #27ae60;
+                    margin: 20px 0;
+                }}
+                .footer {{
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 1px solid #ecf0f1;
+                    font-size: 14px;
+                    color: #7f8c8d;
+                }}
+                .button {{
+                    display: inline-block;
+                    padding: 12px 25px;
+                    background-color: #3498db;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    margin: 15px 0;
+                }}
+                .urgent {{
+                    color: #e74c3c;
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="email-container">
+                <div class="header">
+                    <h1>📄 New Documents Added</h1>
+                </div>
+
+                <p>Dear {application.solicitor.name if hasattr(application.solicitor, 'name') and application.solicitor.name else 'Solicitor'},</p>
+
+                <p>We wanted to inform you that new documents have been uploaded to one of your loan applications in our system.</p>
+
+                <div class="highlight">
+                    <strong>📋 Application Details:</strong>
+                </div>
+
+                <div class="application-info">
+                    <div class="info-row">
+                        <span class="label">Application ID:</span>
+                        <span class="value">#{application.id}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Applicant(s):</span>
+                        <span class="value">{applicant_text}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Loan Amount:</span>
+                        <span class="value">€{application.amount:,.2f}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Application Status:</span>
+                        <span class="value">{'Approved' if application.approved else 'Rejected' if application.is_rejected else 'Under Review'}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Documents Added Today:</span>
+                        <span class="value urgent">{recent_docs_count} new document(s)</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Added by:</span>
+                        <span class="value">{sender_name}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Date & Time:</span>
+                        <span class="value">{timezone.now().strftime('%B %d, %Y at %I:%M %p')}</span>
+                    </div>
+                </div>
+
+                <p><strong>📝 Next Steps:</strong></p>
+                <ul>
+                    <li>Please log into your portal to review the newly uploaded documents</li>
+                    <li>Verify that all required documentation is now complete</li>
+                    <li>Contact us if you have any questions about the uploaded materials</li>
+                </ul>
+
+                <p>If you need to review or download these documents, please access your secure portal or contact our team directly.</p>
+
+                <div class="footer">
+                    <p><strong>Important:</strong> This is an automated notification. Please do not reply to this email directly.</p>
+                    <p>If you have any questions or concerns, please contact our support team.</p>
+                    <p><em>This email was sent from our loan application management system on {timezone.now().strftime('%B %d, %Y')}.</em></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        return html_template
