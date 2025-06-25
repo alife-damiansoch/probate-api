@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/signed_documents/', include('signed_documents.urls', namespace='signed_documents')),
     path('api/assignments/', include('agents_default_assignments.urls', namespace='assignments')),
     path('api/', include('communications.urls', namespace='communications')),
+    path('api/', include('document_emails.urls', namespace='document_emails')),  # Add this line
 
     path("api/estates/", include("estates.urls")),
     path('api/finance/', include('finance_checklist.urls', namespace='finance_checklist')),

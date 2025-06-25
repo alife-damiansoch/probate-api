@@ -17,10 +17,21 @@ from rest_framework.reverse import reverse
 class AgentDocumentSerializer(serializers.ModelSerializer):
     """Serializer for uploading document files"""
 
+    # Add the email-related properties
+    is_emailed = serializers.ReadOnlyField()
+    email_count = serializers.ReadOnlyField()
+    last_emailed_date = serializers.ReadOnlyField()
+    emailed_to_recipients = serializers.ReadOnlyField()
+
     class Meta:
         model = Document
-        fields = ['id', 'application', 'document', 'original_name', 'is_signed', 'is_undertaking', 'is_loan_agreement',
-                  'signature_required', 'who_needs_to_sign']
+        fields = [
+            'id', 'application', 'document', 'original_name', 'is_signed',
+            'is_undertaking', 'is_loan_agreement', 'signature_required',
+            'who_needs_to_sign',
+            # Add the new email properties
+            'is_emailed', 'email_count', 'last_emailed_date', 'emailed_to_recipients'
+        ]
         read_only_fields = ('id', 'application',)
         extra_kwargs = {'document': {'required': True}}
 

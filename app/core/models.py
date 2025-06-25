@@ -598,6 +598,46 @@ class Document(models.Model):
         help_text="The requirement this document fulfills"
     )
 
+    @property
+    def is_emailed(self):
+        """Check if this document has been included in any sent emails"""
+        from document_emails.models import EmailDocument
+        return EmailDocument.objects.filter(
+            source_document=self,
+            email_communication__status='sent'
+        ).exists()
+
+    @property
+    def email_count(self):
+        """Count how many times this document has been emailed"""
+        from document_emails.models import EmailDocument
+        return EmailDocument.objects.filter(
+            source_document=self,
+            email_communication__status='sent'
+        ).count()
+
+    @property
+    def last_emailed_date(self):
+        """Get the date when this document was last emailed"""
+        from document_emails.models import EmailDocument
+        email_doc = EmailDocument.objects.filter(
+            source_document=self,
+            email_communication__status='sent'
+        ).order_by('-email_communication__sent_at').first()
+
+        return email_doc.email_communication.sent_at if email_doc else None
+
+    @property
+    def emailed_to_recipients(self):
+        """Get list of recipients who received this document via email"""
+        from document_emails.models import EmailDocument
+        email_docs = EmailDocument.objects.filter(
+            source_document=self,
+            email_communication__status='sent'
+        ).select_related('email_communication')
+
+        return [email_doc.email_communication.recipient_email for email_doc in email_docs]
+
     def save(self, *args, **kwargs):
         # Only auto-set original_name when creating the instance AND it's empty
         if self.document and not self.id and not self.original_name:

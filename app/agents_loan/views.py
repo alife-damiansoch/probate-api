@@ -35,6 +35,8 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from core.models import Document, Application, ApplicationProcessingStatus
 
+from django.core.files.base import ContentFile
+
 from core.Validators.id_validators import ApplicantsValidator
 
 
@@ -541,6 +543,12 @@ class AgentDocumentUploadAndViewListForApplicationIdView(APIView):
 import os
 import shutil
 
+from django.conf import settings
+from django.core.files.storage import default_storage
+import os
+import shutil
+from datetime import datetime
+
 
 class AgentDocumentDeleteView(APIView):
     serializer_class = serializers.AgentDocumentSerializer
@@ -552,6 +560,71 @@ class AgentDocumentDeleteView(APIView):
             return models.Document.objects.get(id=document_id)
         except models.Document.DoesNotExist:
             raise Http404
+
+    def move_file_to_deleted_directory(self, document):
+        """
+        Move file to deletedFiles directory, handling both local and Azure storage
+        """
+        if not document.document:
+            return
+
+        try:
+            # Get original file name/path
+            original_file_name = document.document.name  # This works for both local and Azure
+
+            if not original_file_name:
+                return
+
+            # Create deleted files path
+            deleted_file_path = f"deletedFiles/{document.application.id}/{os.path.basename(original_file_name)}"
+
+            # Handle filename conflicts by adding timestamp if file already exists
+            if default_storage.exists(deleted_file_path):
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                name, ext = os.path.splitext(os.path.basename(original_file_name))
+                deleted_file_path = f"deletedFiles/{document.application.id}/{name}_{timestamp}{ext}"
+
+            # Check if original file exists
+            if default_storage.exists(original_file_name):
+                if settings.DEBUG:
+                    # Local storage - use filesystem operations
+                    self._move_file_local(document, deleted_file_path)
+                else:
+                    # Azure storage - use storage backend operations
+                    self._move_file_azure(document, deleted_file_path)
+
+                print(f"Moved document file from {original_file_name} to {deleted_file_path}")
+            else:
+                print(f"Original file {original_file_name} does not exist")
+
+        except Exception as e:
+            print(f"Error moving document file {original_file_name}: {e}")
+            # Continue with deletion even if move fails
+
+    def _move_file_local(self, document, deleted_file_path):
+        """Handle file moving for local storage"""
+        original_file_path = document.document.path
+        full_deleted_path = os.path.join(settings.MEDIA_ROOT, deleted_file_path)
+
+        # Create directory structure
+        os.makedirs(os.path.dirname(full_deleted_path), exist_ok=True)
+
+        # Move the file
+        shutil.move(original_file_path, full_deleted_path)
+
+    def _move_file_azure(self, document, deleted_file_path):
+        """Handle file moving for Azure Blob Storage"""
+        original_file_name = document.document.name
+
+        # Read the original file content
+        with default_storage.open(original_file_name, 'rb') as original_file:
+            file_content = original_file.read()
+
+        # Save to new location
+        default_storage.save(deleted_file_path, ContentFile(file_content))
+
+        # Delete the original file
+        default_storage.delete(original_file_name)
 
     @extend_schema(
         summary="Deletes a document with the given ID. {-Works only for staff users-}",
@@ -565,35 +638,7 @@ class AgentDocumentDeleteView(APIView):
                 raise ValidationError("This operation is not allowed on approved applications")
 
             # Move file to deletedFiles directory before deleting the database record
-            if document.document and hasattr(document.document, 'path'):
-                original_file_path = document.document.path
-                try:
-
-                    if os.path.exists(original_file_path):
-                        # Create the deletedFiles/applicationID directory structure
-                        deleted_files_dir = os.path.join('deletedFiles', str(document.application.id))
-                        os.makedirs(deleted_files_dir, exist_ok=True)
-
-                        # Get the original filename
-                        original_filename = os.path.basename(original_file_path)
-
-                        # Create the destination path
-                        destination_path = os.path.join(deleted_files_dir, original_filename)
-
-                        # Handle filename conflicts by adding a timestamp if file already exists
-                        if os.path.exists(destination_path):
-                            from datetime import datetime
-                            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                            name, ext = os.path.splitext(original_filename)
-                            destination_path = os.path.join(deleted_files_dir, f"{name}_{timestamp}{ext}")
-
-                        # Move the file to the deletedFiles directory
-                        shutil.move(original_file_path, destination_path)
-                        print(f"Moved document file from {original_file_path} to {destination_path}")
-
-                except (OSError, shutil.Error) as e:
-                    print(f"Error moving document file {original_file_path}: {e}")
-                    # Continue with deletion even if move fails
+            self.move_file_to_deleted_directory(document)
 
             # Delete the database record
             document.delete()
