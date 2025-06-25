@@ -922,8 +922,9 @@ class NotifySolicitorDocumentUploadView(APIView):
                 subject=subject,
                 message=message,
                 application=application,
-                solicitor_firm=application.solicitor.firm if hasattr(application.solicitor, 'firm') else None,
-                use_info_email=True  # Use default info email as sender
+                solicitor_firm=application.user,
+                use_info_email=True,  # Use default info email as sender
+
             )
 
             if 'error' in email_result:
