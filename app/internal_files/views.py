@@ -245,10 +245,51 @@ class PEPCheckCreateView(APIView):
 
         try:
             response = requests.get(url, headers=headers, params=params, timeout=30)
+
+            # Handle quota exceeded / payment required
+            if response.status_code == 429:
+                raise ValueError("API quota exceeded. Please upgrade your dilisense plan to continue PEP screening.")
+
+            # Handle other client errors
+            if response.status_code == 401:
+                raise ValueError("Invalid API key. Please check your dilisense API configuration.")
+
+            if response.status_code == 403:
+                raise ValueError("API access forbidden. Please check your dilisense account status.")
+
+            # Handle payment/subscription issues
+            if response.status_code == 402:
+                raise ValueError("Payment required. Your dilisense subscription needs to be renewed.")
+
             response.raise_for_status()
-            return response.json()
+
+            # Parse response
+            api_data = response.json()
+
+            # Check for error messages in response body
+            if 'error' in api_data:
+                error_msg = api_data.get('error', 'Unknown API error')
+                if 'quota' in error_msg.lower() or 'limit' in error_msg.lower():
+                    raise ValueError(
+                        "API quota exceeded. Please upgrade your dilisense plan to continue PEP screening.")
+                elif 'payment' in error_msg.lower() or 'subscription' in error_msg.lower():
+                    raise ValueError("Payment required. Your dilisense subscription needs to be renewed.")
+                else:
+                    raise ValueError(f"API Error: {error_msg}")
+
+            return api_data
+
         except requests.exceptions.RequestException as e:
-            raise ValueError(f"Failed to connect to dilisense API: {str(e)}")
+            if hasattr(e, 'response') and e.response is not None:
+                if e.response.status_code == 429:
+                    raise ValueError(
+                        "API quota exceeded. Please upgrade your dilisense plan to continue PEP screening.")
+                elif e.response.status_code == 402:
+                    raise ValueError("Payment required. Your dilisense subscription needs to be renewed.")
+                else:
+                    raise ValueError(f"Failed to connect to dilisense API: HTTP {e.response.status_code}")
+            else:
+                raise ValueError(f"Failed to connect to dilisense API: {str(e)}")
 
     def generate_pep_report_content(self, applicant, api_response, check_timestamp):
         """Generate HTML content for the PEP check report"""
