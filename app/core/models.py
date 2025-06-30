@@ -1194,6 +1194,7 @@ class InternalFile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
     is_ccr = models.BooleanField(default=False)
+    is_pep_check = models.BooleanField(default=False)  # NEW FIELD
 
     class Meta:
         ordering = ['-created_at']
@@ -1203,6 +1204,8 @@ class InternalFile(models.Model):
             models.Index(fields=['application']),
             models.Index(fields=['created_at']),
             models.Index(fields=['is_active']),
+            models.Index(fields=['is_ccr']),
+            models.Index(fields=['is_pep_check']),  # NEW INDEX
         ]
 
     def __str__(self):

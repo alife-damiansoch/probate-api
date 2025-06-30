@@ -967,14 +967,18 @@ class ApplicationDocumentRequirementAdmin(admin.ModelAdmin):
 
 @admin.register(InternalFile)
 class InternalFileAdmin(admin.ModelAdmin):
-    list_display = ['title', 'application', 'uploaded_by', 'created_at', 'is_active']
-    list_filter = ['is_active', 'created_at', 'uploaded_by']
+    list_display = ['title', 'application', 'uploaded_by', 'created_at', 'is_active', 'is_ccr', 'is_pep_check']
+    list_filter = ['is_active', 'is_ccr', 'is_pep_check', 'created_at', 'uploaded_by']
     search_fields = ['title', 'description', 'application__id']
     readonly_fields = ['created_at', 'updated_at']
 
     fieldsets = (
         (None, {
             'fields': ('title', 'description', 'file', 'application', 'is_active')
+        }),
+        ('File Type', {
+            'fields': ('is_ccr', 'is_pep_check'),
+            'description': 'Specify the type of this internal file'
         }),
         ('Metadata', {
             'fields': ('uploaded_by', 'created_at', 'updated_at'),
