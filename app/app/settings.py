@@ -39,6 +39,9 @@ ADMIN_EMAILS = os.getenv("ADMIN_EMAILS", "").split(",")
 # Remove empty strings if the env variable is not set
 ADMIN_EMAILS = [email.strip() for email in ADMIN_EMAILS if email.strip()]
 
+# for PEP check
+DILISENSE_API_KEY = os.getenv('DILISENSE_API_KEY', '')
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.getenv('DEBUG', 0)))
 # Enable these only in production

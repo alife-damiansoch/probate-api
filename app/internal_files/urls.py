@@ -11,4 +11,7 @@ urlpatterns = [
     # Individual file operations
     path('<int:pk>/', views.InternalFileDetailView.as_view(), name='internal-file-detail'),
     path('<int:pk>/download/', views.InternalFileDownloadView.as_view(), name='internal-file-download'),
+
+    # PEP Check endpoint
+    path('pep-check/application/<int:application_id>/', views.PEPCheckCreateView.as_view(), name='pep-check-create'),
 ]

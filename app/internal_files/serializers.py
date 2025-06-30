@@ -9,7 +9,7 @@ class InternalFileSerializer(serializers.ModelSerializer):
     class Meta:
         model = InternalFile
         fields = ['id', 'title', 'description', 'file', 'application', 'application_id',
-                  'uploaded_by', 'created_at', 'updated_at', "is_ccr"]
+                  'uploaded_by', 'created_at', 'updated_at', 'is_ccr', 'is_pep_check']
         read_only_fields = ['id', 'application', 'uploaded_by', 'created_at', 'updated_at', 'is_active']
 
     def create(self, validated_data):
