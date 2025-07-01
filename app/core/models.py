@@ -580,6 +580,8 @@ class Document(models.Model):
     is_signed = models.BooleanField(default=False)
     is_undertaking = models.BooleanField(default=False)
     is_loan_agreement = models.BooleanField(default=False)
+    is_terms_of_business = models.BooleanField(default=False)  # NEW FIELD
+    is_secci = models.BooleanField(default=False)
     signature_required = models.BooleanField(default=False)
     who_needs_to_sign = models.CharField(
         max_length=20,
@@ -645,8 +647,11 @@ class Document(models.Model):
             if self.is_undertaking:
                 self.original_name = f"Solicitor_Undertaking_{self.application.id}"
             elif self.is_loan_agreement:
-                # For loan agreements, fallback to basic name if not set in view
                 self.original_name = f"Advancement_Agreement_{self.application.id}"
+            elif self.is_terms_of_business:
+                self.original_name = f"Terms_of_Business_{self.application.id}"
+            elif self.is_secci:  # NEW CONDITION
+                self.original_name = f"SECCI_Form_{self.application.id}"
             else:
                 # Fallback to filename without extension
                 filename = self.document.name
@@ -660,6 +665,9 @@ class Document(models.Model):
         elif self.is_loan_agreement:
             self.signature_required = True
             self.who_needs_to_sign = 'applicant'
+        elif self.is_terms_of_business or self.is_secci:  # UPDATED CONDITION
+            self.signature_required = False  # Neither require signature
+            self.who_needs_to_sign = 'solicitor'  # Default value
 
         super().save(*args, **kwargs)
 

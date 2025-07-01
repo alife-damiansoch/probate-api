@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SECCI - Standard European Consumer Credit Information</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 15mm;
+            line-height: 1.3;
+            font-size: 10px;
+            color: #000;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 2px solid #000;
+            background-color: #f0f0f0;
+        }
+
+        .header h1 {
+            font-size: 14px;
+            margin: 0 0 5px 0;
+            font-weight: bold;
+        }
+
+        .header p {
+            font-size: 9px;
+            margin: 0;
+        }
+
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 10px;
+        }
+
+        .info-table td {
+            border: 1px solid #000;
+            padding: 6px 8px;
+            vertical-align: top;
+        }
+
+        .info-table .label {
+            background-color: #e6e6e6;
+            font-weight: bold;
+            width: 45%;
+        }
+
+        .info-table .value {
+            background-color: #ffffff;
+        }
+
+        .section-header {
+            background-color: #d0d0d0;
+            font-weight: bold;
+            text-align: center;
+            font-size: 11px;
+            padding: 8px;
+            border: 1px solid #000;
+            margin-top: 15px;
+        }
+
+        .warning-box {
+            border: 2px solid #000;
+            background-color: #fff3cd;
+            padding: 8px;
+            margin: 10px 0;
+            font-weight: bold;
+            font-size: 9px;
+        }
+
+        .small-text {
+            font-size: 8px;
+            color: #666;
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 8px;
+            text-align: center;
+            border-top: 1px solid #000;
+            padding-top: 10px;
+        }
+
+        .right-box {
+            float: right;
+            width: 200px;
+            border: 1px solid #000;
+            padding: 5px;
+            margin-left: 10px;
+            background-color: #f9f9f9;
+            font-size: 9px;
+        }
+
+        .clear {
+            clear: both;
+        }
+
+        .highlight {
+            background-color: #ffff99;
+            font-weight: bold;
+        }
+
+        .big-number {
+            font-size: 14px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Standard European Consumer Credit Information (SECCI)</h1>
+    <p>This information is being provided to help you consider whether this credit product is right for you. You should
+        read this document carefully.</p>
+</div>
+
+<div class="right-box">
+    <strong>Warning</strong><br>
+    Missing payments could have severe consequences for you and make obtaining credit more difficult.
+    <br><br>
+    <strong>Free Advice</strong><br>
+    Money Advice and Budgeting Service (MABS)<br>
+    Phone: 0761 07 2000<br>
+    Web: www.mabs.ie
+</div>
+
+<!-- Company and Consumer Information -->
+<table class="info-table">
+    <tr>
+        <td class="label">1. Contact details</td>
+        <td class="value">
+            <strong>Creditor:</strong> {{ company_name }}<br>
+            Address: {{ company_address }}<br>
+            Phone: {{ company_phone_number }}<br>
+            Email: {{ company_email }}<br>
+            Web: {{ company_website }}
+        </td>
+    </tr>
+    <tr>
+        <td class="label">Where applicable, contact details of the credit intermediary</td>
+        <td class="value">Not applicable - Direct lending</td>
+    </tr>
+</table>
+
+<div class="clear"></div>
+
+<div class="section-header">2. Key features of the credit product</div>
+
+<table class="info-table">
+    <tr>
+        <td class="label">The type of credit</td>
+        <td class="value">Consumer Credit Agreement / Moneylending</td>
+    </tr>
+    <tr>
+        <td class="label">The total amount of credit<br><span class="small-text">This means the amount of credit to be provided under the proposed credit agreement.</span>
+        </td>
+        <td class="value"><span class="big-number">{{ currency_sign }}{{ credit_amount }}</span></td>
+    </tr>
+    <tr>
+        <td class="label">The conditions governing the draw down of credit<br><span class="small-text">This describes how and when you will get the money.</span>
+        </td>
+        <td class="value">Credit will be advanced as a lump sum upon completion of probate advancement conditions. Funds
+            will be paid to solicitor's client account.
+        </td>
+    </tr>
+    <tr>
+        <td class="label">The duration of the credit agreement</td>
+        <td class="value"><span class="big-number">{{ credit_term }} months</span> (Minimum 12 months, Maximum 36
+            months)
+        </td>
+    </tr>
+    <tr>
+        <td class="label">The instalments and, where applicable, the order in which instalments will be allocated to
+            different outstanding balances charged at different borrowers rates
+        </td>
+        <td class="value"><strong>NO MONTHLY PAYMENTS REQUIRED</strong><br>Single payment due when probate is granted or
+            at end of maximum term (36 months), whichever occurs first.
+        </td>
+    </tr>
+    <tr>
+        <td class="label">The total amount payable by the consumer<br><span class="small-text">This means the amount of credit plus interest and other costs.</span>
+        </td>
+        <td class="value"><span class="big-number highlight">Variable - depends on probate completion date</span><br>
+            <strong>Minimum:</strong> {{ currency_sign }}{{ minimum_payable }} (if paid within 12 months)<br>
+            <strong>Maximum:</strong> {{ currency_sign }}{{ maximum_payable }} (if held for full 36 months)
+        </td>
+    </tr>
+    <tr>
+        <td class="label">The interest rate, whether fixed or variable or both, and particulars of any charges included
+            in the APR
+        </td>
+        <td class="value">
+            <strong>Year 1:</strong> {{ initial_fee_percentage }}% flat charge (applied immediately)<br>
+            <strong>After Year 1:</strong> {{ daily_fee_percentage }}% per day on remaining principal<br>
+            <strong>Exit Fee:</strong> {{ exit_fee_percentage }}% of outstanding balance at settlement<br>
+            <strong>Type:</strong> Variable - depends on loan duration
+        </td>
+    </tr>
+    <tr>
+        <td class="label">The annual percentage rate of charge (APR)<br><span class="small-text">This is the total cost of the credit expressed as an annual percentage. The APR is there to help you compare different offers.</span>
+        </td>
+        <td class="value"><span class="big-number highlight">{{ apr }}%</span><br>
+            <span class="small-text">*Representative example based on {{ credit_term }}-month term</span></td>
+    </tr>
+    <tr>
+        <td class="label">Is a security required?<br><span class="small-text">This section describes any security to be provided by you for the credit.</span>
+        </td>
+        <td class="value">Yes - Security is the expected inheritance from the estate under probate proceedings</td>
+    </tr>
+    <tr>
+        <td class="label">Is a guarantor required?</td>
+        <td class="value">No - Estate inheritance serves as security. Solicitor undertaking ensures proper handling of
+            probate proceeds.
+        </td>
+    </tr>
+</table>
+
+<div class="section-header">3. Costs of the credit</div>
+
+<table class="info-table">
+    <tr>
+        <td class="label">The borrowing rate, whether fixed or variable or both, and particulars of any charges included
+            in the borrowing rate
+        </td>
+        <td class="value">
+            <strong>Variable Rate Structure:</strong><br>
+            • First 12 months: {{ initial_fee_percentage }}% flat charge<br>
+            • After 12 months: {{ daily_fee_percentage }}% per day on principal (simple interest)<br>
+            • Exit fee: {{ exit_fee_percentage }}% on outstanding balance at settlement
+        </td>
+    </tr>
+    <tr>
+        <td class="label">Cost of the credit<br><span class="small-text">This means interest plus other costs.</span>
+        </td>
+        <td class="value">
+            <strong>Minimum Cost (if settled within 12 months):</strong><br>
+            • First year charge: {{ currency_sign }}{{ first_year_charge }}<br>
+            • Exit fee: {{ currency_sign }}{{ minimum_exit_fee }}<br>
+            • <strong>Total minimum cost:</strong> {{ currency_sign }}{{ minimum_total_cost }}<br><br>
+
+            <strong>Maximum Cost (if held for 36 months):</strong><br>
+            • First year charge: {{ currency_sign }}{{ first_year_charge }}<br>
+            • Daily interest (months 13-36): {{ currency_sign }}{{ maximum_daily_interest }}<br>
+            • Exit fee: {{ currency_sign }}{{ maximum_exit_fee }}<br>
+            • <strong>Total maximum cost:</strong> {{ currency_sign }}{{ maximum_total_cost }}
+        </td>
+    </tr>
+    <tr>
+        <td class="label">The conditions under which the above charges can be changed</td>
+        <td class="value">
+            Fixed rates - charges cannot be changed during the agreement term.<br>
+            Total cost varies only based on the actual duration until probate completion.
+        </td>
+    </tr>
+    <tr>
+        <td class="label">Where applicable, the costs in the case of late payments</td>
+        <td class="value">
+            <strong>No monthly payments required.</strong><br>
+            If probate is not completed within the agreed term (minimum 12 months, maximum 36 months), the full
+            outstanding balance becomes immediately due and payable.
+        </td>
+    </tr>
+    <tr>
+        <td class="label">Warning regarding consequences of missing payments</td>
+        <td class="value">
+            <strong>Critical:</strong> This advance must be repaid from probate proceeds. If probate is not granted or
+            insufficient funds are available, you remain personally liable for the full amount plus all accrued interest
+            and fees.
+        </td>
+    </tr>
+</table>
+
+<div class="section-header">4. Other important legal aspects</div>
+
+<table class="info-table">
+    <tr>
+        <td class="label">Existence of a right of withdrawal<br><span class="small-text">You have the right to withdraw from this credit agreement within 14 days.</span>
+        </td>
+        <td class="value">
+            <strong>Yes</strong> - You have 14 days to withdraw from this agreement<br>
+            Period starts: When you receive a signed copy of the credit agreement<br>
+            To withdraw: Contact us by phone {{ company_phone_number }} or in writing
+        </td>
+    </tr>
+    <tr>
+        <td class="label">Existence of a right of early repayment and, where applicable, information concerning the
+            creditor's right to compensation and the way that compensation will be determined
+        </td>
+        <td class="value">
+            <strong>Yes</strong> - You can repay early when probate is granted<br>
+            <strong>No reduction in charges:</strong> All accrued interest and exit fee still apply<br>
+            Early settlement amount = Principal + First Year Charge + Daily Interest (if any) + Exit Fee
+        </td>
+    </tr>
+    <tr>
+        <td class="label">The consumer's right to be informed immediately and free of charge of the result of database
+            consultations carried out for the purposes of assessing his creditworthiness
+        </td>
+        <td class="value">You have the right to be informed immediately and free of charge if your credit application is
+            rejected as a result of consultation of a database
+        </td>
+    </tr>
+    <tr>
+        <td class="label">The consumer's right to obtain a copy of the draft credit agreement where the creditor is, at
+            the time of the conclusion, willing to enter into the credit agreement
+        </td>
+        <td class="value">You have the right to obtain a copy of the draft credit agreement</td>
+    </tr>
+    <tr>
+        <td class="label">The period of time during which the creditor is bound by the pre-contractual information</td>
+        <td class="value">This information is valid until {{ final_payment_date }} or until the terms are materially
+            changed
+        </td>
+    </tr>
+</table>
+
+<div class="section-header">5. Additional information in the case of distance marketing of financial services</div>
+
+<table class="info-table">
+    <tr>
+        <td class="label">Concerning the creditor</td>
+        <td class="value">
+            <strong>Registration:</strong> {{ company_name }}<br>
+            <strong>Registration Number:</strong> {{ company_registration_number }}<br>
+            <strong>Supervisory Authority:</strong> Central Bank of Ireland<br>
+            <strong>Address:</strong> New Wapping Street, North Wall Quay, Dublin 1
+        </td>
+    </tr>
+    <tr>
+        <td class="label">Concerning the credit agreement</td>
+        <td class="value">
+            <strong>Law applicable:</strong> Irish Law<br>
+            <strong>Competent court:</strong> Irish Courts<br>
+            <strong>Language:</strong> English<br>
+            <strong>Means of communication:</strong> Post, email, telephone
+        </td>
+    </tr>
+    <tr>
+        <td class="label">Concerning redress</td>
+        <td class="value">
+            <strong>Complaints procedure:</strong> Contact {{ company_name }} first<br>
+            <strong>Financial Services and Pensions Ombudsman:</strong><br>
+            Lincoln House, Lincoln Place, Dublin 2<br>
+            Phone: +353 1 567 7000 | Email: info@fspo.ie<br>
+            <strong>Out-of-court dispute resolution:</strong> Available through FSPO
+        </td>
+    </tr>
+</table>
+
+<div class="warning-box">
+    <strong>IMPORTANT INFORMATION - PROBATE ADVANCEMENT</strong><br><br>
+
+    <strong>This is a probate advancement, not a traditional loan:</strong><br>
+    • No monthly payments are required<br>
+    • Repayment is due only when probate is granted (or at 36-month maximum term)<br>
+    • You remain personally liable if probate proceeds are insufficient<br><br>
+
+    <strong>Cost Structure:</strong><br>
+    • Year 1: {{ initial_fee_percentage }}% charge applied immediately<br>
+    • After Year 1: {{ daily_fee_percentage }}% per day on principal amount (simple interest)<br>
+    • Exit Fee: {{ exit_fee_percentage }}% of outstanding balance at settlement<br><br>
+
+    <strong>Key Risks:</strong><br>
+    • If probate is delayed beyond the agreed term (minimum 12 months, maximum 36 months), full amount becomes
+    immediately due<br>
+    • If probate value is less than expected, you remain liable for any shortfall<br>
+    • Interest continues to accrue until full settlement<br><br>
+
+    Taking out this advance will affect your credit rating. Ensure you understand the probate process and potential
+    timeline before proceeding.
+</div>
+
+<div class="footer">
+    <strong>{{ company_name }}</strong> is regulated by the Central Bank of Ireland<br>
+    Central Bank of Ireland, New Wapping Street, North Wall Quay, Dublin 1<br>
+    Generated: {{ current_date }} | Agreement Reference: {{ application_id }}
+</div>
+
+</body>
+</html>

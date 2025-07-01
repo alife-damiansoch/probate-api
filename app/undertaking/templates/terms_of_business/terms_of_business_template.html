@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Business</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 18mm;
+            line-height: 1.3;
+            font-size: 10px;
+            color: #333;
+        }
+
+        h1 {
+            font-size: 16px;
+            text-align: center;
+            margin-bottom: 15px;
+            color: #1e293b;
+            border-bottom: 2px solid #1e293b;
+            padding-bottom: 8px;
+        }
+
+        h2 {
+            font-size: 12px;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            color: #1e293b;
+            border-left: 3px solid #3b82f6;
+            padding-left: 8px;
+        }
+
+        .header-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 3px;
+            text-align: center;
+            font-size: 9px;
+        }
+
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0;
+            font-size: 9px;
+        }
+
+        .info-table th,
+        .info-table td {
+            border: 1px solid #d1d5db;
+            padding: 4px 6px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .info-table th {
+            background-color: #f3f4f6;
+            font-weight: bold;
+            width: 30%;
+        }
+
+        .warning-box {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            padding: 8px;
+            margin: 10px 0;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 9px;
+        }
+
+        .contact-box {
+            background: #dbeafe;
+            border: 1px solid #3b82f6;
+            padding: 6px;
+            margin: 6px 0;
+            border-radius: 3px;
+            font-size: 9px;
+        }
+
+        ul {
+            margin: 5px 0;
+            padding-left: 15px;
+        }
+
+        li {
+            margin-bottom: 2px;
+        }
+
+        .footer {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 8px;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 8px;
+        }
+
+        .section {
+            margin-bottom: 10px;
+        }
+
+        .regulatory-notice {
+            background: #ecfccb;
+            border: 1px solid #65a30d;
+            padding: 6px;
+            margin: 6px 0;
+            border-radius: 3px;
+            font-size: 9px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header-box">
+    <h1>Terms of Business</h1>
+    <strong>{{ company_name }}</strong><br>
+    Company Registration: {{ company_registration_number }}<br>
+    {{ company_address }}<br>
+    Phone: {{ company_phone_number }} | Email: {{ company_email }}<br>
+    Application ID: {{ application_id }} | Date: {{ current_date }}
+</div>
+
+<div class="section">
+    <h2>1. Company Information & Regulatory Status</h2>
+    <table class="info-table">
+        <tr>
+            <th>Legal Name</th>
+            <td>{{ company_name }}</td>
+        </tr>
+        <tr>
+            <th>Address</th>
+            <td>{{ company_address }}</td>
+        </tr>
+        <tr>
+            <th>Contact</th>
+            <td>Phone: {{ company_phone_number }}<br>Email: {{ company_email }}<br>Website: {{ company_website }}</td>
+        </tr>
+        <tr>
+            <th>Company Registration</th>
+            <td>{{ company_registration_number }}</td>
+        </tr>
+        <tr>
+            <th>Regulatory Status</th>
+            <td><strong>Regulated by the Central Bank of Ireland</strong><br>Subject to Consumer Protection Code</td>
+        </tr>
+    </table>
+</div>
+
+<div class="section">
+    <h2>2. Services We Provide</h2>
+    <p>{{ company_name }} provides consumer credit/moneylending services including:</p>
+    <ul>
+        <li>Consumer credit facilities</li>
+        <li>Assessment of creditworthiness</li>
+        <li>Loan arrangement and administration</li>
+        <li>Account management services</li>
+    </ul>
+    <p><strong>Service Level:</strong> We provide services directly to consumers (not as intermediaries).</p>
+</div>
+
+<div class="section">
+    <h2>3. Charges & Fees</h2>
+    <p>All charges will be fully disclosed in your credit agreement and SECCI form before signing:</p>
+    <ul>
+        <li>Interest charges (as specified in your agreement)</li>
+        <li>Administrative fees (if applicable)</li>
+        <li>Late payment charges (if applicable)</li>
+        <li>Legal costs (in case of default proceedings)</li>
+    </ul>
+</div>
+
+<div class="section">
+    <h2>4. Data Privacy & Conflicts</h2>
+    <p><strong>Data Use:</strong> We process personal data under Data Protection Acts & GDPR for credit processing,
+        account management, compliance, and Central Credit Register reporting. Full privacy
+        policy: {{ company_website }}</p>
+    <p><strong>Conflicts:</strong> We have policies to manage conflicts of interest and will disclose any that cannot be
+        avoided.</p>
+</div>
+
+<div class="section">
+    <h2>5. Default & Recovery</h2>
+    <p>In case of default, we may: report arrears to credit agencies, engage debt collection, commence legal
+        proceedings, or enforce security. We follow Consumer Protection Code arrears handling requirements.</p>
+</div>
+
+<div class="section">
+    <h2>6. Complaints & Ombudsman</h2>
+    <div class="contact-box">
+        <strong>Contact us:</strong> {{ company_name }}, {{ company_address }}<br>
+        Phone: {{ company_phone_number }} | Email: {{ company_email }}
+    </div>
+
+    <div class="contact-box">
+        <strong>If unresolved:</strong> Financial Services and Pensions Ombudsman<br>
+        Lincoln House, Lincoln Place, Dublin 2 | Phone: +353 1 567 7000 | info@fspo.ie
+    </div>
+</div>
+
+<div class="section">
+    <h2>7. Regulatory Notices</h2>
+    <div class="regulatory-notice">
+        <strong>Central Credit Register:</strong> Credit information for agreements {{ currency_sign }}500+ reported to
+        Central Credit Register under Credit Reporting Act 2013.
+    </div>
+    <p><strong>Compensation:</strong> We participate in relevant compensation schemes (details on request).</p>
+</div>
+
+<div class="warning-box">
+    <strong>⚠️ IMPORTANT WARNINGS</strong><br><br>
+    <strong>Missed Payments:</strong> If you do not meet repayments, your account will go into arrears. This may affect
+    your credit rating and limit future credit access.<br><br>
+    <strong>Free Advice:</strong> Money Advice and Budgeting Service (MABS) offers free debt advice:<br>
+    Phone: 0761 07 2000 | Web: www.mabs.ie | Email: helpline@mabs.ie
+</div>
+
+<div class="section">
+    <p><strong>Effective Date:</strong> {{ current_date }}</p>
+    <p>We may update these terms and will notify you of material changes.</p>
+</div>
+
+<div class="footer">
+    <strong>{{ company_name }} is regulated by the Central Bank of Ireland</strong><br>
+    Central Bank of Ireland, New Wapping Street, North Wall Quay, Dublin 1<br>
+    © {{ current_year }} {{ company_name }}. All rights reserved.
+</div>
+
+</body>
+</html>
