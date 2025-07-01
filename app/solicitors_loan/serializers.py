@@ -28,11 +28,12 @@ class SolicitorDocumentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'application', 'document', 'original_name', 'is_signed',
             'is_undertaking', 'is_loan_agreement', 'signature_required',
-            'who_needs_to_sign', 'document_type_requirement',
+            'who_needs_to_sign', 'document_type_requirement', 'is_terms_of_business', 'is_secci',
             # Add the new email properties
             'is_emailed', 'email_count', 'last_emailed_date', 'emailed_to_recipients'
         ]
-        read_only_fields = ('id', 'application', 'is_signed', 'is_undertaking', 'is_loan_agreement')
+        read_only_fields = (
+        'id', 'application', 'is_signed', 'is_undertaking', 'is_loan_agreement', 'is_terms_of_business', 'is_secci')
         extra_kwargs = {'document': {'required': True}}
 
     def create(self, validated_data):
