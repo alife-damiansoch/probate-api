@@ -6,7 +6,7 @@ import re
 
 from django.utils import timezone
 
-from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse, Http404, HttpResponseForbidden, HttpResponse, HttpResponseNotFound
@@ -500,7 +500,6 @@ class AgentDocumentUploadAndViewListForApplicationIdView(APIView):
     permission_classes = [IsAuthenticated, IsStaff]
 
     def get_queryset(self):
-
         return models.Application.objects.all()
 
     def get_object(self, application_id):
@@ -531,15 +530,30 @@ class AgentDocumentUploadAndViewListForApplicationIdView(APIView):
         if serializer.is_valid():
             # store application instance for logging purpose
             application = models.Application.objects.get(id=application_id)
-            serializer.save(application=application)
 
-            # logging the successful POST request
+            # Check if uploaded_by field exists in the model before setting it
+            document_data = {
+                'application': application
+            }
+
+            # Only set uploaded_by if the field exists (after migration)
+            if hasattr(models.Document, 'uploaded_by'):
+                document_data['uploaded_by'] = request.user
+
+            document = serializer.save(**document_data)
+
+            # logging the successful POST request - FIXED
             request_body = {}
             for key, value in request.data.items():
-                if not isinstance(value, InMemoryUploadedFile):
+                if not isinstance(value, (InMemoryUploadedFile, TemporaryUploadedFile)):
                     request_body[key] = value
                 else:
-                    request_body[key] = 'A new file was uploaded.'
+                    # Log file info instead of the file object
+                    request_body[key] = {
+                        'filename': getattr(value, 'name', 'unknown'),
+                        'size': getattr(value, 'size', 0),
+                        'content_type': getattr(value, 'content_type', 'unknown')
+                    }
 
             log_event(request=request, request_body=request_body, application=application, response_status=201)
             return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -23,16 +23,28 @@ class AgentDocumentSerializer(serializers.ModelSerializer):
     last_emailed_date = serializers.ReadOnlyField()
     emailed_to_recipients = serializers.ReadOnlyField()
 
+    # Display only uploaded_by user email - handle case where field doesn't exist yet
+    uploaded_by_email = serializers.SerializerMethodField()
+
+    def get_uploaded_by_email(self, obj):
+        """Get uploaded_by email, handle case where field doesn't exist yet"""
+        if hasattr(obj, 'uploaded_by') and obj.uploaded_by:
+            return obj.uploaded_by.email
+        return None
+
     class Meta:
         model = Document
         fields = [
             'id', 'application', 'document', 'original_name', 'is_signed',
             'is_undertaking', 'is_loan_agreement', 'signature_required',
             'who_needs_to_sign', 'is_terms_of_business', 'is_secci',
-            # Add the new email properties
+            'is_manual_upload',
+            'created_at',  # This will automatically be set to upload time
+            'uploaded_by_email',  # Only email, following your pattern
+            # Email properties
             'is_emailed', 'email_count', 'last_emailed_date', 'emailed_to_recipients'
         ]
-        read_only_fields = ('id', 'application',)
+        read_only_fields = ('id', 'application', 'created_at')
         extra_kwargs = {'document': {'required': True}}
 
 
