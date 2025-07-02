@@ -580,6 +580,9 @@ class Document(models.Model):
     is_signed = models.BooleanField(default=False)
     is_undertaking = models.BooleanField(default=False)
     is_loan_agreement = models.BooleanField(default=False)
+    is_terms_of_business = models.BooleanField(default=False)
+    is_secci = models.BooleanField(default=False)
+    is_manual_upload = models.BooleanField(default=False)  # NEW FIELD
     signature_required = models.BooleanField(default=False)
     who_needs_to_sign = models.CharField(
         max_length=20,
@@ -588,8 +591,16 @@ class Document(models.Model):
         help_text="Who needs to sign this document"
     )
     created_at = models.DateTimeField(auto_now_add=True, null=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        default=None,
+        related_name='documents_uploaded_by'
+    )
 
-    # NEW FIELD: Link to document requirement (for user-uploaded docs)
+    # Link to document requirement (for user-uploaded docs)
     document_type_requirement = models.ForeignKey(
         'document_requirements.ApplicationDocumentRequirement',
         on_delete=models.SET_NULL,
@@ -645,25 +656,31 @@ class Document(models.Model):
             if self.is_undertaking:
                 self.original_name = f"Solicitor_Undertaking_{self.application.id}"
             elif self.is_loan_agreement:
-                # For loan agreements, fallback to basic name if not set in view
                 self.original_name = f"Advancement_Agreement_{self.application.id}"
+            elif self.is_terms_of_business:
+                self.original_name = f"Terms_of_Business_{self.application.id}"
+            elif self.is_secci:
+                self.original_name = f"SECCI_Form_{self.application.id}"
             else:
                 # Fallback to filename without extension
                 filename = self.document.name
                 if filename:
                     self.original_name = filename.rsplit('.', 1)[0] if '.' in filename else filename
 
-        # Auto-set signature requirements based on document type
-        if self.is_undertaking:
-            self.signature_required = True
-            self.who_needs_to_sign = 'solicitor'
-        elif self.is_loan_agreement:
-            self.signature_required = True
-            self.who_needs_to_sign = 'applicant'
+        # Auto-set signature requirements ONLY for non-manual uploads
+        if not self.is_manual_upload:
+            if self.is_undertaking:
+                self.signature_required = True
+                self.who_needs_to_sign = 'solicitor'
+            elif self.is_loan_agreement:
+                self.signature_required = True
+                self.who_needs_to_sign = 'applicant'
+            elif self.is_terms_of_business or self.is_secci:
+                self.signature_required = False
+                self.who_needs_to_sign = 'solicitor'
 
         super().save(*args, **kwargs)
 
-    # this overwrites makes sure that file is deleted when instance is deleted from the database
     def delete(self, *args, **kwargs):
         self.document.delete()
         super().delete(*args, **kwargs)
