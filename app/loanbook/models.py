@@ -343,7 +343,23 @@ class LoanBook(models.Model):
                     if current_date > settled_date:
                         break
 
-                # FIRST: Process payments (reducing principal for interest calculation)
+                # FIRST: Apply daily simple interest on current principal
+                daily_interest = current_principal * (self.daily_fee_after_year_percentage / Decimal("100"))
+                daily_interest_total += daily_interest
+                running_total += daily_interest
+
+                statement["daily_breakdown"].append({
+                    "day": day,
+                    "date": current_date,
+                    "type": "Daily Simple Interest",
+                    "principal": current_principal,
+                    "interest_rate": f"{self.daily_fee_after_year_percentage}%",
+                    "interest_amount": daily_interest,
+                    "running_total": running_total,
+                    "note": f"Simple interest: {current_principal} × {self.daily_fee_after_year_percentage}%"
+                })
+
+                # THEN: Process payments (reducing principal for next day's interest calculation)
                 if current_date in transaction_dates:
                     for tx_data in transaction_dates[current_date]:
                         payment_amount = tx_data['amount']
@@ -359,22 +375,6 @@ class LoanBook(models.Model):
                             "running_total": running_total,
                             "note": f"Payment of {payment_amount} - {tx_data['description']}"
                         })
-
-                # THEN: Apply daily simple interest on remaining principal
-                daily_interest = current_principal * (self.daily_fee_after_year_percentage / Decimal("100"))
-                daily_interest_total += daily_interest
-                running_total += daily_interest
-
-                statement["daily_breakdown"].append({
-                    "day": day,
-                    "date": current_date,
-                    "type": "Daily Simple Interest",
-                    "principal": current_principal,
-                    "interest_rate": f"{self.daily_fee_after_year_percentage}%",
-                    "interest_amount": daily_interest,
-                    "running_total": running_total,
-                    "note": f"Simple interest: {current_principal} × {self.daily_fee_after_year_percentage}%"
-                })
 
             statement["daily_interest_total"] = daily_interest_total
 
