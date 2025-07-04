@@ -19,6 +19,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 
 from app import settings
+from ccr_reporting.models import CCRContractSubmission, CCRContractRecord, CCRSubmission
 from core import models
 from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog, \
     AssociatedEmail, UserEmailLog, CommitteeApproval, Team, OTP, AuthenticatorSecret, FrontendAPIKey, \
@@ -1270,3 +1271,57 @@ class EmailDeliveryLogAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('email_communication')
+
+
+@admin.register(CCRSubmission)
+class CCRSubmissionAdmin(admin.ModelAdmin):
+    list_display = ['reference_date', 'total_records', 'status', 'is_test_submission', 'generated_at']
+    list_filter = ['status', 'is_test_submission', 'generated_at']
+    search_fields = ['reference_date', 'file_path']
+    readonly_fields = ['generated_at']
+
+    fieldsets = (
+        ('Submission Info', {
+            'fields': ('reference_date', 'file_path', 'total_records', 'status')
+        }),
+        ('Test Info', {
+            'fields': ('is_test_submission', 'test_notes'),
+            'classes': ('collapse',)
+        }),
+        ('Status', {
+            'fields': ('generated_at', 'error_message'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).order_by('-reference_date')
+
+
+@admin.register(CCRContractRecord)
+class CCRContractRecordAdmin(admin.ModelAdmin):
+    list_display = ['loanbook_link', 'ccr_contract_id', 'first_reported_date', 'last_reported_date', 'is_closed_in_ccr']
+    list_filter = ['is_closed_in_ccr', 'first_reported_date']
+    search_fields = ['ccr_contract_id', 'loanbook__loan__id']  # ✅ Fixed this line
+    readonly_fields = ['submission_count']
+
+    def loanbook_link(self, obj):
+        return format_html(
+            '<a href="/admin/loanbook/loanbook/{}/change/">Loan {}</a>',
+            obj.loanbook.loan.id,  # ✅ Fixed this line
+            obj.loanbook.loan.id  # ✅ Fixed this line
+        )
+
+    loanbook_link.short_description = 'LoanBook'
+
+    def submission_count(self, obj):
+        return obj.submissions.count()
+
+    submission_count.short_description = 'Submissions'
+
+
+@admin.register(CCRContractSubmission)
+class CCRContractSubmissionAdmin(admin.ModelAdmin):
+    list_display = ['contract_record', 'submission', 'submission_type', 'created_at']
+    list_filter = ['submission_type', 'created_at']
+    search_fields = ['contract_record__ccr_contract_id']

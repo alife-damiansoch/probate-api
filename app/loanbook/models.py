@@ -453,5 +453,10 @@ class LoanBook(models.Model):
 
         return statement
 
+    @property
+    def id(self):
+        """Return the loan ID for compatibility"""
+        return self.loan.id
+
     def __str__(self):
         return f"LoanBook for Loan #{self.loan.id}"
