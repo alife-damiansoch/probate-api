@@ -1,4 +1,4 @@
-# ccr_reporting/urls.py - Fixed to match your URL structure (api/ccr/)
+# ccr_reporting/urls.py - Enhanced with status management endpoints
 from django.urls import path
 from . import views
 
@@ -8,10 +8,19 @@ urlpatterns = [
     # Main submission endpoints
     path('generate/', views.generate_ccr_submission, name='generate_submission'),
     path('preview/', views.ccr_submission_preview, name='submission_preview'),
-    path('history/', views.ccr_submission_history, name='submission_history'),
+    path('history/', views.ccr_submission_history_enhanced, name='submission_history'),
 
     # File download endpoint
     path('download/', views.download_submission_file, name='download_submission_file'),
+
+    # Status management endpoints
+    path('status/update/', views.update_submission_status, name='update_submission_status'),
+    path('submission/<int:submission_id>/', views.get_submission_details, name='get_submission_details'),
+    path('response/upload/', views.upload_ccr_response, name='upload_ccr_response'),
+
+    # Error management endpoints
+    path('errors/add/', views.add_error_record, name='add_error_record'),
+    path('errors/resolve/', views.resolve_error_record, name='resolve_error_record'),
 
     # Testing endpoints
     path('test/sequence/', views.generate_test_sequence, name='generate_test_sequence'),

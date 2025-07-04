@@ -104,7 +104,7 @@ class CCRFileGenerator:
                     should_add_id = not getattr(applicant, 'ccr_reported', False)
 
                 if should_add_id and applicant.id not in applicants_reported_this_file:
-                    id_line = self.formatter.format_id_line(self.collector.get_personal_info(applicant))
+                    id_line = self.formatter.format_id_line(self.collector.get_personal_info(applicant), reference_date)
                     submission_lines.append(id_line)
                     applicants_reported_this_file.add(applicant.id)
                     print(f"Added ID record for applicant {applicant.id}")
@@ -232,7 +232,7 @@ class CCRFileGenerator:
 
         # --- FOOTER
         if submission_lines and len(submission_lines) > 1:
-            footer = self.formatter.create_file_footer(len(submission_lines))
+            footer = self.formatter.create_file_footer(len(submission_lines), reference_date)
             submission_lines.append(footer)
             print("Added footer")
 

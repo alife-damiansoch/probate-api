@@ -11,7 +11,7 @@ class CCRDataCollector:
     FIXED_LOAN_DAYS = 1095  # Fixed 3 years in days
 
     def __init__(self):
-        self.provider_code = getattr(settings, 'CCR_PROVIDER_CODE', 'CC175721')
+        self.provider_code = getattr(settings, 'CCR_PROVIDER_CODE', 'ERR')
 
     def get_personal_info(self, applicant):
         """Extract personal information for CCR submission"""

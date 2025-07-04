@@ -1,6 +1,8 @@
 from datetime import datetime
 from math import floor
 
+from app import settings
+
 ID_FIELD_COUNT = 58
 CI_FIELD_COUNT = 58
 
@@ -10,7 +12,7 @@ class CCRFileFormatter:
     Format data into CCR submission file format with settlement handling
     """
 
-    def format_id_line(self, personal_info):
+    def format_id_line(self, personal_info, reference_date):
         """Return an ID record with the correct number of columns (58)."""
 
         def d(val): return '' if val is None else str(val)
@@ -25,7 +27,7 @@ class CCRFileFormatter:
             'ID',  # 1. Record Type
             personal_info.get('provider_code', ''),  # 2. Provider Code
             '',  # 3. Secondary Provider Code
-            datetime.now().strftime('%d%m%Y'),  # 4. CIS Reference Date (today)
+            reference_date.strftime('%d%m%Y'),  # Contract Reference Date (file date)
             personal_info.get('provider_cis_no', '').replace('CIS_', ''),  # 5. Provider CIS No
             d(personal_info.get('forename')).upper(),
             d(personal_info.get('surname')).upper(),
@@ -123,9 +125,11 @@ class CCRFileFormatter:
         return '|'.join(ci)
 
     def create_file_header(self, reference_date):
+        ccr_provider_code = settings.CCR_PROVIDER_CODE
         """Create file header line."""
-        return f"HD|CC175721|{reference_date.strftime('%d%m%Y')}|1.0|0|MONTHLY CCR SUBMISSION"
+        return f"HD|{ccr_provider_code}|{reference_date.strftime('%d%m%Y')}|1.0|0|MONTHLY CCR SUBMISSION"
 
-    def create_file_footer(self, total_records):
+    def create_file_footer(self, total_records, reference_date):
+        ccr_provider_code = settings.CCR_PROVIDER_CODE
         """Create file footer line."""
-        return f"FT|CC175721|{datetime.now().strftime('%d%m%Y')}|{total_records}"
+        return f"FT|{ccr_provider_code}|{reference_date.strftime('%d%m%Y')}|{total_records}"

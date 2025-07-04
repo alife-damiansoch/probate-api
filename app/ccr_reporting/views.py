@@ -13,7 +13,7 @@ import calendar
 
 from app import settings
 from .services.file_generator import CCRFileGenerator
-from .models import CCRSubmission, CCRContractRecord
+from .models import CCRSubmission, CCRContractRecord, CCRStatusHistory, CCRErrorRecord, CCRContractSubmission
 from agents_loan.permissions import IsStaff
 
 
@@ -673,3 +673,479 @@ def download_submission_file(request):
         return Response({
             'error': str(e)
         }, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsStaff])
+def update_submission_status(request):
+    """Update the status of a CCR submission"""
+    print("=== UPDATE_SUBMISSION_STATUS STARTED ===")
+    try:
+        data = request.data
+        submission_id = data.get('submission_id')
+        new_status = data.get('status')
+        notes = data.get('notes', '')
+        error_details = data.get('error_details', '')
+
+        if not submission_id:
+            return Response({'error': 'submission_id is required'}, status=400)
+        if not new_status:
+            return Response({'error': 'status is required'}, status=400)
+
+        # Validate status
+        valid_statuses = [choice[0] for choice in CCRSubmission.SUBMISSION_STATUS]
+        if new_status not in valid_statuses:
+            return Response({'error': f'Invalid status. Must be one of: {valid_statuses}'}, status=400)
+
+        try:
+            submission = CCRSubmission.objects.get(id=submission_id)
+        except CCRSubmission.DoesNotExist:
+            return Response({'error': 'Submission not found'}, status=404)
+
+        # Allow unrestricted updates if user is superuser
+        if not request.user.is_superuser:
+            if not submission.can_update_status(new_status):
+                return Response({
+                    'error': f'Cannot update status from {submission.status} to {new_status}',
+                    'current_status': submission.status,
+                    'allowed_transitions': {
+                        'PENDING': ['GENERATED', 'ERROR'],
+                        'GENERATED': ['UPLOADED', 'ERROR', 'PARTIAL_ERROR'],
+                        'UPLOADED': ['ACKNOWLEDGED', 'ERROR', 'PARTIAL_ERROR'],
+                        'ACKNOWLEDGED': ['ERROR', 'PARTIAL_ERROR'],
+                        'ERROR': ['GENERATED', 'UPLOADED', 'PARTIAL_ERROR'],
+                        'PARTIAL_ERROR': ['UPLOADED', 'ACKNOWLEDGED', 'ERROR'],
+                    }.get(submission.status, []),
+                    'hint': 'You must be a superuser to override status restrictions.'
+                }, status=400)
+
+        old_status = submission.status
+
+        # Create status history record
+        CCRStatusHistory.objects.create(
+            submission=submission,
+            old_status=old_status,
+            new_status=new_status,
+            changed_by=request.user,
+            notes=notes
+        )
+
+        # Update submission
+        submission.status = new_status
+        submission.status_updated_by = request.user
+        submission.status_updated_at = timezone.now()
+
+        if error_details:
+            submission.error_details = error_details
+
+        submission.save()
+
+        print(f"Status updated: {old_status} → {new_status} for submission {submission_id}")
+
+        return Response({
+            'success': True,
+            'message': f'Status updated from {old_status} to {new_status}',
+            'submission_id': submission_id,
+            'old_status': old_status,
+            'new_status': new_status,
+            'updated_by': request.user.email,
+            'updated_at': submission.status_updated_at.isoformat()
+        })
+
+    except Exception as e:
+        print(f"=== UPDATE_SUBMISSION_STATUS FAILED ===")
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsStaff])
+def add_error_record(request):
+    """Add an error record for a submission"""
+    print("=== ADD_ERROR_RECORD STARTED ===")
+    try:
+        data = request.data
+        submission_id = data.get('submission_id')
+        error_type = data.get('error_type')
+        error_description = data.get('error_description')
+        line_number = data.get('line_number')
+        original_line_content = data.get('original_line_content', '')
+        contract_id = data.get('contract_id')  # Optional
+
+        if not submission_id:
+            return Response({'error': 'submission_id is required'}, status=400)
+
+        if not error_type or not error_description:
+            return Response({'error': 'error_type and error_description are required'}, status=400)
+
+        try:
+            submission = CCRSubmission.objects.get(id=submission_id)
+        except CCRSubmission.DoesNotExist:
+            return Response({'error': 'Submission not found'}, status=404)
+
+        # Find contract record if provided
+        contract_record = None
+        if contract_id:
+            try:
+                contract_record = CCRContractRecord.objects.get(ccr_contract_id=contract_id)
+            except CCRContractRecord.DoesNotExist:
+                print(f"Warning: Contract record {contract_id} not found")
+
+        # Create error record
+        error_record = CCRErrorRecord.objects.create(
+            submission=submission,
+            contract_record=contract_record,
+            error_type=error_type,
+            error_description=error_description,
+            line_number=line_number,
+            original_line_content=original_line_content
+        )
+
+        # Update submission status if it's not already an error status
+        if submission.status not in ['ERROR', 'PARTIAL_ERROR']:
+            old_status = submission.status
+            submission.status = 'PARTIAL_ERROR'
+            submission.save()
+
+            # Create status history
+            CCRStatusHistory.objects.create(
+                submission=submission,
+                old_status=old_status,
+                new_status='PARTIAL_ERROR',
+                changed_by=request.user,
+                notes=f'Auto-updated due to error record: {error_description[:100]}'
+            )
+
+        print(f"Error record created for submission {submission_id}: {error_type}")
+
+        return Response({
+            'success': True,
+            'error_record_id': error_record.id,
+            'message': 'Error record added successfully',
+            'submission_status_updated': submission.status
+        })
+
+    except Exception as e:
+        print(f"=== ADD_ERROR_RECORD FAILED ===")
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsStaff])
+def resolve_error_record(request):
+    """Resolve an error record"""
+    print("=== RESOLVE_ERROR_RECORD STARTED ===")
+    try:
+        data = request.data
+        error_record_id = data.get('error_record_id')
+        resolution_status = data.get('resolution_status')
+        resolution_notes = data.get('resolution_notes', '')
+        carry_forward = data.get('carry_forward', False)
+
+        if not error_record_id:
+            return Response({'error': 'error_record_id is required'}, status=400)
+
+        if not resolution_status:
+            return Response({'error': 'resolution_status is required'}, status=400)
+
+        try:
+            error_record = CCRErrorRecord.objects.get(id=error_record_id)
+        except CCRErrorRecord.DoesNotExist:
+            return Response({'error': 'Error record not found'}, status=404)
+
+        # Update error record
+        error_record.resolution_status = resolution_status
+        error_record.resolution_notes = resolution_notes
+        error_record.resolved_at = timezone.now()
+        error_record.resolved_by = request.user
+        error_record.save()
+
+        # If carrying forward, create note for next submission
+        if carry_forward and resolution_status == 'CARRIED_FORWARD':
+            # Find next month's submission date
+            next_month_date = error_record.submission.reference_date.replace(day=1) + timedelta(days=32)
+            next_month_date = next_month_date.replace(day=1) - timedelta(days=1)  # Last day of next month
+
+            # Add to modification notes for next potential submission
+            carry_forward_note = f"Error from {error_record.submission.reference_date}: {error_record.error_description}"
+
+            print(f"Error marked for carry forward to {next_month_date}")
+
+        print(f"Error record {error_record_id} resolved as {resolution_status}")
+
+        return Response({
+            'success': True,
+            'message': f'Error record resolved as {resolution_status}',
+            'error_record_id': error_record_id,
+            'resolved_at': error_record.resolved_at.isoformat()
+        })
+
+    except Exception as e:
+        print(f"=== RESOLVE_ERROR_RECORD FAILED ===")
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsStaff])
+def get_submission_details(request, submission_id):
+    """Get detailed information about a submission including errors and status history"""
+    print(f"=== GET_SUBMISSION_DETAILS STARTED for {submission_id} ===")
+    try:
+        try:
+            submission = CCRSubmission.objects.get(id=submission_id)
+        except CCRSubmission.DoesNotExist:
+            return Response({'error': 'Submission not found'}, status=404)
+
+        # Get error records
+        error_records = CCRErrorRecord.objects.filter(submission=submission).order_by('-created_at')
+        error_data = []
+        for error in error_records:
+            error_data.append({
+                'id': error.id,
+                'error_type': error.error_type,
+                'error_description': error.error_description,
+                'line_number': error.line_number,
+                'original_line_content': error.original_line_content,
+                'resolution_status': error.resolution_status,
+                'resolution_notes': error.resolution_notes,
+                'created_at': error.created_at.isoformat(),
+                'resolved_at': error.resolved_at.isoformat() if error.resolved_at else None,
+                'resolved_by': error.resolved_by.email if error.resolved_by else None,  # Changed to email
+                'contract_id': error.contract_record.ccr_contract_id if error.contract_record else None
+            })
+
+        # Get status history
+        status_history = CCRStatusHistory.objects.filter(submission=submission).order_by('-changed_at')
+        history_data = []
+        for history in status_history:
+            history_data.append({
+                'old_status': history.old_status,
+                'new_status': history.new_status,
+                'changed_by': history.changed_by.email if history.changed_by else None,  # Changed to email
+                'changed_at': history.changed_at.isoformat(),
+                'notes': history.notes
+            })
+
+        # Count error statistics
+        error_stats = {
+            'total_errors': error_records.count(),
+            'pending_errors': error_records.filter(resolution_status='PENDING').count(),
+            'resolved_errors': error_records.exclude(resolution_status='PENDING').count(),
+            'carried_forward': error_records.filter(resolution_status='CARRIED_FORWARD').count()
+        }
+
+        submission_data = {
+            'id': submission.id,
+            'reference_date': submission.reference_date.isoformat(),
+            'generated_at': submission.generated_at.isoformat(),
+            'total_records': submission.total_records,
+            'status': submission.status,
+            'status_updated_at': submission.status_updated_at.isoformat(),
+            'status_updated_by': submission.status_updated_by.email if submission.status_updated_by else None,
+            # Changed to email
+            'error_details': submission.error_details,
+            'is_test_submission': submission.is_test_submission,
+            'test_notes': submission.test_notes,
+            'has_modifications': submission.has_modifications,
+            'modification_notes': submission.modification_notes,
+            'error_records': error_data,
+            'status_history': history_data,
+            'error_statistics': error_stats
+        }
+
+        print(f"Retrieved details for submission {submission_id}")
+        return Response(submission_data)
+
+    except Exception as e:
+        print(f"=== GET_SUBMISSION_DETAILS FAILED ===")
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsStaff])
+def upload_ccr_response(request):
+    """Upload CCR response file and parse errors"""
+    print("=== UPLOAD_CCR_RESPONSE STARTED ===")
+    try:
+        submission_id = request.data.get('submission_id')
+        response_file = request.FILES.get('response_file')
+
+        if not submission_id:
+            return Response({'error': 'submission_id is required'}, status=400)
+
+        if not response_file:
+            return Response({'error': 'response_file is required'}, status=400)
+
+        try:
+            submission = CCRSubmission.objects.get(id=submission_id)
+        except CCRSubmission.DoesNotExist:
+            return Response({'error': 'Submission not found'}, status=404)
+
+        # Save the response file
+        submission.ccr_response_file = response_file
+        submission.save()
+
+        # Parse the response file for errors (basic implementation)
+        response_content = response_file.read().decode('utf-8')
+        lines = response_content.split('\n')
+
+        errors_found = 0
+        for i, line in enumerate(lines):
+            line = line.strip()
+            if line.startswith('ERROR') or 'REJECT' in line.upper():
+                # Create error record
+                CCRErrorRecord.objects.create(
+                    submission=submission,
+                    error_type='VALIDATION',
+                    error_description=line,
+                    line_number=i + 1,
+                    original_line_content=line
+                )
+                errors_found += 1
+
+        # Update submission status based on findings
+        if errors_found > 0:
+            old_status = submission.status
+            if errors_found == submission.total_records:
+                submission.status = 'ERROR'
+            else:
+                submission.status = 'PARTIAL_ERROR'
+
+            submission.save()
+
+            CCRStatusHistory.objects.create(
+                submission=submission,
+                old_status=old_status,
+                new_status=submission.status,
+                changed_by=request.user,
+                notes=f'Auto-updated after parsing CCR response file: {errors_found} errors found'
+            )
+        else:
+            # No errors found, mark as acknowledged
+            old_status = submission.status
+            submission.status = 'ACKNOWLEDGED'
+            submission.save()
+
+            CCRStatusHistory.objects.create(
+                submission=submission,
+                old_status=old_status,
+                new_status='ACKNOWLEDGED',
+                changed_by=request.user,
+                notes='Auto-updated after parsing CCR response file: no errors found'
+            )
+
+        print(f"CCR response processed: {errors_found} errors found")
+
+        return Response({
+            'success': True,
+            'message': f'CCR response file processed',
+            'errors_found': errors_found,
+            'new_status': submission.status
+        })
+
+    except Exception as e:
+        print(f"=== UPLOAD_CCR_RESPONSE FAILED ===")
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
+
+
+# Enhanced history view to include error information
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsStaff])
+def ccr_submission_history_enhanced(request):
+    """Get enhanced history of CCR submissions with accurate contract breakdowns."""
+    print("=== CCR_SUBMISSION_HISTORY_ENHANCED STARTED ===")
+
+    try:
+        show_test = request.GET.get('show_test', 'true').lower() == 'true'
+        print(f"Show test submissions: {show_test}")
+
+        submissions_query = CCRSubmission.objects.all()
+        if not show_test:
+            submissions_query = submissions_query.filter(is_test_submission=False)
+
+        submissions = submissions_query.order_by('-reference_date')[:20]
+        print(f"Found {submissions.count()} submissions")
+
+        submission_data = []
+
+        for submission in submissions:
+            print("-----")
+            print(f"Processing submission ID: {submission.id}")
+            print(f"Reference Date: {submission.reference_date}")
+            print(f"Generated At: {submission.generated_at}")
+
+            # Get CCRContractSubmission records linked to this submission
+            contract_links = CCRContractSubmission.objects.filter(submission=submission)
+
+            new_contracts = contract_links.filter(submission_type='NEW').count()
+            active_updates = contract_links.filter(submission_type='UPDATE').count()
+            settlements = contract_links.filter(submission_type='SETTLEMENT').count()
+
+            print(f"Breakdown:")
+            print(f"- NEW: {new_contracts}")
+            print(f"- UPDATE: {active_updates}")
+            print(f"- SETTLEMENT: {settlements}")
+
+            # Get error statistics
+            error_records = CCRErrorRecord.objects.filter(submission=submission)
+            total_errors = error_records.count()
+            pending_errors = error_records.filter(resolution_status='PENDING').count()
+            resolved_errors = total_errors - pending_errors
+
+            print(f"Errors: Total={total_errors}, Pending={pending_errors}, Resolved={resolved_errors}")
+
+            breakdown = {
+                'new': new_contracts,
+                'updates': active_updates,
+                'settlements': settlements,
+            }
+
+            error_stats = {
+                'total_errors': total_errors,
+                'pending_errors': pending_errors,
+                'resolved_errors': resolved_errors,
+            }
+
+            submission_data.append({
+                'id': submission.id,
+                'reference_date': submission.reference_date,
+                'generated_at': submission.generated_at,
+                'total_records': submission.total_records,
+                'status': submission.status,
+                'status_updated_by': submission.status_updated_by.email if submission.status_updated_by else None,
+                'status_updated_at': submission.status_updated_at,
+                'file_path': submission.file_path,
+                'is_test': submission.is_test_submission,
+                'test_notes': submission.test_notes,
+                'has_modifications': submission.has_modifications,
+                'modification_notes': submission.modification_notes,
+                'breakdown': breakdown,
+                'error_statistics': error_stats,
+            })
+
+        print("=== CCR_SUBMISSION_HISTORY_ENHANCED COMPLETED ===")
+        return Response({
+            'submissions': submission_data,
+            'showing_test_submissions': show_test
+        })
+
+    except Exception as e:
+        print(f"=== CCR_SUBMISSION_HISTORY_ENHANCED FAILED ===")
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
