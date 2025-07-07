@@ -10,6 +10,55 @@ class CCRDataCollector:
 
     FIXED_LOAN_DAYS = 1095  # Fixed 3 years in days
 
+    def debug_ccr_records(self, reference_date):
+        """Debug method to see what CCR records exist"""
+        print(f"=== DEBUG_CCR_RECORDS for {reference_date} ===")
+
+        from ..models import CCRContractRecord
+
+        # Get all CCR records
+        all_records = CCRContractRecord.objects.all()
+        print(f"Total CCR records in database: {all_records.count()}")
+
+        for record in all_records:
+            print(f"  Record ID: {record.id}")
+            print(f"    LoanBook: {record.loanbook.id}")
+            print(f"    Loan: {record.loanbook.loan.id}")
+            print(f"    First reported: {record.first_reported_date}")
+            print(f"    Last reported: {record.last_reported_date}")
+            print(f"    Is closed in CCR: {record.is_closed_in_ccr}")
+            print(f"    Loan is settled: {record.loanbook.loan.is_settled}")
+            print(f"    Closed date: {record.closed_date}")
+            print("    ---")
+
+        # Now check what the filter should find
+        start_of_current_month = reference_date.replace(day=1)
+        print(f"Start of current month: {start_of_current_month}")
+
+        # Check each condition separately
+        print("=== CHECKING FILTER CONDITIONS ===")
+
+        # Condition 1: Not closed in CCR
+        not_closed = CCRContractRecord.objects.filter(is_closed_in_ccr=False)
+        print(f"Records not closed in CCR: {not_closed.count()}")
+        for record in not_closed:
+            print(f"  - {record.loanbook.loan.id} (first: {record.first_reported_date})")
+
+        # Condition 2: Loan not settled
+        loan_not_settled = not_closed.filter(loanbook__loan__is_settled=False)
+        print(f"Records with loan not settled: {loan_not_settled.count()}")
+        for record in loan_not_settled:
+            print(f"  - {record.loanbook.loan.id} (first: {record.first_reported_date})")
+
+        # Condition 3: First reported before this month
+        before_this_month = loan_not_settled.filter(first_reported_date__lt=start_of_current_month)
+        print(f"Records first reported before this month: {before_this_month.count()}")
+        for record in before_this_month:
+            print(f"  - {record.loanbook.loan.id} (first: {record.first_reported_date})")
+
+        print(f"=== DEBUG_CCR_RECORDS COMPLETE ===")
+        return before_this_month
+
     def __init__(self):
         self.provider_code = getattr(settings, 'CCR_PROVIDER_CODE', 'ERR')
 
@@ -201,18 +250,15 @@ class CCRDataCollector:
         return new_loanbooks
 
     def get_active_loanbooks(self, reference_date, for_regeneration=False):
-        """Get LoanBooks that need monthly updates (active, not settled)
-
-        Args:
-            reference_date: The reference date for the submission
-            for_regeneration: If True, get loanbooks that were active at this date
-                            (useful for regeneration)
-        """
+        """Get LoanBooks that need monthly updates (active, not settled)"""
         print(f"=== GET_ACTIVE_LOANBOOKS ===")
         print(f"Reference date: {reference_date}")
         print(f"For regeneration: {for_regeneration}")
 
         from ..models import CCRContractRecord
+
+        # Add debugging
+        self.debug_ccr_records(reference_date)
 
         if for_regeneration:
             # For regeneration: get all CCR records that were updated on this date
@@ -224,18 +270,30 @@ class CCRDataCollector:
                 closed_date=reference_date  # Exclude ones that were closed on this date
             )
         else:
-            # Normal mode: get currently active loans
+            # Normal mode: get currently active loans that have been reported before
+            # Calculate start of current month to check if contract was reported before this month
+            start_of_current_month = reference_date.replace(day=1)
+            print(f"Looking for contracts first reported before: {start_of_current_month}")
+
             active_records = CCRContractRecord.objects.filter(
                 is_closed_in_ccr=False,  # Not closed in CCR
                 loanbook__loan__is_settled=False,  # Loan is not settled
-                first_reported_date__lt=reference_date  # Was reported before this month
+                first_reported_date__lt=start_of_current_month  # Was first reported before this month
             )
+
+            print(f"Query found {active_records.count()} active records")
 
         active_loanbooks = [record.loanbook for record in active_records]
         print(f"Found {len(active_loanbooks)} active loanbooks for monthly update")
 
         for lb in active_loanbooks:
-            print(f"  - LoanBook {lb.id} (Loan #{lb.loan.id}), Amount: €{lb.initial_amount}")
+            if hasattr(lb, 'ccr_record'):
+                first_reported = lb.ccr_record.first_reported_date
+                last_reported = lb.ccr_record.last_reported_date
+                print(
+                    f"  - LoanBook {lb.id} (Loan #{lb.loan.id}), Amount: €{lb.initial_amount}, First: {first_reported}, Last: {last_reported}")
+            else:
+                print(f"  - LoanBook {lb.id} (Loan #{lb.loan.id}), Amount: €{lb.initial_amount}, No CCR record")
 
         print(f"=== GET_ACTIVE_LOANBOOKS COMPLETE: {len(active_loanbooks)} found ===")
         return active_loanbooks
