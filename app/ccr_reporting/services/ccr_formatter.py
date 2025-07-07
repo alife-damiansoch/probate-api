@@ -131,8 +131,8 @@ class CCRFileFormatter:
 
         # Set payment-related fields for closure
         outstanding_payments = '0' if is_settled else str(credit_info.get('outstanding_payments_number', 1))
-        outstanding_balance = '' if is_settled else fmt_amount(credit_info.get('outstanding_balance'))
-        next_payment_amount = '' if is_settled else fmt_amount(credit_info.get('next_payment_amount'))
+        outstanding_balance = '0' if is_settled else fmt_amount(credit_info.get('outstanding_balance'))
+        next_payment_amount = '0' if is_settled else fmt_amount(credit_info.get('next_payment_amount'))
         next_payment_date = '' if is_settled else fmt_date(credit_info.get('next_payment_date'))
 
         # Build the record as a list of 75 fields:
@@ -178,9 +178,9 @@ class CCRFileFormatter:
         ci[33] = next_payment_amount  # 34. Next Payment Amount - Next amount due
         ci[34] = outstanding_payments  # 35. Outstanding Payments Number - Remaining payments including missed
         ci[35] = outstanding_balance  # 36. Outstanding Balance - Total outstanding including past due
-        ci[36] = ''  # 37. Number of payments past due - Overdue payments (with 1 month grace)
-        ci[37] = ''  # 38. Amount past due - Overdue amount (no grace period for CBI)
-        ci[38] = ''  # 39. Days Past Due - Days overdue (no grace period for CBI)
+        ci[36] = '0'  # 37. Number of payments past due - Overdue payments (with 1 month grace)
+        ci[37] = '0'  # 38. Amount past due - Overdue amount (no grace period for CBI)
+        ci[38] = '0'  # 39. Days Past Due - Days overdue (no grace period for CBI)
 
         # Collateral/Guarantee sections (39-74) - 6 occurrences of 6 fields each
         # Collateral/Guarantee 1 (40-45)
