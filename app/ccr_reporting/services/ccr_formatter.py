@@ -13,7 +13,7 @@ class CCRFileFormatter:
     """
 
     def format_id_line(self, personal_info, reference_date):
-        """Return an ID record with the correct number of columns (58)."""
+        """Return an ID record with the correct number of columns (72)."""
 
         def d(val): return '' if val is None else str(val)
 
@@ -22,6 +22,17 @@ class CCRFileFormatter:
             dob = personal_info['date_of_birth'].strftime('%d%m%Y') if hasattr(personal_info['date_of_birth'],
                                                                                'strftime') else str(
                 personal_info['date_of_birth'])
+
+        # Create full address string including Eircode
+        address_parts = [
+            d(personal_info.get('address_line_1', '')),
+            d(personal_info.get('address_line_2', '')),
+            d(personal_info.get('city', '')),
+            d(personal_info.get('county', '')),
+            d(personal_info.get('postal_code', '')),  # Include Eircode in full address
+            d(personal_info.get('country', 'IRELAND'))
+        ]
+        full_address = ' '.join([part for part in address_parts if part]).upper()
 
         # page 31 of the submission manual
         id_line_parts = [
@@ -39,17 +50,14 @@ class CCRFileFormatter:
             '',  # 11. Institutional Sector - EU regulation classification (non-mandatory)
             '',  # 12. Deceased Alert - 0/1 indicator (non-mandatory)
             'MI',  # 13. Address 1: Address Type - MI=Main Address, AI=Additional Address (mandatory)
-            d(personal_info.get('address_line_1', '')).upper(),
-            # 14. Address 1: Full Address - Complete address OR use individual fields below
-            d(personal_info.get('address_line_2', '')).upper(),
-            # 15. Address 1: Address Line1 - First line if not using full address
-            '',  # 16. Address 1: Address Line2 - Second line if not using full address
-            d(personal_info.get('city', '')).upper(),  # 17. Address 1: City/Town - City/Town if not using full address
-            d(personal_info.get('county', '')).upper(),  # 18. Address 1: County - County if not using full address
-            '',  # 19. Address 1: PostalCode - Leave empty when using Eircode
-            d(personal_info.get('country', 'IRELAND')).upper(),  # 20. Address 1: Country - ISO 3166-1 country code
-            d(personal_info.get('postal_code', '')).upper(),
-            # 21. Address 1: Eircode - Irish postal code (7-character format)
+            full_address,  # 14. Address 1: Full Address - Complete concatenated address including Eircode
+            '',  # 15. Address 1: Address Line1 - Empty when using full address
+            '',  # 16. Address 1: Address Line2 - Empty when using full address
+            '',  # 17. Address 1: City/Town - Empty when using full address
+            '',  # 18. Address 1: County - Empty when using full address
+            '',  # 19. Address 1: PostalCode - Empty when using full address
+            '',  # 20. Address 1: Country - Empty when using full address
+            '',  # 21. Address 1: Eircode - Empty when using full address
             '',  # 22. Address 1: Borrower not contactable - 0/1 indicator (non-mandatory)
 
             # Address 2 fields (23-32) - Second address if applicable
@@ -89,7 +97,7 @@ class CCRFileFormatter:
             '', '', '', '',  # 63-66. Sole Trader Identification codes
             '', '', '', ''  # 67-72. Sole Trader Contact information
         ]
-        # Pad to 58 columns
+        # Pad to 72 columns
         id_line_parts = (id_line_parts + [''] * ID_FIELD_COUNT)[:ID_FIELD_COUNT]
         return '|'.join(id_line_parts)
 
