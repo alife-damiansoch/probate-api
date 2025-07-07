@@ -41,6 +41,7 @@ urlpatterns = [
     path('test/500/', test_500_view),
     path("csp-report/", csp_report, name="csp_report"),
     path('api/internal-files/', include('internal_files.urls')),
+    path('api/ccr/', include('ccr_reporting.urls')),
 
 ]
 

@@ -7,6 +7,7 @@ from django.contrib.admin import SimpleListFilter
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django import forms
+from django.db.models import Count
 from django.forms import TextInput
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -19,6 +20,8 @@ from django.utils.html import format_html
 from django.urls import reverse
 
 from app import settings
+from ccr_reporting.models import CCRContractSubmission, CCRContractRecord, CCRSubmission, CCRErrorRecord, \
+    CCRStatusHistory
 from core import models
 from core.models import LoanExtension, Transaction, Document, Solicitor, SignedDocumentLog, Assignment, EmailLog, \
     AssociatedEmail, UserEmailLog, CommitteeApproval, Team, OTP, AuthenticatorSecret, FrontendAPIKey, \
@@ -1270,3 +1273,505 @@ class EmailDeliveryLogAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('email_communication')
+
+
+@admin.register(CCRSubmission)
+class CCRSubmissionAdmin(admin.ModelAdmin):
+    list_display = [
+        'reference_date',
+        'total_records',
+        'status_colored',
+        'error_count',
+        'is_test_submission',
+        'status_updated_by',
+        'generated_at'
+    ]
+    list_filter = [
+        'status',
+        'is_test_submission',
+        'has_modifications',
+        'generated_at',
+        'status_updated_at'
+    ]
+    search_fields = ['reference_date', 'file_path', 'error_details']
+    readonly_fields = [
+        'generated_at',
+        'status_updated_at',
+        'error_count',
+        'modification_summary'
+    ]
+
+    fieldsets = (
+        ('Submission Info', {
+            'fields': ('reference_date', 'file_path', 'total_records', 'status')
+        }),
+        ('Status Management', {
+            'fields': (
+                'status_updated_by',
+                'status_updated_at',
+                'error_details',
+                'ccr_response_file'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('File Modifications', {
+            'fields': (
+                'has_modifications',
+                'modification_notes',
+                'modification_summary'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Test Info', {
+            'fields': ('is_test_submission', 'test_notes'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('generated_at', 'error_count'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            error_count=Count('error_records')
+        ).order_by('-reference_date')
+
+    def status_colored(self, obj):
+        colors = {
+            'GENERATED': '#28a745',  # green
+            'UPLOADED': '#007bff',  # blue
+            'ACKNOWLEDGED': '#17a2b8',  # teal
+            'ERROR': '#dc3545',  # red
+            'PARTIAL_ERROR': '#ffc107',  # yellow
+            'PENDING': '#6c757d'  # gray
+        }
+        color = colors.get(obj.status, '#6c757d')
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+
+    status_colored.short_description = 'Status'
+    status_colored.admin_order_field = 'status'
+
+    def error_count(self, obj):
+        count = getattr(obj, 'error_count', 0)
+        if count > 0:
+            url = reverse('admin:ccr_reporting_ccrerrorrecord_changelist')
+            return format_html(
+                '<a href="{}?submission__id__exact={}" style="color: #dc3545; font-weight: bold;">{} errors</a>',
+                url, obj.id, count
+            )
+        return '0 errors'
+
+    error_count.short_description = 'Errors'
+
+    def modification_summary(self, obj):
+        if obj.has_modifications:
+            return format_html(
+                '<span style="color: #ffc107; font-weight: bold;">✓ Modified</span><br>{}',
+                obj.modification_notes[:100] + ('...' if len(obj.modification_notes) > 100 else '')
+            )
+        return 'No modifications'
+
+    modification_summary.short_description = 'Modifications'
+
+    actions = ['mark_as_uploaded', 'mark_as_acknowledged']
+
+    def mark_as_uploaded(self, request, queryset):
+        updated = queryset.filter(status='GENERATED').update(
+            status='UPLOADED',
+            status_updated_by=request.user,
+            status_updated_at=timezone.now()
+        )
+        self.message_user(request, f'{updated} submissions marked as uploaded.')
+
+    mark_as_uploaded.short_description = 'Mark selected as UPLOADED'
+
+    def mark_as_acknowledged(self, request, queryset):
+        updated = queryset.filter(status='UPLOADED').update(
+            status='ACKNOWLEDGED',
+            status_updated_by=request.user,
+            status_updated_at=timezone.now()
+        )
+        self.message_user(request, f'{updated} submissions marked as acknowledged.')
+
+    mark_as_acknowledged.short_description = 'Mark selected as ACKNOWLEDGED'
+
+
+@admin.register(CCRContractRecord)
+class CCRContractRecordAdmin(admin.ModelAdmin):
+    list_display = [
+        'loanbook_link',
+        'ccr_contract_id',
+        'first_reported_date',
+        'last_reported_date',
+        'is_closed_in_ccr',
+        'submission_count'
+    ]
+    list_filter = [
+        'is_closed_in_ccr',
+        'first_reported_date',
+        'last_reported_date'
+    ]
+    search_fields = [
+        'ccr_contract_id',
+        'loanbook__loan__id',
+        'loanbook__loan__application__applicants__first_name',
+        'loanbook__loan__application__applicants__last_name',
+        'loanbook__loan__application__applicants__email'  # Added email to search
+    ]
+    readonly_fields = ['submission_count', 'error_history']
+
+    fieldsets = (
+        ('Contract Info', {
+            'fields': ('loanbook', 'ccr_contract_id')
+        }),
+        ('Reporting Dates', {
+            'fields': ('first_reported_date', 'last_reported_date')
+        }),
+        ('Status', {
+            'fields': ('is_closed_in_ccr', 'closed_date')
+        }),
+        ('Statistics', {
+            'fields': ('submission_count', 'error_history'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'loanbook__loan'
+        ).annotate(
+            submission_count=Count('submissions')
+        )
+
+    def loanbook_link(self, obj):
+        url = reverse('admin:loanbook_loanbook_change', args=[obj.loanbook.id])
+        return format_html(
+            '<a href="{}">Loan {}</a>',
+            url,
+            obj.loanbook.loan.id
+        )
+
+    loanbook_link.short_description = 'LoanBook'
+
+    def submission_count(self, obj):
+        count = getattr(obj, 'submission_count', 0)
+        if count > 0:
+            return format_html(
+                '<span style="font-weight: bold;">{}</span>',
+                count
+            )
+        return '0'
+
+    submission_count.short_description = 'Submissions'
+    submission_count.admin_order_field = 'submission_count'
+
+    def error_history(self, obj):
+        errors = CCRErrorRecord.objects.filter(contract_record=obj)
+        if errors.exists():
+            error_count = errors.count()
+            pending_count = errors.filter(resolution_status='PENDING').count()
+            return format_html(
+                '{} total errors ({} pending)',
+                error_count,
+                pending_count
+            )
+        return 'No errors'
+
+    error_history.short_description = 'Error History'
+
+
+@admin.register(CCRContractSubmission)
+class CCRContractSubmissionAdmin(admin.ModelAdmin):
+    list_display = [
+        'contract_record_link',
+        'submission_link',
+        'submission_type_colored',
+        'created_at'
+    ]
+    list_filter = [
+        'submission_type',
+        'created_at',
+        'submission__status'
+    ]
+    search_fields = [
+        'contract_record__ccr_contract_id',
+        'submission__reference_date'
+    ]
+    date_hierarchy = 'created_at'
+
+    def contract_record_link(self, obj):
+        url = reverse('admin:ccr_reporting_ccrcontractrecord_change', args=[obj.contract_record.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            url,
+            obj.contract_record.ccr_contract_id
+        )
+
+    contract_record_link.short_description = 'Contract Record'
+
+    def submission_link(self, obj):
+        url = reverse('admin:ccr_reporting_ccrsubmission_change', args=[obj.submission.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            url,
+            obj.submission.reference_date
+        )
+
+    submission_link.short_description = 'Submission'
+
+    def submission_type_colored(self, obj):
+        colors = {
+            'NEW': '#28a745',  # green
+            'UPDATE': '#007bff',  # blue
+            'SETTLEMENT': '#ffc107'  # yellow
+        }
+        color = colors.get(obj.submission_type, '#6c757d')
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            obj.get_submission_type_display()
+        )
+
+    submission_type_colored.short_description = 'Type'
+    submission_type_colored.admin_order_field = 'submission_type'
+
+
+@admin.register(CCRErrorRecord)
+class CCRErrorRecordAdmin(admin.ModelAdmin):
+    list_display = [
+        'submission_link',
+        'error_type_colored',
+        'error_description_short',
+        'resolution_status_colored',
+        'line_number',
+        'contract_record_link',
+        'created_at',
+        'resolved_by'
+    ]
+    list_filter = [
+        'error_type',
+        'resolution_status',
+        'created_at',
+        'resolved_at',
+        'submission__status'
+    ]
+    search_fields = [
+        'error_description',
+        'resolution_notes',
+        'contract_record__ccr_contract_id',
+        'submission__reference_date'
+    ]
+    readonly_fields = ['created_at', 'carry_forward_info']
+    date_hierarchy = 'created_at'
+
+    fieldsets = (
+        ('Error Details', {
+            'fields': (
+                'submission',
+                'contract_record',
+                'error_type',
+                'error_description'
+            )
+        }),
+        ('File Details', {
+            'fields': ('line_number', 'original_line_content'),
+            'classes': ('collapse',)
+        }),
+        ('Resolution', {
+            'fields': (
+                'resolution_status',
+                'resolution_notes',
+                'carry_forward_to',
+                'resolved_by',
+                'resolved_at'
+            )
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'carry_forward_info'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'submission',
+            'contract_record',
+            'resolved_by'
+        )
+
+    def submission_link(self, obj):
+        url = reverse('admin:ccr_reporting_ccrsubmission_change', args=[obj.submission.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            url,
+            obj.submission.reference_date
+        )
+
+    submission_link.short_description = 'Submission'
+
+    def error_type_colored(self, obj):
+        colors = {
+            'VALIDATION': '#dc3545',  # red
+            'MISSING_DATA': '#ffc107',  # yellow
+            'FORMAT_ERROR': '#fd7e14',  # orange
+            'DUPLICATE': '#6f42c1',  # purple
+            'OTHER': '#6c757d'  # gray
+        }
+        color = colors.get(obj.error_type, '#6c757d')
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            obj.get_error_type_display()
+        )
+
+    error_type_colored.short_description = 'Error Type'
+    error_type_colored.admin_order_field = 'error_type'
+
+    def error_description_short(self, obj):
+        desc = obj.error_description
+        if len(desc) > 60:
+            return desc[:60] + '...'
+        return desc
+
+    error_description_short.short_description = 'Description'
+
+    def resolution_status_colored(self, obj):
+        colors = {
+            'PENDING': '#ffc107',  # yellow
+            'FIXED_MANUAL': '#28a745',  # green
+            'FIXED_AUTO': '#17a2b8',  # teal
+            'CARRIED_FORWARD': '#007bff',  # blue
+            'IGNORED': '#6c757d'  # gray
+        }
+        color = colors.get(obj.resolution_status, '#6c757d')
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            obj.get_resolution_status_display()
+        )
+
+    resolution_status_colored.short_description = 'Resolution'
+    resolution_status_colored.admin_order_field = 'resolution_status'
+
+    def contract_record_link(self, obj):
+        if obj.contract_record:
+            url = reverse('admin:ccr_reporting_ccrcontractrecord_change', args=[obj.contract_record.id])
+            return format_html(
+                '<a href="{}">{}</a>',
+                url,
+                obj.contract_record.ccr_contract_id
+            )
+        return '-'
+
+    contract_record_link.short_description = 'Contract'
+
+    def carry_forward_info(self, obj):
+        if obj.carry_forward_to:
+            return format_html(
+                'Carried forward to error #{}</a>',
+                obj.carry_forward_to.id
+            )
+
+        # Check if this error was carried forward from another
+        carried_from = CCRErrorRecord.objects.filter(carry_forward_to=obj).first()
+        if carried_from:
+            return format_html(
+                'Carried forward from error #{} ({})',
+                carried_from.id,
+                carried_from.submission.reference_date
+            )
+
+        return 'Not carried forward'
+
+    carry_forward_info.short_description = 'Carry Forward Info'
+
+    actions = ['mark_as_fixed', 'mark_as_ignored']
+
+    def mark_as_fixed(self, request, queryset):
+        updated = queryset.filter(resolution_status='PENDING').update(
+            resolution_status='FIXED_MANUAL',
+            resolved_by=request.user,
+            resolved_at=timezone.now()
+        )
+        self.message_user(request, f'{updated} errors marked as fixed.')
+
+    mark_as_fixed.short_description = 'Mark selected as FIXED'
+
+    def mark_as_ignored(self, request, queryset):
+        updated = queryset.filter(resolution_status='PENDING').update(
+            resolution_status='IGNORED',
+            resolved_by=request.user,
+            resolved_at=timezone.now()
+        )
+        self.message_user(request, f'{updated} errors marked as ignored.')
+
+    mark_as_ignored.short_description = 'Mark selected as IGNORED'
+
+
+@admin.register(CCRStatusHistory)
+class CCRStatusHistoryAdmin(admin.ModelAdmin):
+    list_display = [
+        'submission_link',
+        'status_change',
+        'changed_by',
+        'changed_at',
+        'notes_short'
+    ]
+    list_filter = [
+        'old_status',
+        'new_status',
+        'changed_at',
+        'changed_by'
+    ]
+    search_fields = [
+        'submission__reference_date',
+        'notes',
+        'changed_by__email'  # Changed from username to email
+    ]
+    readonly_fields = ['changed_at']
+    date_hierarchy = 'changed_at'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'submission',
+            'changed_by'
+        )
+
+    def submission_link(self, obj):
+        url = reverse('admin:ccr_reporting_ccrsubmission_change', args=[obj.submission.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            url,
+            obj.submission.reference_date
+        )
+
+    submission_link.short_description = 'Submission'
+
+    def status_change(self, obj):
+        return format_html(
+            '<span style="color: #6c757d;">{}</span> → <span style="font-weight: bold;">{}</span>',
+            obj.old_status,
+            obj.new_status
+        )
+
+    status_change.short_description = 'Status Change'
+
+    def notes_short(self, obj):
+        if obj.notes:
+            if len(obj.notes) > 50:
+                return obj.notes[:50] + '...'
+            return obj.notes
+        return '-'
+
+    notes_short.short_description = 'Notes'
+
+
+# Custom admin site configuration
+admin.site.site_header = "CCR Reporting Administration"
+admin.site.site_title = "CCR Admin"
+admin.site.index_title = "CCR Reporting Management"

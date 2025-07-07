@@ -42,6 +42,10 @@ ADMIN_EMAILS = [email.strip() for email in ADMIN_EMAILS if email.strip()]
 # for PEP check
 DILISENSE_API_KEY = os.getenv('DILISENSE_API_KEY', '')
 
+# CCR Configuration
+CCR_PROVIDER_CODE = os.getenv('CCR_PROVIDER_CODE', 'TEST001')  # Your temporary code
+CCR_TEST_MODE = os.getenv('CCR_TEST_MODE', 'True').lower() == 'true'
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.getenv('DEBUG', 0)))
 # Enable these only in production
@@ -159,8 +163,8 @@ INSTALLED_APPS = [
     'internal_files',
     'finance_checklist',
     "loanbook",
-    'document_emails'
-
+    'document_emails',
+    'ccr_reporting'
 ]
 
 MIDDLEWARE = [
@@ -426,5 +430,13 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-api-key-expiration-agents"
 ]
 CORS_EXPOSE_HEADERS = [
-    "x-api-key-expiration", "x-api-key-expiration-agents"  # ✅ Ensure this is exposed to frontend
+    "x-api-key-expiration",
+    "x-api-key-expiration-agents",
+    # CCR headers
+    'Content-Disposition',
+    'X-CCR-Record-Count',
+    'X-CCR-Reference-Date',
+    'X-CCR-Test-Mode',
+    'X-CCR-Summary',
+    'X-CCR-Filename'
 ]
