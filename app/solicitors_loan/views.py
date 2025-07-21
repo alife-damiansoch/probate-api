@@ -142,6 +142,7 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
         if stat is not None:
             if stat == 'active':
                 # Applications that are not rejected or approved, or need committee approval and are pending approval
+                # ALSO include loans that are marked paid_out but have no paid_out_date
                 queryset = queryset.filter(
                     Q(is_rejected=False, approved=False) |
                     Q(
@@ -149,6 +150,12 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                         loan__isnull=False,
                         loan__needs_committee_approval=True,
                         loan__is_committee_approved__isnull=True
+                    ) |
+                    Q(  # ✅ Add this: loans marked as paid out but no actual paid_out_date
+                        approved=True,
+                        loan__isnull=False,
+                        loan__is_paid_out=True,
+                        loan__paid_out_date__isnull=True
                     )
                 ).distinct()
 
@@ -165,33 +172,41 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
                     )
                 ).distinct()
 
+
             elif stat == 'approved':
+
+                # Define condition for "not truly paid out"
+                not_paid_out_condition = Q(loan__is_paid_out=False) | Q(loan__is_paid_out=True,
+                                                                        loan__paid_out_date__isnull=True)
                 # Approved applications with loans that are not paid out or settled
                 queryset = queryset.filter(
                     approved=True,
                     loan__isnull=False
                 ).filter(
-                    (Q(loan__needs_committee_approval=False) & Q(loan__is_paid_out=False) & Q(loan__is_settled=False)) |
-                    (Q(loan__needs_committee_approval=True) & Q(loan__is_committee_approved=True) & Q(
-                        loan__is_paid_out=False) & Q(loan__is_settled=False))
+                    (Q(loan__needs_committee_approval=False) & not_paid_out_condition & Q(loan__is_settled=False)) |
+                    (Q(loan__needs_committee_approval=True) & Q(
+                        loan__is_committee_approved=True) & not_paid_out_condition & Q(loan__is_settled=False))
                 )
 
             elif stat == 'paid_out':
                 # Applications with loans paid out but not settled
+                # Must have paid_out_date (same rule as before)
                 queryset = queryset.filter(
                     approved=True,
-                    loan__isnull=False
+                    loan__isnull=False,
+                    loan__paid_out_date__isnull=False  # ✅ Add this check
                 ).filter(
                     (Q(loan__needs_committee_approval=False) & Q(loan__is_paid_out=True) & Q(loan__is_settled=False)) |
                     (Q(loan__needs_committee_approval=True) & Q(loan__is_committee_approved=True) & Q(
                         loan__is_paid_out=True) & Q(loan__is_settled=False))
                 )
-                # Add maturity_date dynamically and sort
+                # Sort using date.max for consistency (fixes date comparison issue)
                 queryset = sorted(
                     queryset,
-                    key=lambda
-                        app: app.loan.maturity_date if app.loan and app.loan.maturity_date else timezone.datetime.max
+                    key=lambda app: app.loan.maturity_date if app.loan and app.loan.maturity_date else date.max
                 )
+
+                return queryset
 
             elif stat == 'settled':
                 # Applications with loans that are fully paid out and settled

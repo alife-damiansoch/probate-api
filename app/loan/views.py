@@ -269,13 +269,16 @@ class LoanViewSet(viewsets.ModelViewSet):
         if stat is not None:
             if stat == 'active':
                 queryset = queryset.filter(is_settled=False).exclude(
-                    Q(is_committee_approved=False) | Q(is_paid_out=True) | Q(is_settled=True))
+                    Q(is_committee_approved=False) | Q(is_paid_out=True, paid_out_date__isnull=False) | Q(
+                        is_settled=True))
             elif stat == 'paid_out':
-                queryset = queryset.filter(is_paid_out=True).exclude(is_settled=True)
-                queryset = sorted(
-                    queryset,
-                    key=lambda loan: loan.maturity_date if loan.maturity_date else timezone.datetime.max,
+                queryset = queryset.filter(is_paid_out=True).exclude(is_settled=True).exclude(
+                    paid_out_date__isnull=True  # EXCLUDE records where paid_out_date IS null
                 )
+
+                # Sort by maturity_date property using Python sorting
+                # Since we've filtered out records with no paid_out_date, maturity_date should always exist
+                queryset = sorted(queryset, key=lambda loan: loan.maturity_date)
                 return queryset
 
             elif stat == 'settled':
@@ -292,7 +295,11 @@ class LoanViewSet(viewsets.ModelViewSet):
 
         if not_paid_out_only is not None:
             if not_paid_out_only.lower() == "true":
-                queryset = queryset.filter(is_paid_out=False).exclude(
+                # Not paid out means loans that are NOT truly paid out
+                # (i.e., either is_paid_out=False OR paid_out_date is None)
+                queryset = queryset.filter(
+                    Q(is_paid_out=False) | Q(paid_out_date__isnull=True)
+                ).exclude(
                     needs_committee_approval=True,
                     is_committee_approved=None,
                 ).exclude(
