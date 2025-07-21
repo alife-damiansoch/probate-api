@@ -135,11 +135,21 @@ class EmailCommunicationCreateSerializer(serializers.ModelSerializer):
 
                 # Create a proper mock email_communication object for template context
                 from datetime import datetime
+                from django.conf import settings
+
                 mock_email_communication = type('MockEmailComm', (), {
                     'created_at': timezone.now(),
                     'application': application,
                     'recipient_name': validated_data.get('recipient_name', ''),
                 })()
+
+                # Build the application URL
+                base_url = getattr(settings, 'SOLICITORS_WEBSITE', 'http://localhost:4000/applications/')
+                # Ensure the base URL ends with a slash
+                if not base_url.endswith('/'):
+                    base_url += '/'
+
+                application_url = f"{base_url}{application.id}" if application else base_url
 
                 # Render template to get message content
                 template_path = f'email_templates/{email_template}.html'
@@ -148,12 +158,14 @@ class EmailCommunicationCreateSerializer(serializers.ModelSerializer):
                 print(f"Template path: {template_path}")
                 print(f"Application ID: {application.id if application else 'None'}")
                 print(f"Recipient: {validated_data.get('recipient_name', '')}")
+                print(f"Application URL: {application_url}")
 
                 rendered_message = render_to_string(template_path, {
                     'application': application,
                     'recipient_name': validated_data.get('recipient_name', ''),
                     'message': '',  # Keep empty since we're generating full content
                     'email_communication': mock_email_communication,
+                    'application_url': application_url,  # Add the application URL to context
                 })
 
                 print(f"Rendered message length: {len(rendered_message)}")
@@ -171,12 +183,26 @@ class EmailCommunicationCreateSerializer(serializers.ModelSerializer):
                 print("=====================")
 
                 logger.error(f"Failed to render template {email_template}: {e}")
-                # Fallback message
+
+                # Fallback message with application link
+                base_url = getattr(settings, 'SOLICITORS_WEBSITE', 'http://localhost:4000/applications/')
+                if not base_url.endswith('/'):
+                    base_url += '/'
+                application_url = f"{base_url}{application.id}" if application else base_url
+
                 validated_data['message'] = f"""
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
                     <h2>Application Documents</h2>
                     <p>Dear {validated_data.get('recipient_name', '')},</p>
                     <p>Please find attached the documents for your application #{application.id if application else 'N/A'}.</p>
+
+                    <div style="text-align: center; margin: 20px 0; padding: 15px; background-color: #f1f3f4; border-radius: 5px;">
+                        <p><strong>Quick Access to Your Application:</strong></p>
+                        <a href="{application_url}" style="background-color: #007bff; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                            View Application #{application.id if application else 'N/A'}
+                        </a>
+                    </div>
+
                     <p>Best regards,<br>The Application Team</p>
                 </div>
                 """

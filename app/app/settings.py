@@ -52,6 +52,8 @@ DEBUG = bool(int(os.getenv('DEBUG', 0)))
 ENV = os.getenv('DJANGO_ENV', 'development')
 IS_PRODUCTION = ENV == 'production'
 
+SOLICITORS_WEBSITE = os.getenv('SOLICITORS_WEBSITE', '')
+
 # custom url to access admin
 ADMIN_URL = os.getenv('ADMIN_URL', '/')
 ALLOWED_ADMIN_IPS = os.getenv('ALLOWED_ADMIN_IPS', '')
