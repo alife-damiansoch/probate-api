@@ -1987,6 +1987,64 @@ class CCRStatusHistoryAdmin(admin.ModelAdmin):
     notes_short.short_description = 'Notes'
 
 
+# Add this admin class to your admin.py file
+
+@admin.register(ApplicationProcessingStatus)
+class ApplicationProcessingStatusAdmin(admin.ModelAdmin):
+    list_display = [
+        'application_link',
+        'application_details_completed_confirmed',
+        'solicitor_preferred_aml_method',
+        'last_updated_by',
+        'date_updated'
+    ]
+
+    list_filter = [
+        'application_details_completed_confirmed',
+        'solicitor_preferred_aml_method',
+        'date_updated'
+    ]
+
+    search_fields = [
+        'application__id',
+        'last_updated_by__email',
+        'last_updated_by__name'
+    ]
+
+    readonly_fields = ['date_updated']
+
+    fieldsets = (
+        ('Processing Status', {
+            'fields': (
+                'application',
+                'application_details_completed_confirmed',
+                'solicitor_preferred_aml_method'
+            )
+        }),
+        ('Metadata', {
+            'fields': ('last_updated_by', 'date_updated'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def application_link(self, obj):
+        url = reverse('admin:core_application_change', args=[obj.application.id])
+        return format_html('<a href="{}">Application #{}</a>', url, obj.application.id)
+
+    application_link.short_description = 'Application'
+    application_link.admin_order_field = 'application__id'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'application', 'last_updated_by'
+        )
+
+    def save_model(self, request, obj, form, change):
+        if change:  # Only set last_updated_by when updating existing records
+            obj.last_updated_by = request.user
+        super().save_model(request, obj, form, change)
+
+
 # Custom admin site configuration
 admin.site.site_header = "CCR Reporting Administration"
 admin.site.site_title = "CCR Admin"
