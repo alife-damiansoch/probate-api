@@ -1302,6 +1302,16 @@ auditlog.register(
         'extension_term_months', 'extension_fee', 'description', 'created_date'
     ],
 )
+auditlog.register(
+    ApplicationProcessingStatus,
+    serialize_data=True,
+    include_fields=[
+        'application_details_completed_confirmed',
+        'solicitor_preferred_aml_method',
+        'date_updated'
+    ],
+    # Note: last_updated_by and application are foreign keys and will be tracked automatically
+)
 
 # Keep these simple since they're less critical
 auditlog.register(SignedDocumentLog, serialize_data=True)
