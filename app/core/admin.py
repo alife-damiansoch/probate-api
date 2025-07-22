@@ -13,6 +13,9 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.utils.safestring import mark_safe
 
+from django.utils.html import format_html
+import json
+
 from rangefilter.filters import DateRangeFilter
 
 from django.utils.translation import gettext_lazy as _
@@ -481,9 +484,222 @@ class DocumentAdmin(admin.ModelAdmin):
     search_fields = ['original_name', 'application__id']
 
 
+class ModelTypeFilter(admin.SimpleListFilter):
+    title = 'Model Type'
+    parameter_name = 'model_type'
+
+    def lookups(self, request, model_admin):
+        # Get unique model names from audit logs
+        models = LogEntry.objects.values_list(
+            'content_type__model', flat=True
+        ).distinct()
+        return [(model, model.replace('_', ' ').title()) for model in models if model]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(content_type__model=self.value())
+        return queryset
+
+
+class UserActionFilter(admin.SimpleListFilter):
+    title = 'User Actions'
+    parameter_name = 'user_actions'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('staff_only', 'Staff Users Only'),
+            ('non_staff', 'Non-Staff Users Only'),
+            ('recent_week', 'Last 7 Days'),
+            ('recent_month', 'Last 30 Days'),
+        ]
+
+    def queryset(self, request, queryset):
+        from datetime import datetime, timedelta
+
+        if self.value() == 'staff_only':
+            return queryset.filter(actor__is_staff=True)
+        elif self.value() == 'non_staff':
+            return queryset.filter(actor__is_staff=False)
+        elif self.value() == 'recent_week':
+            week_ago = datetime.now() - timedelta(days=7)
+            return queryset.filter(timestamp__gte=week_ago)
+        elif self.value() == 'recent_month':
+            month_ago = datetime.now() - timedelta(days=30)
+            return queryset.filter(timestamp__gte=month_ago)
+        return queryset
+
+
+# NOW REPLACE your existing CustomLogEntryAdmin class with this enhanced version:
+
 class CustomLogEntryAdmin(admin.ModelAdmin):
-    # Adjust search_fields as per your model relations
-    search_fields = ['object_pk', 'actor__email']
+    # Add search functionality
+    search_fields = [
+        'object_repr',  # Object representation (like "Application 123")
+        'actor__email',  # User email who made the change
+        'actor__name',  # User name who made the change
+        'remote_addr',  # IP address
+        'content_type__model',  # Model name (application, user, loan, etc.)
+    ]
+
+    # Add filter sidebar
+    list_filter = [
+        'action',  # CREATE, UPDATE, DELETE
+        'content_type',  # Which model was changed
+        'timestamp',  # Date filters
+        ('actor', admin.RelatedFieldListFilter),  # Filter by user
+        ModelTypeFilter,  # Custom filter (see below)
+        UserActionFilter,  # Custom filter (see below)
+    ]
+
+    # Customize the list display
+    list_display = [
+        'timestamp',
+        'actor',
+        'colored_action',  # Custom colored action display
+        'content_type',
+        'object_repr',
+        'remote_addr',
+        'changes_summary',  # Show what changed
+    ]
+
+    # Default ordering (newest first)
+    ordering = ['-timestamp']
+
+    # Make fields readonly (audit logs shouldn't be editable)
+    readonly_fields = [
+        'content_type', 'object_pk', 'object_id', 'object_repr',
+        'action', 'changes', 'actor', 'remote_addr', 'timestamp',
+        'additional_data', 'serialized_data_display'
+    ]
+
+    # Custom field to display serialized data nicely
+    def serialized_data_display(self, obj):
+        """Display serialized data in a readable format"""
+        if obj.serialized_data:
+            try:
+                data = json.loads(obj.serialized_data)
+                formatted = json.dumps(data, indent=2)
+                return format_html('<pre style="max-height: 300px; overflow-y: auto;">{}</pre>', formatted)
+            except (json.JSONDecodeError, TypeError):
+                return obj.serialized_data
+        return "No data"
+
+    serialized_data_display.short_description = "Serialized Data (Formatted)"
+
+    # Custom colored action display
+    def colored_action(self, obj):
+        """Display action with color coding"""
+        colors = {
+            0: '#28a745',  # CREATE - green
+            1: '#ffc107',  # UPDATE - yellow
+            2: '#dc3545',  # DELETE - red
+        }
+        color = colors.get(obj.action, '#6c757d')
+        action_names = {0: 'CREATE', 1: 'UPDATE', 2: 'DELETE'}
+        action_name = action_names.get(obj.action, 'UNKNOWN')
+
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color, action_name
+        )
+
+    colored_action.short_description = "Action"
+
+    # Show summary of what changed
+    def changes_summary(self, obj):
+        """Show a brief summary of what changed"""
+        if obj.changes:
+            try:
+                changes = json.loads(obj.changes)
+                if changes:
+                    changed_fields = list(changes.keys())
+                    if len(changed_fields) <= 3:
+                        return ', '.join(changed_fields)
+                    else:
+                        return f"{', '.join(changed_fields[:3])} + {len(changed_fields) - 3} more"
+                return "No field changes"
+            except (json.JSONDecodeError, TypeError):
+                return "Unable to parse changes"
+        return "No changes recorded"
+
+    changes_summary.short_description = "Changed Fields"
+
+    # Organize fields in the detail view
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('timestamp', 'actor', 'action', 'remote_addr')
+        }),
+        ('Object Information', {
+            'fields': ('content_type', 'object_pk', 'object_id', 'object_repr')
+        }),
+        ('Change Details', {
+            'fields': ('changes', 'serialized_data_display'),
+            'classes': ('collapse',)  # Collapsible section
+        }),
+        ('Additional Context', {
+            'fields': ('additional_data',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    # Add custom filters for specific models you care about
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # Optimize queries by selecting related objects
+        return qs.select_related('content_type', 'actor')
+
+    # Add date hierarchy for easy date navigation
+    date_hierarchy = 'timestamp'
+
+    # Limit results per page for performance
+    list_per_page = 50
+
+
+# ADD these custom filter classes BEFORE the CustomLogEntryAdmin class:
+
+class ModelTypeFilter(admin.SimpleListFilter):
+    title = 'Model Type'
+    parameter_name = 'model_type'
+
+    def lookups(self, request, model_admin):
+        # Get unique model names from audit logs
+        models = LogEntry.objects.values_list(
+            'content_type__model', flat=True
+        ).distinct()
+        return [(model, model.replace('_', ' ').title()) for model in models if model]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(content_type__model=self.value())
+        return queryset
+
+
+class UserActionFilter(admin.SimpleListFilter):
+    title = 'User Actions'
+    parameter_name = 'user_actions'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('staff_only', 'Staff Users Only'),
+            ('non_staff', 'Non-Staff Users Only'),
+            ('recent_week', 'Last 7 Days'),
+            ('recent_month', 'Last 30 Days'),
+        ]
+
+    def queryset(self, request, queryset):
+        from datetime import datetime, timedelta
+
+        if self.value() == 'staff_only':
+            return queryset.filter(actor__is_staff=True)
+        elif self.value() == 'non_staff':
+            return queryset.filter(actor__is_staff=False)
+        elif self.value() == 'recent_week':
+            week_ago = datetime.now() - timedelta(days=7)
+            return queryset.filter(timestamp__gte=week_ago)
+        elif self.value() == 'recent_month':
+            month_ago = datetime.now() - timedelta(days=30)
+            return queryset.filter(timestamp__gte=month_ago)
+        return queryset
 
 
 class SignedDocumentLogAdmin(admin.ModelAdmin):

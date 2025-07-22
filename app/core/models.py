@@ -1229,11 +1229,81 @@ class InternalFile(models.Model):
         return f"{self.title} - {self.application.id}"
 
 
-auditlog.register(User)
-auditlog.register(Application)
-auditlog.register(Document)
-auditlog.register(Loan)
-auditlog.register(SignedDocumentLog)
-auditlog.register(EmailLog)
-auditlog.register(CommitteeApproval)
-# auditlog.register(FrontendAPIKey)
+# User model - exclude sensitive fields
+auditlog.register(
+    User,
+    serialize_data=True,
+    include_fields=[
+        'email', 'name', 'is_active', 'is_staff', 'phone_number',
+        'country', 'preferred_auth_method'
+    ],
+    exclude_fields=['password', 'last_login', 'activation_token'],
+)
+
+# Application model - track key business fields
+auditlog.register(
+    Application,
+    serialize_data=True,
+    include_fields=[
+        'amount', 'term', 'approved', 'is_rejected', 'rejected_reason',
+        'date_submitted', 'is_new', 'was_will_prepared_by_solicitor'
+    ],
+)
+
+# Applicant model - exclude encrypted PPS for security
+auditlog.register(
+    Applicant,
+    serialize_data=True,
+    include_fields=[
+        'title', 'first_name', 'last_name', 'email', 'phone_number',
+        'address_line_1', 'address_line_2', 'city', 'county', 'postal_code',
+        'country', 'date_of_birth'
+    ],
+    exclude_fields=['pps_number'],  # Exclude encrypted PPS for security
+)
+
+# Document model - track document status and types
+auditlog.register(
+    Document,
+    serialize_data=True,
+    include_fields=[
+        'original_name', 'is_signed', 'is_undertaking', 'is_loan_agreement',
+        'is_terms_of_business', 'is_secci', 'is_manual_upload',
+        'signature_required', 'who_needs_to_sign'
+    ],
+)
+
+# Loan model - track all financial details
+auditlog.register(
+    Loan,
+    serialize_data=True,
+    include_fields=[
+        'amount_agreed', 'fee_agreed', 'term_agreed', 'approved_date',
+        'is_settled', 'settled_date', 'needs_committee_approval',
+        'is_committee_approved', 'is_paid_out', 'paid_out_date',
+        'pay_out_reference_number'
+    ],
+)
+
+# Transaction model - track all payment details
+auditlog.register(
+    Transaction,
+    serialize_data=True,
+    include_fields=[
+        'amount', 'transaction_date', 'description'
+    ],
+)
+
+# LoanExtension model - track extension details
+auditlog.register(
+    LoanExtension,
+    serialize_data=True,
+    include_fields=[
+        'extension_term_months', 'extension_fee', 'description', 'created_date'
+    ],
+)
+
+# Keep these simple since they're less critical
+auditlog.register(SignedDocumentLog, serialize_data=True)
+auditlog.register(EmailLog, serialize_data=True)
+auditlog.register(CommitteeApproval, serialize_data=True)

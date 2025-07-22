@@ -1,3 +1,4 @@
+from auditlog.registry import auditlog
 from django.db import models
 from django.core.validators import MinValueValidator
 
@@ -87,3 +88,15 @@ class LoanChecklistItemCheck(models.Model):
     def __str__(self):
         status = "✓" if self.is_checked else "✗"
         return f"{status} {self.checklist_item.title} - Loan {self.submission.loan.id}"
+
+
+auditlog.register(
+    LoanChecklistSubmission,
+    serialize_data=True,
+    # No include_fields/exclude_fields = audit ALL fields including:
+    # - loan (which loan)
+    # - submitted_by (who submitted)
+    # - submitted_at (when submitted)
+    # - notes (any notes)
+    # - checked_items (which items were checked)
+)

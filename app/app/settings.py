@@ -179,13 +179,15 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.ValidateAPIKeyMiddleware',
     'core.middleware.CountryMiddleware',
     'core.middleware.LogEventOnErrorMiddleware',
     'core.middleware.LogHeadersMiddleware',
-    'core.middleware.AdminIPRestrictionMiddleware'
+    'core.middleware.AdminIPRestrictionMiddleware',
+    'auditlog.middleware.AuditlogMiddleware',
 ]
 
 ROOT_URLCONF = 'app.urls'
@@ -442,3 +444,11 @@ CORS_EXPOSE_HEADERS = [
     'X-CCR-Summary',
     'X-CCR-Filename'
 ]
+
+# Enable JSON serialization for audit logs (fills the "Serialized data" field)
+AUDITLOG_INCLUDE_ALL_MODELS = False  # We're registering models manually
+AUDITLOG_SERIALIZATION = 'json'  # This enables the serialized_data field
+
+# Optional: Configure what gets logged
+AUDITLOG_USE_TEXT_CHANGES_IF_JSON_IS_NOT_PRESENT = True  # Fallback for serialization
+AUDITLOG_ACTOR_FIELD = 'email'
