@@ -39,6 +39,7 @@ from auditlog.models import LogEntry
 
 from document_emails.models import EmailDeliveryLog, EmailDocument, EmailCommunication
 from document_requirements.models import ApplicationDocumentRequirement, DocumentType
+from esignature.models import SignatureField, DocumentSigner, SignatureDocument
 from finance_checklist.models import LoanChecklistSubmission, FinanceChecklistItem, LoanChecklistItemCheck, \
     ChecklistConfiguration
 from loanbook.models import LoanBook
@@ -2049,3 +2050,249 @@ class ApplicationProcessingStatusAdmin(admin.ModelAdmin):
 admin.site.site_header = "CCR Reporting Administration"
 admin.site.site_title = "CCR Admin"
 admin.site.index_title = "CCR Reporting Management"
+
+
+class SignatureFieldInline(admin.TabularInline):
+    model = SignatureField
+    extra = 0
+    readonly_fields = ['id', 'is_signed', 'signed_at', 'created_at']
+    fields = [
+        'field_type', 'page_number', 'x_position', 'y_position',
+        'width', 'height', 'required', 'is_signed', 'signed_at'
+    ]
+
+
+class DocumentSignerInline(admin.TabularInline):
+    model = DocumentSigner
+    extra = 0
+    readonly_fields = ['id', 'has_signed', 'signed_at', 'signing_progress']
+    fields = [
+        'name', 'signer_type', 'email', 'access_method',
+        'signing_order', 'has_signed', 'signing_progress'
+    ]
+
+
+@admin.register(SignatureDocument)
+class SignatureDocumentAdmin(admin.ModelAdmin):
+    list_display = [
+        'document_name', 'application_id', 'status', 'signing_progress_bar',
+        'signers_count', 'fields_count', 'created_by', 'created_at'
+    ]
+    list_filter = ['status', 'created_at', 'updated_at']
+    search_fields = ['document_name', 'application_id', 'created_by__email']
+    readonly_fields = [
+        'id', 'signing_progress', 'is_fully_signed', 'created_at',
+        'updated_at', 'completed_at', 'source_document_link'
+    ]
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': (
+                'id', 'source_document_link', 'document_name', 'application_id',
+                'created_by'
+            )
+        }),
+        ('Document Settings', {
+            'fields': ('total_pages', 'pdf_scale', 'status')
+        }),
+        ('Progress & Status', {
+            'fields': ('signing_progress', 'is_fully_signed'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at', 'completed_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+    inlines = [DocumentSignerInline, SignatureFieldInline]
+
+    def signing_progress_bar(self, obj):
+        """Display progress as a colored progress bar"""
+        progress = obj.signing_progress
+        if progress == 100:
+            color = '#10b981'  # Green
+        elif progress >= 50:
+            color = '#f59e0b'  # Yellow
+        else:
+            color = '#ef4444'  # Red
+
+        return format_html(
+            '<div style="width: 100px; background-color: #e5e7eb; border-radius: 4px;">'
+            '<div style="width: {}%; height: 20px; background-color: {}; border-radius: 4px; '
+            'display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">'
+            '{}%</div></div>',
+            progress, color, progress
+        )
+
+    signing_progress_bar.short_description = 'Progress'
+
+    def signers_count(self, obj):
+        return obj.signers.count()
+
+    signers_count.short_description = 'Signers'
+
+    def fields_count(self, obj):
+        return obj.signature_fields.count()
+
+    fields_count.short_description = 'Fields'
+
+    def source_document_link(self, obj):
+        if obj.source_document:
+            try:
+                url = reverse('admin:core_document_change', args=[obj.source_document.id])
+                return format_html('<a href="{}">Document #{}</a>', url, obj.source_document.id)
+            except:
+                return f"Document #{obj.source_document.id}"
+        return "No source document"
+
+    source_document_link.short_description = 'Source Document'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'source_document', 'created_by'
+        ).prefetch_related('signers', 'signature_fields')
+
+
+@admin.register(DocumentSigner)
+class DocumentSignerAdmin(admin.ModelAdmin):
+    list_display = [
+        'name', 'signer_type', 'signature_document_link', 'signing_progress_bar',
+        'has_signed', 'access_method', 'created_at'
+    ]
+    list_filter = ['signer_type', 'access_method', 'has_signed', 'created_at']
+    search_fields = ['name', 'email', 'signature_document__document_name']
+    readonly_fields = [
+        'id', 'has_signed', 'signed_at', 'signing_progress',
+        'fields_to_sign_count', 'completed_fields_count', 'created_at', 'updated_at'
+    ]
+
+    fieldsets = (
+        ('Signer Information', {
+            'fields': (
+                'id', 'signature_document', 'name', 'email', 'signer_type'
+            )
+        }),
+        ('Configuration', {
+            'fields': ('access_method', 'signing_order', 'color')
+        }),
+        ('Type-specific Data', {
+            'fields': ('applicant_id', 'solicitor_id', 'solicitor_email', 'role'),
+            'classes': ('collapse',)
+        }),
+        ('Signing Status', {
+            'fields': (
+                'has_signed', 'signed_at', 'signing_progress',
+                'fields_to_sign_count', 'completed_fields_count'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+    inlines = [SignatureFieldInline]
+
+    def signing_progress_bar(self, obj):
+        """Display progress as a colored progress bar"""
+        progress = obj.signing_progress
+        if progress == 100:
+            color = '#10b981'  # Green
+        elif progress >= 50:
+            color = '#f59e0b'  # Yellow
+        else:
+            color = '#ef4444'  # Red
+
+        return format_html(
+            '<div style="width: 80px; background-color: #e5e7eb; border-radius: 4px;">'
+            '<div style="width: {}%; height: 16px; background-color: {}; border-radius: 4px; '
+            'display: flex; align-items: center; justify-content: center; color: white; font-size: 10px;">'
+            '{}%</div></div>',
+            progress, color, progress
+        )
+
+    signing_progress_bar.short_description = 'Progress'
+
+    def signature_document_link(self, obj):
+        url = reverse('admin:esignature_signaturedocument_change', args=[obj.signature_document.id])
+        return format_html('<a href="{}">{}</a>', url, obj.signature_document.document_name)
+
+    signature_document_link.short_description = 'Document'
+
+    def fields_to_sign_count(self, obj):
+        return obj.signature_fields.count()
+
+    fields_to_sign_count.short_description = 'Total Fields'
+
+    def completed_fields_count(self, obj):
+        return obj.signature_fields.filter(is_signed=True).count()
+
+    completed_fields_count.short_description = 'Signed Fields'
+
+
+@admin.register(SignatureField)
+class SignatureFieldAdmin(admin.ModelAdmin):
+    list_display = [
+        'field_type', 'signer_name', 'document_name', 'page_number',
+        'signing_status', 'required', 'created_at'
+    ]
+    list_filter = ['field_type', 'is_signed', 'required', 'page_number', 'created_at']
+    search_fields = [
+        'signer__name', 'signature_document__document_name',
+        'placeholder', 'signed_value'
+    ]
+    readonly_fields = [
+        'id', 'is_signed', 'signed_at', 'position_data', 'created_at', 'updated_at'
+    ]
+
+    fieldsets = (
+        ('Field Information', {
+            'fields': (
+                'id', 'signature_document', 'signer', 'field_type',
+                'required', 'placeholder', 'is_auto_fill'
+            )
+        }),
+        ('Position & Size', {
+            'fields': (
+                'page_number', 'x_position', 'y_position',
+                'width', 'height', 'position_data'
+            )
+        }),
+        ('Signing Data', {
+            'fields': ('is_signed', 'signed_value', 'signed_at'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+    def signer_name(self, obj):
+        return obj.signer.name
+
+    signer_name.short_description = 'Signer'
+
+    def document_name(self, obj):
+        return obj.signature_document.document_name
+
+    document_name.short_description = 'Document'
+
+    def signing_status(self, obj):
+        if obj.is_signed:
+            return format_html(
+                '<span style="color: #10b981; font-weight: bold;">✓ Signed</span>'
+            )
+        else:
+            return format_html(
+                '<span style="color: #ef4444; font-weight: bold;">✗ Pending</span>'
+            )
+
+    signing_status.short_description = 'Status'
+
+    def position_data(self, obj):
+        return f"({obj.x_position}, {obj.y_position}) - {obj.width}×{obj.height}"
+
+    position_data.short_description = 'Position & Size'

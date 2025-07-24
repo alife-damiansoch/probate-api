@@ -166,7 +166,8 @@ INSTALLED_APPS = [
     'finance_checklist',
     "loanbook",
     'document_emails',
-    'ccr_reporting'
+    'ccr_reporting',
+    'esignature',
 ]
 
 MIDDLEWARE = [
