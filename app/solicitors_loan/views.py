@@ -568,7 +568,7 @@ class SolicitorApplicationViewSet(viewsets.ModelViewSet):
 class SolicitorDocumentUploadAndViewListForApplicationIdView(APIView):
     serializer_class = serializers.SolicitorDocumentSerializer
     authentication_classes = (JWTAuthentication,)
-    permission_classes = [IsAuthenticated, IsNonStaff]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return models.Application.objects.all()

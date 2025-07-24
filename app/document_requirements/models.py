@@ -1,3 +1,5 @@
+# models.py - Step 1: Add template support to DocumentType
+
 from django.db import models
 from django.core.exceptions import ValidationError
 from core.models import Application, User, Document
@@ -21,6 +23,18 @@ class DocumentType(models.Model):
     )
     order = models.IntegerField(default=0, help_text="Display order")
     is_active = models.BooleanField(default=True)
+
+    # NEW: Template support fields
+    has_template = models.BooleanField(
+        default=False,
+        help_text="Whether this document type should auto-generate a template document"
+    )
+    template_fields = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="JSON mapping of template placeholders to application data fields"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
