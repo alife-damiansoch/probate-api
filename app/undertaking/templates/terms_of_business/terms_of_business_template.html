@@ -5,228 +5,316 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terms of Business</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Arial', sans-serif;
-            margin: 18mm;
-            line-height: 1.3;
-            font-size: 10px;
+            background: white;
+            padding: 0;
+            line-height: 1.4;
             color: #333;
+            font-size: 11px;
+        }
+
+        .document {
+            max-width: 210mm;
+            margin: 0 auto;
+            background: white;
+        }
+
+        .page {
+            padding: 20mm;
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .logo {
+            max-height: 35px;
+            max-width: 150px;
+            margin-bottom: 8px;
         }
 
         h1 {
-            font-size: 16px;
-            text-align: center;
-            margin-bottom: 15px;
-            color: #1e293b;
-            border-bottom: 2px solid #1e293b;
-            padding-bottom: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin: 0;
         }
 
         h2 {
-            font-size: 12px;
-            margin-top: 15px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #333;
+            margin: 12px 0 6px 0;
+            padding-bottom: 2px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .section {
             margin-bottom: 8px;
-            color: #1e293b;
-            border-left: 3px solid #3b82f6;
-            padding-left: 8px;
         }
 
-        .header-box {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            padding: 12px;
-            margin-bottom: 15px;
-            border-radius: 3px;
-            text-align: center;
-            font-size: 9px;
+        p {
+            font-size: 11px;
+            margin-bottom: 8px;
+            text-align: justify;
         }
 
-        .info-table {
+        .quote {
+            font-style: italic;
+            background: #f8f9fa;
+            padding: 6px;
+            border-left: 2px solid #007bff;
+            margin: 6px 0;
+            font-size: 11px;
+        }
+
+        .regulatory-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 8px 0;
-            font-size: 9px;
+            margin: 10px 0;
+            font-size: 10px;
         }
 
-        .info-table th,
-        .info-table td {
-            border: 1px solid #d1d5db;
-            padding: 4px 6px;
+        .regulatory-table th,
+        .regulatory-table td {
+            border: 1px solid #ddd;
+            padding: 6px;
             text-align: left;
             vertical-align: top;
         }
 
-        .info-table th {
-            background-color: #f3f4f6;
+        .regulatory-table th {
+            background-color: #f1f3f4;
             font-weight: bold;
-            width: 30%;
         }
 
-        .warning-box {
-            background: #fef3c7;
-            border: 1px solid #f59e0b;
-            padding: 8px;
-            margin: 10px 0;
-            border-radius: 3px;
-            font-weight: bold;
-            font-size: 9px;
-        }
-
-        .contact-box {
-            background: #dbeafe;
-            border: 1px solid #3b82f6;
+        .contact-info {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
             padding: 6px;
             margin: 6px 0;
             border-radius: 3px;
-            font-size: 9px;
+            font-size: 11px;
         }
 
-        ul {
-            margin: 5px 0;
-            padding-left: 15px;
-        }
-
-        li {
-            margin-bottom: 2px;
-        }
-
-        .footer {
-            margin-top: 15px;
-            text-align: center;
-            font-size: 8px;
-            color: #6b7280;
-            border-top: 1px solid #e5e7eb;
-            padding-top: 8px;
-        }
-
-        .section {
-            margin-bottom: 10px;
+        .contact-info strong {
+            display: block;
+            margin-bottom: 3px;
+            color: #1976d2;
         }
 
         .regulatory-notice {
-            background: #ecfccb;
-            border: 1px solid #65a30d;
+            background: #f1f8e9;
+            border: 1px solid #4caf50;
             padding: 6px;
             margin: 6px 0;
             border-radius: 3px;
-            font-size: 9px;
+            font-size: 11px;
+        }
+
+        .page-footer {
+            position: absolute;
+            bottom: 15mm;
+            right: 0;
+            font-size: 10px;
+            color: #666;
+        }
+
+        a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .page-break {
+            page-break-before: always;
+        }
+
+        .page-number {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 10px;
+            color: #666;
         }
     </style>
 </head>
 <body>
 
-<div class="header-box">
-    <h1>Terms of Business</h1>
-    <strong>{{ company_name }}</strong><br>
-    Company Registration: {{ company_registration_number }}<br>
-    {{ company_address }}<br>
-    Phone: {{ company_phone_number }} | Email: {{ company_email }}<br>
-    Application ID: {{ application_id }} | Date: {{ current_date }}
-</div>
+<div class="document">
+    <div class="page">
+        <div class="header">
+            {% if logo_base64 %}
+                <img src="data:image/png;base64,{{ logo_base64 }}" alt="{{ company_name }} Logo" class="logo">
+            {% endif %}
+            <h1>Terms of Business</h1>
+        </div>
 
-<div class="section">
-    <h2>1. Company Information & Regulatory Status</h2>
-    <table class="info-table">
-        <tr>
-            <th>Legal Name</th>
-            <td>{{ company_name }}</td>
-        </tr>
-        <tr>
-            <th>Address</th>
-            <td>{{ company_address }}</td>
-        </tr>
-        <tr>
-            <th>Contact</th>
-            <td>Phone: {{ company_phone_number }}<br>Email: {{ company_email }}<br>Website: {{ company_website }}</td>
-        </tr>
-        <tr>
-            <th>Company Registration</th>
-            <td>{{ company_registration_number }}</td>
-        </tr>
-        <tr>
-            <th>Regulatory Status</th>
-            <td><strong>Regulated by the Central Bank of Ireland</strong><br>Subject to Consumer Protection Code</td>
-        </tr>
-    </table>
-</div>
+        <div class="section">
+            <h2>About us</h2>
+            <div class="quote">
+                We are {{ company_name }} a specialist probate bridging lender
+            </div>
+        </div>
 
-<div class="section">
-    <h2>2. Services We Provide</h2>
-    <p>{{ company_name }} provides consumer credit/moneylending services including:</p>
-    <ul>
-        <li>Consumer credit facilities</li>
-        <li>Assessment of creditworthiness</li>
-        <li>Loan arrangement and administration</li>
-        <li>Account management services</li>
-    </ul>
-    <p><strong>Service Level:</strong> We provide services directly to consumers (not as intermediaries).</p>
-</div>
+        <div class="section">
+            <h2>Regulatory status</h2>
+            <div class="quote">
+                {{ company_name }} is regulated by the Central Bank of Ireland ("Central Bank"). {{ company_name }} is
+                subject to the following Central Bank Codes of Conduct and Regulations which offer protection to
+                consumers. These can be found on the Central Bank's website <a href="http://www.centralbank.ie/">www.centralbank.ie</a>
+            </div>
 
-<div class="section">
-    <h2>3. Charges & Fees</h2>
-    <p>All charges will be fully disclosed in your credit agreement and SECCI form before signing:</p>
-    <ul>
-        <li>Interest charges (as specified in your agreement)</li>
-        <li>Administrative fees (if applicable)</li>
-        <li>Late payment charges (if applicable)</li>
-        <li>Legal costs (in case of default proceedings)</li>
-    </ul>
-</div>
+            <table class="regulatory-table">
+                <tr>
+                    <th>Consumer Protection Code</th>
+                    <td>Central Bank (Supervision and Enforcement) Act 2013 (Section 48) (Lending to Small and
+                        Medium-Sized Enterprises) Regulations
+                    </td>
+                </tr>
+                <tr>
+                    <th>Code of Conduct on Mortgage Arrears</th>
+                    <td>Minimum Competency Code and Regulations</td>
+                </tr>
+            </table>
+        </div>
 
-<div class="section">
-    <h2>4. Data Privacy & Conflicts</h2>
-    <p><strong>Data Use:</strong> We process personal data under Data Protection Acts & GDPR for credit processing,
-        account management, compliance, and Central Credit Register reporting. Full privacy
-        policy: {{ company_website }}</p>
-    <p><strong>Conflicts:</strong> We have policies to manage conflicts of interest and will disclose any that cannot be
-        avoided.</p>
-</div>
+        <div class="section">
+            <h2>Main business</h2>
+            <div class="quote">
+                {{ company_name }}'s principal activity is the provision of probate bridging loans.
+            </div>
+        </div>
 
-<div class="section">
-    <h2>5. Default & Recovery</h2>
-    <p>In case of default, we may: report arrears to credit agencies, engage debt collection, commence legal
-        proceedings, or enforce security. We follow Consumer Protection Code arrears handling requirements.</p>
-</div>
+        <div class="section">
+            <h2>Charges</h2>
+            <div class="quote">
+                Our charges are set out at our application stage. Charges and advancement fees are imposed on all our
+                loans. You can reduce the risk of additional fees or a charge being applied by ensuring that repayments
+                on your loan are made when due and that you are co-operating on finding a solution if you have fallen
+                behind on your payments.
+            </div>
+        </div>
 
-<div class="section">
-    <h2>6. Complaints & Ombudsman</h2>
-    <div class="contact-box">
-        <strong>Contact us:</strong> {{ company_name }}, {{ company_address }}<br>
-        Phone: {{ company_phone_number }} | Email: {{ company_email }}
+        <div class="section">
+            <h2>Your personal data</h2>
+            <div class="quote">
+                {{ company_name }} is committed to complying with Data Protection Law at all times. By "Data Protection
+                Law" we mean the EU General Data Protection Regulation, the Data Protection Acts 1988 to 2018 and any
+                other laws which govern the use of your personal data. {{ company_name }} is a data controller in
+                respect of the loans it owns and a data processor in respect of its credit servicing activities. In
+                relation to the latter, {{ company_name }} may also be a data controller for a period after we stop
+                servicing your loan where we retain personal information for the purposes of compliance with our
+                regulatory obligations. You will find our Data Privacy Notice on our websites <a
+                    href="{{ company_website }}">{{ company_website }}</a>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Conflicts of interest</h2>
+            <div class="quote">
+                We have a conflicts of interest policy in place to ensure conflicts of interest are avoided. Where it is
+                not possible to avoid a conflict of interest, we will ensure you are treated fairly. Where relevant we
+                will seek your acknowledgment in writing that you still wish to proceed to avail of our product and
+                service.
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Where you default</h2>
+            <div class="quote">
+                Where you are in default on an agreement with us, we may terminate that agreement and/or take such steps
+                (including legal proceedings and enforcement of security) as we believe necessary. Any steps taken will
+                be in accordance with the relevant terms and conditions of the agreement and any applicable Central Bank
+                Regulation or Code of Conduct.
+            </div>
+        </div>
+
+        <div class="page-number">Page 1 of 2</div>
+
+        <!-- Page Break -->
+        <div class="page-break"></div>
+
+        <div class="header">
+            {% if logo_base64 %}
+                <img src="data:image/png;base64,{{ logo_base64 }}" alt="{{ company_name }} Logo" class="logo">
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <h2>Making a complaint</h2>
+            <div class="quote">
+                We seek to resolve any concerns or complaints fairly and promptly. We have a written procedure for the
+                proper handling of complaints including that complaints will be recorded, investigated and resolved.
+                Should you wish to make a complaint in relation to your business with Pepper, you may telephone us at
+                999 999 99 or write to us.
+            </div>
+
+            <p>For {{ company_name }} please write to:</p>
+
+            <div class="contact-info">
+                <strong>Complaints Department</strong>
+                {{ company_name }}<br>
+                PO Box 1234<br>
+                Dublin
+            </div>
+
+            <div class="quote">
+                In the event that you are not satisfied with our response, you may be entitled to refer the matter to
+                the Financial Services and Pensions Ombudsman at the address below:
+            </div>
+
+            <div class="contact-info">
+                <strong>Financial Services and Pensions Ombudsman</strong>
+                Lincoln House,<br>
+                Lincoln Place, Dublin 2,<br>
+                D02 VH29.<br><br>
+                Tel: (01) 567 7000<br>
+                Email: <a href="mailto:info@fspo.ie">info@fspo.ie</a><br>
+                Website: <a href="http://www.fspo.ie/">www.fspo.ie</a>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Central Credit Register (established by the Central Bank)</h2>
+            <div class="regulatory-notice">
+                <strong>Changes to these Terms of Business</strong><br><br>
+                Where there are any material changes to these Terms of Business we will notify affected customers as
+                soon as possible in paper or electronic form and the notice may take the form of an advertisement in one
+                or more newspapers circulated nationally in Ireland.
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Language and Governing Law</h2>
+            <div class="quote">
+                We conduct our business in the English language and all our communications with you will be in English.
+                Our relationship with you is governed by the laws of Ireland.
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Effective Date</h2>
+            <div class="quote">
+                These Terms of Business are effective as at May 1<sup>st</sup> 2025
+            </div>
+        </div>
+
+        <div class="page-number">Page 2 of 2</div>
     </div>
-
-    <div class="contact-box">
-        <strong>If unresolved:</strong> Financial Services and Pensions Ombudsman<br>
-        Lincoln House, Lincoln Place, Dublin 2 | Phone: +353 1 567 7000 | info@fspo.ie
-    </div>
-</div>
-
-<div class="section">
-    <h2>7. Regulatory Notices</h2>
-    <div class="regulatory-notice">
-        <strong>Central Credit Register:</strong> Credit information for agreements {{ currency_sign }}500+ reported to
-        Central Credit Register under Credit Reporting Act 2013.
-    </div>
-    <p><strong>Compensation:</strong> We participate in relevant compensation schemes (details on request).</p>
-</div>
-
-<div class="warning-box">
-    <strong>⚠️ IMPORTANT WARNINGS</strong><br><br>
-    <strong>Missed Payments:</strong> If you do not meet repayments, your account will go into arrears. This may affect
-    your credit rating and limit future credit access.<br><br>
-    <strong>Free Advice:</strong> Money Advice and Budgeting Service (MABS) offers free debt advice:<br>
-    Phone: 0761 07 2000 | Web: www.mabs.ie | Email: helpline@mabs.ie
-</div>
-
-<div class="section">
-    <p><strong>Effective Date:</strong> {{ current_date }}</p>
-    <p>We may update these terms and will notify you of material changes.</p>
-</div>
-
-<div class="footer">
-    <strong>{{ company_name }} is regulated by the Central Bank of Ireland</strong><br>
-    Central Bank of Ireland, New Wapping Street, North Wall Quay, Dublin 1<br>
-    © {{ current_year }} {{ company_name }}. All rights reserved.
 </div>
 
 </body>

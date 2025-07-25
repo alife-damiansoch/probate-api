@@ -1,3 +1,4 @@
+import base64
 import datetime
 import os
 import zipfile
@@ -17,6 +18,7 @@ from io import BytesIO
 import json
 import datetime
 
+from app import settings
 from core.models import Application, Solicitor, User, Document  # Added Document model
 from loanbook.models import LoanBook
 
@@ -384,7 +386,7 @@ def generate_terms_of_business_pdf(request):
         # Fetch the application by its ID
         application = get_object_or_404(Application, id=application_id)
 
-        # Get company details from environment variables using os.getenv
+        # Get company details from environment variables
         company_name = os.getenv('COMPANY_NAME', 'Default Company Name')
         company_address = os.getenv('COMPANY_ADDRESS', 'Default Company Address')
         company_registration_number = os.getenv('COMPANY_REGISTRATION_NUMBER', 'Default Registration Number')
@@ -392,11 +394,24 @@ def generate_terms_of_business_pdf(request):
         company_phone_number = os.getenv('COMPANY_PHONE_NUMBER', '012345678')
         company_email = os.getenv('COMPANY_EMAIL', 'info@company.com')
         company_ceo = os.getenv('COMPANY_CEO', 'Default CEO')
-
-        # Additional company details you might need
         company_fax = os.getenv('COMPANY_FAX', '012345679')
         company_vat_number = os.getenv('COMPANY_VAT_NUMBER', 'IE1234567X')
         company_license_number = os.getenv('COMPANY_LICENSE_NUMBER', 'ML001234')
+
+        # Convert logo to base64
+        logo_base64 = None
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'logofull.png')
+
+        if os.path.exists(logo_path):
+            try:
+                with open(logo_path, 'rb') as logo_file:
+                    logo_base64 = base64.b64encode(logo_file.read()).decode('utf-8')
+                # print("Logo successfully encoded to base64")
+            except Exception as e:
+                print(f"Error encoding logo: {e}")
+                logo_base64 = None
+        else:
+            print(f"Logo file not found at: {logo_path}")
 
         solicitor = application.solicitor
         user = solicitor.user if solicitor else None
@@ -443,46 +458,71 @@ def generate_terms_of_business_pdf(request):
             'company_vat_number': company_vat_number,
             'company_license_number': company_license_number,
             'company_ceo': company_ceo,
+
+            # Logo as base64
+            'logo_base64': logo_base64,
         }
 
         # Render the HTML template with context data
-        html_string = render_to_string('terms_of_business/terms_of_business_template.html', context)
+        try:
+            html_string = render_to_string('terms_of_business/terms_of_business_template.html', context)
+            print("HTML template rendered successfully")
+        except Exception as e:
+            print(f"Error rendering template: {e}")
+            return JsonResponse({'error': f'Error rendering template: {str(e)}'}, status=500)
 
         # Create a byte stream buffer
         result = BytesIO()
+
         # Generate PDF from the HTML string using xhtml2pdf
-        pdf = pisa.CreatePDF(BytesIO(html_string.encode("UTF-8")), dest=result)
+        try:
+            pdf = pisa.CreatePDF(BytesIO(html_string.encode("UTF-8")), dest=result)
+            print(f"PDF generation completed. Errors: {pdf.err}")
+        except Exception as e:
+            print(f"Error creating PDF: {e}")
+            return JsonResponse({'error': f'Error creating PDF: {str(e)}'}, status=500)
 
         # If there's an error generating the PDF, return an error response
         if pdf.err:
-            return JsonResponse({'error': 'Error generating PDF'}, status=500)
+            print(f"PDF generation errors: {pdf.err}")
+            return JsonResponse({'error': 'Error generating PDF - check server logs for details'}, status=500)
 
         # Get the PDF content
         pdf_content = result.getvalue()
+
+        if not pdf_content:
+            print("PDF content is empty")
+            return JsonResponse({'error': 'Generated PDF is empty'}, status=500)
 
         # Create a filename for the PDF
         filename = f"Terms_of_Business_{application_id}.pdf"
 
         # Create a Document instance and save the PDF (no signature required)
-        document = Document(
-            application=application,
-            is_signed=False,
-            is_undertaking=False,
-            is_loan_agreement=False,
-            is_terms_of_business=True,  # New field
-            signature_required=False,  # Terms of Business don't require signature
-            who_needs_to_sign='solicitor'  # Default value, not used since no signature required
-        )
+        try:
+            document = Document(
+                application=application,
+                is_signed=False,
+                is_undertaking=False,
+                is_loan_agreement=False,
+                is_terms_of_business=True,  # New field
+                signature_required=False,  # Terms of Business don't require signature
+                who_needs_to_sign='solicitor'  # Default value, not used since no signature required
+            )
 
-        # Save the PDF file to the document field
-        document.document.save(
-            filename,
-            ContentFile(pdf_content),
-            save=False
-        )
+            # Save the PDF file to the document field
+            document.document.save(
+                filename,
+                ContentFile(pdf_content),
+                save=False
+            )
 
-        # Save the document instance
-        document.save()
+            # Save the document instance
+            document.save()
+            print(f"Document saved successfully with ID: {document.id}")
+
+        except Exception as e:
+            print(f"Error saving document: {e}")
+            return JsonResponse({'error': f'Error saving document: {str(e)}'}, status=500)
 
         return JsonResponse({
             'success': True,
@@ -494,10 +534,13 @@ def generate_terms_of_business_pdf(request):
         })
 
     except Application.DoesNotExist:
+        print("Application not found")
         return JsonResponse({'error': 'Application not found.'}, status=404)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error: {e}")
         return JsonResponse({'error': 'Invalid JSON format'}, status=400)
     except Exception as e:
+        print(f"Unexpected error: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
 

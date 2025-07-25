@@ -166,7 +166,7 @@ class ValidateAPIKeyMiddleware:
 
         # Retrieve API key from headers only
         api_key = request.headers.get(header_name)
-        print(f"Checking for API key in header '{header_name}': {api_key is not None}")
+        # print(f"Checking for API key in header '{header_name}': {api_key is not None}")
 
         if not api_key:
             return JsonResponse({"error": "Forbidden: Missing API key in request"}, status=403)
