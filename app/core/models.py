@@ -670,7 +670,7 @@ class Document(models.Model):
         # Auto-set signature requirements ONLY for non-manual uploads
         if not self.is_manual_upload:
             if self.is_undertaking:
-                self.signature_required = True
+                self.signature_required = False
                 self.who_needs_to_sign = 'solicitor'
             elif self.is_loan_agreement:
                 self.signature_required = True

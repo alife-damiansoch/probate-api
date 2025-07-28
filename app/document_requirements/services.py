@@ -1,5 +1,5 @@
 # document_requirements/services.py - Complete Document Generation Service
-
+from django.http import FileResponse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from docx.enum.table import WD_ALIGN_VERTICAL
@@ -8,6 +8,8 @@ from xhtml2pdf import pisa
 from io import BytesIO
 import logging
 import os
+
+from document_requirements.mortgage_generators import MortgageChargeGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,7 @@ class DocumentTemplateService:
             "Renunciation of Probate",
             "Certificate of Title",
             "Land Registry Form 51",
+            "Precedent Mortgage and Charge",
         ]
 
         if not document_type.has_template:
@@ -48,6 +51,8 @@ class DocumentTemplateService:
                 return cls._serve_static_certificate_of_title(requirement)
             elif "Land Registry Form 51" in requirement.document_type.name:
                 return cls._generate_land_registry_form_51(requirement)
+            elif "Precedent Mortgage and Charge" in requirement.document_type.name:
+                return cls._generate_mortgage_and_charge_document(requirement)
             else:
                 logger.warning(f"Template generation not implemented for: {requirement.document_type.name}")
                 return None
@@ -732,6 +737,11 @@ ALL THAT the property known as {context.get('property_address', '_' * 60)}
         return context
 
     @classmethod
+    def _generate_mortgage_and_charge_document(cls, requirement):
+        """Generate the Mortgage and Charge document using temporary files"""
+        return MortgageChargeGenerator.generate_temp_pdf_response(requirement)
+
+    @classmethod
     def get_filename(cls, requirement):
         """Get the filename for the generated document"""
         application = requirement.application
@@ -746,6 +756,8 @@ ALL THAT the property known as {context.get('property_address', '_' * 60)}
             return f"Certificate_of_Title.pdf"
         elif "Land Registry Form 51" in requirement.document_type.name:
             return f"Land_Registry_Form_51_{application.id}.docx"
+        elif "Precedent Mortgage and Charge" in requirement.document_type.name:
+            return f"Precedent_Mortgage_and_Charge_{application.id}.pdf"
         else:
             return f"{requirement.document_type.name}_{application.id}.pdf"
 

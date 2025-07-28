@@ -33,7 +33,7 @@ class SolicitorDocumentSerializer(serializers.ModelSerializer):
             'is_emailed', 'email_count', 'last_emailed_date', 'emailed_to_recipients'
         ]
         read_only_fields = (
-        'id', 'application', 'is_signed', 'is_undertaking', 'is_loan_agreement', 'is_terms_of_business', 'is_secci')
+            'id', 'application', 'is_signed', 'is_undertaking', 'is_loan_agreement', 'is_terms_of_business', 'is_secci')
         extra_kwargs = {'document': {'required': True}}
 
     def create(self, validated_data):
@@ -61,6 +61,10 @@ class SolicitorDocumentSerializer(serializers.ModelSerializer):
                     document.who_needs_to_sign = requirement.document_type.who_needs_to_sign
                 else:
                     document.signature_required = False
+
+                # Check if this is a Solicitor Letter of Undertaking
+                if "Solicitor Letter of Undertaking" in requirement.document_type.name:
+                    document.is_undertaking = True
 
                 # Save with the new fields
                 document.save()
