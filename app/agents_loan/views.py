@@ -44,7 +44,7 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 
 import shutil
-from datetime import datetime
+from datetime import datetime, date
 
 
 @extend_schema_view(
@@ -163,11 +163,11 @@ from datetime import datetime
 
             # Boolean filters
             OpenApiParameter(name='approved',
-                             description='Filter by approval status (true/false). This is based on the application, but also commitee approval status if applicable',
+                             description='Filter by approval status (true/false). This is based on the application, but also committee approval status if applicable',
                              required=False,
                              type=bool),
             OpenApiParameter(name='is_rejected',
-                             description='Filter by rejection status (true/false). This is based on the application, but also commitee approval status if applicable',
+                             description='Filter by rejection status (true/false). This is based on the application, but also committee approval status if applicable',
                              required=False,
                              type=bool),
 
