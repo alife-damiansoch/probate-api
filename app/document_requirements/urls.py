@@ -1,3 +1,5 @@
+# document_requirements/urls.py - Complete URLs file
+
 from django.urls import path
 from . import views
 
@@ -18,6 +20,11 @@ urlpatterns = [
          views.add_document_requirement,
          name='add_document_requirement'),
 
+    # Enhanced version with template info
+    path('api/applications/<int:application_id>/document-requirements/add-enhanced/',
+         views.add_document_requirement_enhanced,
+         name='add_document_requirement_enhanced'),
+
     path('api/applications/<int:application_id>/document-requirements/bulk-add/',
          views.bulk_add_requirements,
          name='bulk_add_requirements'),
@@ -29,4 +36,13 @@ urlpatterns = [
     path('api/applications/<int:application_id>/requirement-status/',
          views.get_requirement_status,
          name='get_requirement_status'),
+
+    # Template endpoints
+    path('api/applications/<int:application_id>/document-requirements/<int:requirement_id>/download-template/',
+         views.download_template_pdf,
+         name='download_template_pdf'),
+
+    path('api/applications/<int:application_id>/document-requirements/<int:requirement_id>/check-template/',
+         views.check_template_availability,
+         name='check_template_availability'),
 ]

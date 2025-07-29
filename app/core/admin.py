@@ -10,17 +10,20 @@ from django import forms
 from django.db.models import Count
 from django.forms import TextInput
 from django.utils import timezone
-from django.core.exceptions import ValidationError
+
 from django.utils.safestring import mark_safe
 
-from django.utils.html import format_html
 import json
 
 from rangefilter.filters import DateRangeFilter
 
 from django.utils.translation import gettext_lazy as _
+
+from django.contrib import admin
 from django.utils.html import format_html
-from django.urls import reverse
+from django.urls import reverse, path
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404
 
 from app import settings
 from ccr_reporting.models import CCRContractSubmission, CCRContractRecord, CCRSubmission, CCRErrorRecord, \
@@ -39,6 +42,7 @@ from auditlog.models import LogEntry
 
 from document_emails.models import EmailDeliveryLog, EmailDocument, EmailCommunication
 from document_requirements.models import ApplicationDocumentRequirement, DocumentType
+from document_requirements.services import DocumentTemplateService
 from finance_checklist.models import LoanChecklistSubmission, FinanceChecklistItem, LoanChecklistItemCheck, \
     ChecklistConfiguration
 from loanbook.models import LoanBook
@@ -1076,22 +1080,36 @@ class AuthenticatorSecretAdmin(admin.ModelAdmin):
     user_email.short_description = "User Email"  # Custom column header
 
 
+# document_requirements/admin.py - Updated with template support
+
+
+# document_requirements/admin.py - Fixed admin with proper authentication
+
+
 @admin.register(DocumentType)
 class DocumentTypeAdmin(admin.ModelAdmin):
     list_display = [
         'name',
         'signature_required',
         'who_needs_to_sign',
+        'has_template',
+        'can_generate_display',
         'order',
         'is_active',
         'usage_count',
         'created_at'
     ]
-    list_filter = ['signature_required', 'who_needs_to_sign', 'is_active', 'created_at']
+    list_filter = [
+        'signature_required',
+        'who_needs_to_sign',
+        'has_template',
+        'is_active',
+        'created_at'
+    ]
     search_fields = ['name', 'description']
-    list_editable = ['order', 'is_active']
+    list_editable = ['order', 'is_active', 'has_template']
     ordering = ['order', 'name']
-    readonly_fields = ['created_at', 'updated_at', 'usage_count']
+    readonly_fields = ['created_at', 'updated_at', 'usage_count', 'can_generate_display']
 
     fieldsets = (
         ('Basic Information', {
@@ -1100,6 +1118,10 @@ class DocumentTypeAdmin(admin.ModelAdmin):
         ('Signature Requirements', {
             'fields': ('signature_required', 'who_needs_to_sign'),
             'description': 'Configure if this document type requires signatures'
+        }),
+        ('Template Configuration', {
+            'fields': ('has_template', 'template_fields', 'can_generate_display'),
+            'description': 'Configure automatic template generation for this document type'
         }),
         ('Metadata', {
             'fields': ('created_at', 'updated_at', 'usage_count'),
@@ -1117,6 +1139,24 @@ class DocumentTypeAdmin(admin.ModelAdmin):
 
     usage_count.short_description = "Usage"
 
+    def can_generate_display(self, obj):
+        """Display whether templates can actually be generated for this document type"""
+        can_generate = DocumentTemplateService.can_generate_template(obj)
+        if obj.has_template and can_generate:
+            return format_html(
+                '<span style="color: #28a745; font-weight: bold;">✓ Can Generate</span>'
+            )
+        elif obj.has_template and not can_generate:
+            return format_html(
+                '<span style="color: #ffc107; font-weight: bold;">⚠ Template Not Implemented</span>'
+            )
+        else:
+            return format_html(
+                '<span style="color: #6c757d;">No Template</span>'
+            )
+
+    can_generate_display.short_description = "Template Status"
+
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related('applicationdocumentrequirement_set')
 
@@ -1127,11 +1167,14 @@ class ApplicationDocumentRequirementAdmin(admin.ModelAdmin):
         'application_link',
         'document_type',
         'is_uploaded_display',
+        'template_available_display',
+        'template_actions',
         'created_at',
         'created_by'
     ]
     list_filter = [
         'document_type',
+        'document_type__has_template',
         'created_at',
         'document_type__signature_required'
     ]
@@ -1140,21 +1183,117 @@ class ApplicationDocumentRequirementAdmin(admin.ModelAdmin):
         'document_type__name',
         'created_by__email'
     ]
-    readonly_fields = ['created_at', 'is_uploaded_display']
+    readonly_fields = [
+        'created_at',
+        'is_uploaded_display',
+        'template_available_display',
+        'template_actions'
+    ]
     raw_id_fields = ['application', 'created_by']
+
+    # Add custom admin actions
+    actions = ['download_templates_action']
 
     fieldsets = (
         ('Requirement Details', {
             'fields': ('application', 'document_type')
         }),
         ('Status', {
-            'fields': ('is_uploaded_display',)
+            'fields': ('is_uploaded_display', 'template_available_display')
+        }),
+        ('Template Actions', {
+            'fields': ('template_actions',),
+            'description': 'Actions available for template generation'
         }),
         ('Metadata', {
             'fields': ('created_at', 'created_by'),
             'classes': ('collapse',)
         }),
     )
+
+    def get_urls(self):
+        """Add custom URLs for admin actions"""
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<int:requirement_id>/download-template/',
+                self.admin_site.admin_view(self.download_template_view),
+                name='requirement-download-template'
+            ),
+            path(
+                '<int:requirement_id>/check-template/',
+                self.admin_site.admin_view(self.check_template_view),
+                name='requirement-check-template'
+            ),
+        ]
+        return custom_urls + urls
+
+    def download_template_view(self, request, requirement_id):
+        """Admin view to download template PDF"""
+        try:
+            requirement = get_object_or_404(ApplicationDocumentRequirement, id=requirement_id)
+
+            # Check if template can be generated
+            if not DocumentTemplateService.can_generate_template(requirement.document_type):
+                return JsonResponse({
+                    'error': f'Template generation not supported for: {requirement.document_type.name}'
+                }, status=400)
+
+            # Generate PDF
+            pdf_buffer = DocumentTemplateService.generate_pdf_response(requirement)
+
+            if not pdf_buffer:
+                return JsonResponse({'error': 'Failed to generate PDF'}, status=500)
+
+            # Return PDF response
+            filename = DocumentTemplateService.get_filename(requirement)
+            response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+            return response
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    def check_template_view(self, request, requirement_id):
+        """Admin view to check template availability"""
+        try:
+            requirement = get_object_or_404(ApplicationDocumentRequirement, id=requirement_id)
+            can_generate = DocumentTemplateService.can_generate_template(requirement.document_type)
+
+            return JsonResponse({
+                'can_generate_template': can_generate,
+                'document_type': requirement.document_type.name,
+                'has_template_enabled': requirement.document_type.has_template,
+                'filename': DocumentTemplateService.get_filename(requirement) if can_generate else None,
+                'application_id': requirement.application.id,
+                'requirement_id': requirement.id
+            })
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    def download_templates_action(self, request, queryset):
+        """Admin action to download templates for selected requirements"""
+        # For now, we'll just show which ones can generate templates
+        can_generate = []
+        cannot_generate = []
+
+        for requirement in queryset:
+            if DocumentTemplateService.can_generate_template(requirement.document_type):
+                can_generate.append(f"#{requirement.application.id} - {requirement.document_type.name}")
+            else:
+                cannot_generate.append(f"#{requirement.application.id} - {requirement.document_type.name}")
+
+        message = ""
+        if can_generate:
+            message += f"Can generate templates for: {', '.join(can_generate)}. "
+        if cannot_generate:
+            message += f"Cannot generate templates for: {', '.join(cannot_generate)}."
+
+        self.message_user(request, message)
+
+    download_templates_action.short_description = "Check template generation for selected requirements"
 
     def application_link(self, obj):
         return format_html(
@@ -1178,10 +1317,113 @@ class ApplicationDocumentRequirementAdmin(admin.ModelAdmin):
 
     is_uploaded_display.short_description = "Upload Status"
 
+    def template_available_display(self, obj):
+        """Show if template generation is available for this requirement"""
+        can_generate = DocumentTemplateService.can_generate_template(obj.document_type)
+        if obj.document_type.has_template and can_generate:
+            return format_html(
+                '<span style="color: #28a745; font-weight: bold;">✓ Available</span>'
+            )
+        elif obj.document_type.has_template and not can_generate:
+            return format_html(
+                '<span style="color: #ffc107; font-weight: bold;">⚠ Not Implemented</span>'
+            )
+        else:
+            return format_html(
+                '<span style="color: #6c757d;">No Template</span>'
+            )
+
+    template_available_display.short_description = "Template"
+
+    def template_actions(self, obj):
+        """Provide template-related action buttons"""
+        if not obj.pk:  # New object, not saved yet
+            return "Save requirement first to see template actions"
+
+        can_generate = DocumentTemplateService.can_generate_template(obj.document_type)
+        if can_generate:
+            # Use admin URLs instead of API URLs
+            download_url = reverse('admin:requirement-download-template', args=[obj.id])
+            check_url = reverse('admin:requirement-check-template', args=[obj.id])
+
+            return format_html(
+                '''
+                <div style="margin-top: 10px;">
+                    <a href="{}" target="_blank" 
+                       style="background: #007cba; color: white; padding: 5px 10px; 
+                              text-decoration: none; border-radius: 3px; margin-right: 5px;">
+                        📄 Download PDF Template
+                    </a>
+                    <a href="{}" target="_blank" 
+                       style="background: #28a745; color: white; padding: 5px 10px; 
+                              text-decoration: none; border-radius: 3px;">
+                        ℹ️ Check Template Info
+                    </a>
+                </div>
+                <small style="color: #6c757d;">
+                    Template: {}.pdf
+                </small>
+                ''',
+                download_url,
+                check_url,
+                DocumentTemplateService.get_filename(obj).replace('.pdf', '')
+            )
+        else:
+            if obj.document_type.has_template:
+                return format_html(
+                    '''
+                    <span style="color: #ffc107;">
+                        ⚠️ Template enabled but not implemented for "{}"
+                    </span>
+                    <br>
+                    <small style="color: #6c757d;">
+                        Currently supported: Beneficiaries Authorisation
+                    </small>
+                    ''',
+                    obj.document_type.name
+                )
+            else:
+                return format_html(
+                    '<span style="color: #6c757d;">No template configured for this document type</span>'
+                )
+
+    template_actions.short_description = "Template Actions"
+
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
             'application', 'document_type', 'created_by'
         )
+
+
+# Optional: Inline admin for showing requirements on Application admin
+class ApplicationDocumentRequirementInline(admin.TabularInline):
+    model = ApplicationDocumentRequirement
+    extra = 0
+    readonly_fields = ['is_uploaded_display', 'template_available_display']
+    fields = ['document_type', 'is_uploaded_display', 'template_available_display', 'created_by', 'created_at']
+
+    def is_uploaded_display(self, obj):
+        if not obj.pk:
+            return "-"
+        if obj.is_uploaded:
+            return format_html('<span style="color: #28a745;">✓</span>')
+        else:
+            return format_html('<span style="color: #dc3545;">✗</span>')
+
+    is_uploaded_display.short_description = "Uploaded"
+
+    def template_available_display(self, obj):
+        if not obj.pk:
+            return "-"
+        can_generate = DocumentTemplateService.can_generate_template(obj.document_type)
+        if obj.document_type.has_template and can_generate:
+            return format_html('<span style="color: #28a745;">✓</span>')
+        elif obj.document_type.has_template:
+            return format_html('<span style="color: #ffc107;">⚠</span>')
+        else:
+            return format_html('<span style="color: #6c757d;">-</span>')
+
+    template_available_display.short_description = "Template"
 
 
 @admin.register(InternalFile)

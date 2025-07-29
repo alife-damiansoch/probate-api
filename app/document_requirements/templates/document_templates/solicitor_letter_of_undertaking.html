@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Solicitor Letter of Undertaking (Not to distribute estate)</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2.5cm;
+        }
+
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 12pt;
+            color: #222;
+            background: #fff;
+            margin: 0;
+        }
+
+        .letterhead {
+            font-weight: bold;
+            font-size: 14pt;
+            margin-bottom: 32px;
+        }
+
+        .date-line {
+            margin-bottom: 32px;
+        }
+
+        .recipient-address {
+            margin-bottom: 36px;
+        }
+
+        .recipient-address div {
+            margin-bottom: 2px;
+        }
+
+        .subject-section {
+            margin-bottom: 32px;
+        }
+
+        .subject {
+            font-weight: bold;
+            text-decoration: underline;
+            margin-bottom: 6px;
+        }
+
+        .salutation {
+            margin-bottom: 22px;
+            margin-top: 16px;
+        }
+
+        .main-content {
+            margin-bottom: 32px;
+            text-align: justify;
+            line-height: 1.4;
+        }
+
+        .paragraph {
+            margin-bottom: 18px;
+        }
+
+        .closing {
+            margin-top: 32px;
+            margin-bottom: 8px;
+        }
+
+        .signature-line {
+            font-weight: bold;
+            margin-top: 24px;
+        }
+
+        .amount {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<!-- Space for solicitor's headed paper -->
+<span style="display:block; min-height:120px; line-height:120px;">&nbsp;</span>
+
+<div class="date-line">{{ today }}</div>
+
+<div class="recipient-address">
+    <div>{{ company.name }}</div>
+    {% for address_line in company.address_lines %}
+        <div>{{ address_line }}</div>
+    {% endfor %}
+</div>
+
+<span style="display:block; min-height:36px; line-height:36px;">&nbsp;</span>
+
+<div class="subject-section">
+    <div class="subject">Re: In the matter of the estate {{ deceased.name_with_deceased }} and the administration of the
+        estate
+    </div>
+    <div class="subject">Beneficiaries: {{ beneficiaries_names }}</div>
+    <div class="subject">Executors: {{ solicitor.name|default:"____________" }}</div>
+    <div class="subject">Loan Application Number: {{ loan_application_number }}</div>
+</div>
+
+<span style="display:block; min-height:36px; line-height:36px;">&nbsp;</span>
+
+<div class="salutation">Dear Sirs,</div>
+
+<div class="main-content">
+    <div class="paragraph">
+        We refer to the above and to the recent application for funding submitted to you on behalf of the beneficiaries
+        of the above-mentioned estate in the sum of <span
+            class="amount">{{ currency_sign }}{{ estate_value|floatformat:0|default:"____________" }}</span>. I write to
+        confirm that our firm have the irrevocable instruction from the Executors and the Beneficiaries to proceed with
+        the application for these funds and to provide all the necessary documents set out in the condition precedent
+        section of the application, prior to draw down.
+    </div>
+
+    <div class="paragraph">
+        We further confirm that {{ application_solicitor.name|default:"____________" }}
+        of {{ company.name|default:"____________" }} has been tasked with gathering in all the assets of the estate as
+        set out in the SD2 form and we undertake not to dissipate any portion of the estate, until all indebtedness to
+        you has been discharged in full.
+    </div>
+</div>
+
+<div class="closing">Yours sincerely,</div>
+
+<div class="signature-line">{{ solicitor.name|default:"____________" }}</div>
+
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Beneficiaries’ Authorisation to Executors to Borrow Money</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2.5cm;
+        }
+
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 12pt;
+            color: #222;
+            background: #fff;
+            margin: 0;
+        }
+
+        .date-line {
+            text-align: right;
+            margin-bottom: 32px;
+        }
+
+        .solicitor-address {
+            margin-bottom: 36px;
+        }
+
+        .solicitor-address div {
+            margin-bottom: 2px;
+        }
+
+        .subject-section {
+            margin-bottom: 32px;
+        }
+
+        .subject {
+            font-weight: bold;
+            text-decoration: underline;
+            margin-bottom: 6px;
+        }
+
+        .salutation {
+            margin-bottom: 22px;
+            margin-top: 16px;
+        }
+
+        .main-content {
+            margin-bottom: 38px;
+            text-align: justify;
+        }
+
+        .block {
+            margin-bottom: 36px;
+        }
+
+        .beneficiary-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+            font-size: 12.5pt;
+        }
+
+        .label {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .sig-line, .wit-line, .wit-addr-line {
+            display: inline-block;
+            width: 170px;
+            border-bottom: 1.1px solid #999;
+            height: 1.2em;
+            vertical-align: middle;
+            margin-bottom: 4px;
+        }
+
+        .wit-addr-line {
+            margin-top: 2px;
+            margin-bottom: 3px;
+        }
+
+        .witness-title {
+            font-weight: bold;
+            margin-top: 12px;
+            margin-bottom: 3px;
+        }
+    </style>
+</head>
+<body>
+<div class="date-line">{{ today }}</div>
+<div class="solicitor-address">
+    {% if solicitor.name %}
+        <div>{{ solicitor.name }}</div>{% endif %}
+    {% if solicitor.address %}
+        <div>{{ solicitor.address.line1 }}</div>
+        {% if solicitor.address.line2 %}
+            <div>{{ solicitor.address.line2 }}</div>{% endif %}
+        <div>{{ solicitor.address.town_city }}</div>
+        {% if solicitor.address.county %}
+            <div>{{ solicitor.address.county }}</div>{% endif %}
+    {% endif %}
+</div>
+<span style="display:block; min-height:36px; line-height:36px;">&nbsp;</span>
+<div class="subject-section">
+    <div class="subject">Re: In the matter of the estate {{ deceased.name_with_deceased }} and the administration of the
+        estate
+    </div>
+    <div class="subject">Beneficiaries: {{ beneficiaries_names }}</div>
+    <div class="subject">Executors:
+        {{ solicitor.name|default:"____________" }}</div>
+    <div class="subject">Loan Application Number: {{ loan_application_number }}</div>
+</div>
+<span style="display:block; min-height:36px; line-height:36px;">&nbsp;</span>
+<div class="salutation">Dear Sirs,</div>
+<div class="main-content">
+    We confirm that we are the beneficiaries named in the last will and testament of {{ deceased.name_with_deceased }}.
+    We hereby consent to you borrowing on behalf of the estate pursuant to section 60(3) of the Succession Act 1965.
+</div>
+
+{% for beneficiary in beneficiaries %}
+    <div class="block">
+        <span class="beneficiary-name">{{ beneficiary.full_name }}</span>
+        <span class="label">Signed:</span> <span class="sig-line"></span><br>
+        <span class="label">Print Name:</span> <span class="sig-line"></span><br>
+        <span class="label">Dated:</span> <span class="sig-line"></span>
+        <div class="witness-title">Witness</div>
+        <span class="label">Name:</span> <span class="wit-line"></span><br>
+        <span class="label">Address:</span><br>
+        <span class="wit-addr-line"></span><br>
+        <span class="wit-addr-line"></span><br>
+        <span class="wit-addr-line"></span>
+    </div>
+{% empty %}
+    {% for _ in "12" %}
+        <div class="block">
+            <span class="beneficiary-name">____________</span>
+            <span class="label">Signed:</span> <span class="sig-line"></span><br>
+            <span class="label">Print Name:</span> <span class="sig-line"></span><br>
+            <span class="label">Dated:</span> <span class="sig-line"></span>
+            <div class="witness-title">Witness</div>
+            <span class="label">Name:</span> <span class="wit-line"></span><br>
+            <span class="label">Address:</span><br>
+            <span class="wit-addr-line"></span><br>
+            <span class="wit-addr-line"></span><br>
+            <span class="wit-addr-line"></span>
+        </div>
+    {% endfor %}
+{% endfor %}
+</body>
+</html>

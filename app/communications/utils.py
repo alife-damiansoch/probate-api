@@ -30,7 +30,7 @@ from django.core.mail import EmailMultiAlternatives
 
 # Configure comprehensive logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.WARNING,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     stream=sys.stdout
 )
@@ -238,65 +238,65 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
     """
     Asynchronously fetches unseen emails for a specified IMAP user and logs them using the specified model.
     """
-    logger.info(f">>> =============== STARTING IMAP FETCH FOR {imap_user} ===============")
+    logger.warning(f">>> =============== STARTING IMAP FETCH FOR {imap_user} ===============")
 
     imap_server = settings.IMAP_SERVER
     imap_port = settings.IMAP_PORT
     imap_password = settings.IMAP_PASSWORD
     mail = None
 
-    logger.info(f">>> IMAP Configuration:")
-    logger.info(f">>> Server: {imap_server}")
-    logger.info(f">>> Port: {imap_port}")
-    logger.info(f">>> User: {imap_user}")
-    logger.info(f">>> Password length: {len(imap_password) if imap_password else 0}")
-    logger.info(f">>> Log model: {log_model.__name__}")
-    logger.info(f">>> Environment: {os.environ.get('RENDER', 'local')}")
+    # logger.info(f">>> IMAP Configuration:")
+    # logger.info(f">>> Server: {imap_server}")
+    # logger.info(f">>> Port: {imap_port}")
+    # logger.info(f">>> User: {imap_user}")
+    # logger.info(f">>> Password length: {len(imap_password) if imap_password else 0}")
+    # logger.info(f">>> Log model: {log_model.__name__}")
+    # logger.info(f">>> Environment: {os.environ.get('RENDER', 'local')}")
 
     try:
-        logger.info(f">>> Creating IMAP4_SSL connection to {imap_server}:{imap_port}")
+        # logger.info(f">>> Creating IMAP4_SSL connection to {imap_server}:{imap_port}")
         mail = aioimaplib.IMAP4_SSL(imap_server, imap_port, timeout=30)
-        logger.info(f">>> IMAP connection object created: {type(mail)}")
+        # logger.info(f">>> IMAP connection object created: {type(mail)}")
 
-        logger.info(">>> Waiting for server greeting...")
+        # logger.info(">>> Waiting for server greeting...")
         await mail.wait_hello_from_server()
-        logger.info(
-            f">>> Server greeting received. Current state: {mail.protocol.state if hasattr(mail, 'protocol') else 'Unknown'}")
+        # logger.info(
+        #     f">>> Server greeting received. Current state: {mail.protocol.state if hasattr(mail, 'protocol') else 'Unknown'}")
 
-        logger.info(f">>> Attempting login for user: {imap_user}")
+        # logger.info(f">>> Attempting login for user: {imap_user}")
         login_response = await mail.login(imap_user, imap_password)
-        logger.info(f">>> Login response result: {login_response.result}")
-        logger.info(f">>> Login response lines: {login_response.lines}")
-        logger.info(f">>> State after login attempt: {mail.protocol.state if hasattr(mail, 'protocol') else 'Unknown'}")
+        # logger.info(f">>> Login response result: {login_response.result}")
+        # logger.info(f">>> Login response lines: {login_response.lines}")
+        # logger.info(f">>> State after login attempt: {mail.protocol.state if hasattr(mail, 'protocol') else 'Unknown'}")
 
         if login_response.result != 'OK':
             logger.error(f">>> LOGIN FAILED! Result: {login_response.result}")
             logger.error(f">>> Error details: {login_response.lines}")
             raise Exception(f"Login failed: {login_response}")
 
-        logger.info(f">>> Login successful! Current state: {mail.protocol.state}")
+        # logger.info(f">>> Login successful! Current state: {mail.protocol.state}")
 
-        logger.info(">>> Selecting inbox...")
+        # logger.info(">>> Selecting inbox...")
         select_response = await mail.select("inbox")
-        logger.info(f">>> Inbox select response: {select_response}")
-        logger.info(f">>> State after inbox select: {mail.protocol.state}")
+        # logger.info(f">>> Inbox select response: {select_response}")
+        # logger.info(f">>> State after inbox select: {mail.protocol.state}")
 
-        logger.info(">>> Searching for unseen emails...")
+        # logger.info(">>> Searching for unseen emails...")
         status, messages = await mail.search('UNSEEN')
-        logger.info(f">>> Search status: {status}")
-        logger.info(f">>> Search messages: {messages}")
+        # logger.info(f">>> Search status: {status}")
+        # logger.info(f">>> Search messages: {messages}")
 
         if status != 'OK':
             logger.error(f">>> Search failed with status: {status}")
             return
 
         if not messages or not messages[0]:
-            logger.info(">>> No unseen emails found")
+            # logger.info(">>> No unseen emails found")
             unseen_emails = []
         else:
             unseen_emails = messages[0].split()
 
-        logger.info(f">>> Found {len(unseen_emails)} new unseen emails for {imap_user}")
+        # logger.info(f">>> Found {len(unseen_emails)} new unseen emails for {imap_user}")
 
         for i, num in enumerate(unseen_emails):
             logger.info(f">>> Processing email {i + 1}/{len(unseen_emails)}")
@@ -440,14 +440,14 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
         raise
 
     finally:
-        logger.info(">>> Entering finally block...")
+        # logger.info(">>> Entering finally block...")
         if mail and hasattr(mail, 'protocol'):
-            logger.info(f">>> Final cleanup - Mail state: {mail.protocol.state}")
+            # logger.info(f">>> Final cleanup - Mail state: {mail.protocol.state}")
             if mail.protocol.state in ['AUTHENTICATED', 'SELECTED']:
                 try:
-                    logger.info(">>> Attempting final logout...")
+                    # logger.info(">>> Attempting final logout...")
                     await mail.logout()
-                    logger.info(">>> Final logout successful")
+                    # logger.info(">>> Final logout successful")
                 except Exception as e:
                     logger.warning(f">>> Final logout failed: {e}")
             else:
@@ -455,14 +455,14 @@ async def fetch_emails_for_imap_user(imap_user, log_model):
         else:
             logger.info(">>> No mail connection to clean up")
 
-        logger.info(f">>> =============== COMPLETED IMAP FETCH FOR {imap_user} ===============")
+        # logger.info(f">>> =============== COMPLETED IMAP FETCH FOR {imap_user} ===============")
 
 
 async def fetch_emails():
     """
     Asynchronously fetches emails for the default IMAP user and for staff users in the "agents" team.
     """
-    logger.info(">>> =============== STARTING FETCH_EMAILS ===============")
+    # logger.info(">>> =============== STARTING FETCH_EMAILS ===============")
 
     try:
         logger.info(f">>> Fetching emails for default IMAP user: {settings.IMAP_USER}")

@@ -241,7 +241,7 @@ class SignedDocumentUploadView(APIView):
                     application=application,
                     is_signed=False
                 )
-                print(f"Found original unsigned document: {original_document.id}")
+                # print(f"Found original unsigned document: {original_document.id}")
             except Document.DoesNotExist:
                 print(f"Original document with ID {document_id} not found")
         else:
@@ -261,7 +261,8 @@ class SignedDocumentUploadView(APIView):
 
                 original_document = Document.objects.filter(**filter_kwargs).first()
                 if original_document:
-                    print(f"Found original document by type matching: {original_document.id}")
+                    # print(f"Found original document by type matching: {original_document.id}")
+                    pass
                 else:
                     print("No matching original document found by type")
             except Exception as e:
@@ -279,7 +280,7 @@ class SignedDocumentUploadView(APIView):
             who_needs_to_sign=original_document.who_needs_to_sign if original_document else None
         )
 
-        print(f"Created signed document: {signed_document.id}")
+        # print(f"Created signed document: {signed_document.id}")
 
         # Delete the original unsigned document after successful creation of signed document
         if original_document:
