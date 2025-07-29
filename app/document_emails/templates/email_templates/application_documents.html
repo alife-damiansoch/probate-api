@@ -83,22 +83,13 @@
         <strong>Date:</strong> {{ email_communication.created_at|date:"F d, Y" }}
     </div>
 
-    <div class="link-section">
-        <p><strong>Quick Access to Your Application:</strong></p>
-        <a href="{{ application_url }}" class="application-link">
-            View Application #{{ application.id }}
-        </a>
-        <p style="font-size: 12px; color: #666; margin-top: 10px;">
-            Click the button above to access your application directly
-        </p>
-    </div>
 
     <div>
         {{ message|linebreaks }}
     </div>
 
     <p>The attached documents include all the necessary files related to your application. Please review them carefully
-        and contact us if you have any questions.</p>
+        and contact your solicitor if you have any questions.</p>
 
     <p>Thank you for your attention to this matter.</p>
 

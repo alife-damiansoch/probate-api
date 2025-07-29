@@ -1004,6 +1004,12 @@ class NotifySolicitorDocumentUploadView(APIView):
             created_at__date=today
         ).count()
 
+        base_url = getattr(settings, 'SOLICITORS_WEBSITE', 'http://localhost:4000/applications/')
+        if not base_url.endswith('/'):
+            base_url += '/'
+
+        application_url = f"{base_url}{application.id}" if application else base_url
+
         html_template = f"""
         <!DOCTYPE html>
         <html>
@@ -1088,7 +1094,7 @@ class NotifySolicitorDocumentUploadView(APIView):
                     <h1>📄 New Documents Added</h1>
                 </div>
 
-                <p>Dear {application.solicitor.name if hasattr(application.solicitor, 'name') and application.solicitor.name else 'Solicitor'},</p>
+                <p>Dear {application.solicitor},</p>
 
                 <p>We wanted to inform you that new documents have been uploaded to one of your loan applications in our system.</p>
 
@@ -1135,6 +1141,29 @@ class NotifySolicitorDocumentUploadView(APIView):
                 </ul>
 
                 <p>If you need to review or download these documents, please access your secure portal or contact our team directly.</p>
+                
+                <div class="link-section" style="margin: 24px 0; text-align: center;">
+                    <p><strong>Quick Access to Your Application:</strong></p>
+                    
+                    <a href="{application_url}"
+                       style="
+                         display: inline-block;
+                         background-color: #3b82f6;
+                         color: #ffffff;
+                         text-decoration: none;
+                         font-weight: bold;
+                         padding: 12px 24px;
+                         border-radius: 6px;
+                         font-size: 14px;
+                         transition: background-color 0.3s ease;
+                       ">
+                        View Application #{application.id}
+                    </a>
+                    
+                    <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                        Click the button above to access your application directly.
+                    </p>
+                </div>
 
                 <div class="footer">
                     <p><strong>Important:</strong> This is an automated notification. Please do not reply to this email directly.</p>
