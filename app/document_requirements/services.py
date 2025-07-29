@@ -739,7 +739,7 @@ ALL THAT the property known as {context.get('property_address', '_' * 60)}
     @classmethod
     def _generate_mortgage_and_charge_document(cls, requirement):
         """Generate the Mortgage and Charge document using temporary files"""
-        return MortgageChargeGenerator.generate_temp_pdf_response(requirement)
+        return MortgageChargeGenerator.generate_document(requirement)
 
     @classmethod
     def get_filename(cls, requirement):
@@ -757,7 +757,7 @@ ALL THAT the property known as {context.get('property_address', '_' * 60)}
         elif "Land Registry Form 51" in requirement.document_type.name:
             return f"Land_Registry_Form_51_{application.id}.docx"
         elif "Precedent Mortgage and Charge" in requirement.document_type.name:
-            return f"Precedent_Mortgage_and_Charge_{application.id}.pdf"
+            return f"Precedent_Mortgage_and_Charge_{application.id}.docx"
         else:
             return f"{requirement.document_type.name}_{application.id}.pdf"
 
